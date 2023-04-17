@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Callable
 import mpv
 import yt_dlp
 import requests
@@ -87,17 +88,23 @@ class YoutubeStream:
     def cancel(self):
         self.response.close()
 
-class PlayerEvent:
+class Event:
+    current_client_id: bytes | None = None
+
     def __init__(self):
         self.id = -1
 
-    def setId(self, id: int):
+        assert(Event.current_client_id is not None)
+        self.client_id = Event.current_client_id
+
+    def init(self, id: int, client_amount: int):
         self.id = id
+        self.client_amount = client_amount
 
     def toDict(self) -> dict:
         return {"type": type(self).__name__[:-5], "id": self.id}
 
-class SongTransitionEvent(PlayerEvent):
+class SongTransitionEvent(Event):
     def __init__(self, index: int):
         super().__init__()
         self.index = index
@@ -107,7 +114,7 @@ class SongTransitionEvent(PlayerEvent):
         ret["index"] = self.index
         return ret
 
-class PropertyChangedEvent(PlayerEvent):
+class PropertyChangedEvent(Event):
     def __init__(self, property_key: str):
         super().__init__()
         self.property_key = property_key
@@ -117,7 +124,7 @@ class PropertyChangedEvent(PlayerEvent):
         ret["property_key"] = self.property_key
         return ret
 
-class SongAddedEvent(PlayerEvent):
+class SongAddedEvent(Event):
     def __init__(self, song_id: str, index: int):
         super().__init__()
         self.song_id = song_id
@@ -129,7 +136,7 @@ class SongAddedEvent(PlayerEvent):
         ret["index"] = self.index
         return ret
 
-class SongRemovedEvent(PlayerEvent):
+class SongRemovedEvent(Event):
     def __init__(self, index: int):
         super().__init__()
         self.index = index
@@ -139,7 +146,7 @@ class SongRemovedEvent(PlayerEvent):
         ret["index"] = self.index
         return ret
 
-class SongMovedEvent(PlayerEvent):
+class SongMovedEvent(Event):
     def __init__(self, from_index: int, to_index: int):
         super().__init__()
         self.from_index = from_index
@@ -153,20 +160,14 @@ class SongMovedEvent(PlayerEvent):
 
 class Player:
 
-    events: list[PlayerEvent] = []
-
-    def __init__(self):
+    def __init__(self, eventListener: Callable | None = None):
         self.player = mpv.MPV(log_handler=mpvLog, ytdl=True, vid="no", start_event_thread=True)
         self.player.register_stream_protocol(YoutubeStream.PROTOCOL, lambda url: YoutubeStream(url))
-        self.event_count = 0
+        self.eventListener = eventListener
 
-    def _addEvent(self, event: PlayerEvent):
-        assert(event.id == -1)
-
-        event.setId(self.event_count)
-        self.event_count += 1
-
-        self.events.append(event)
+    def _onEvent(self, event: Event):
+        if self.eventListener is not None:
+            self.eventListener(event)
 
     @property
     def is_playing(self) -> bool:
@@ -196,19 +197,9 @@ class Player:
     def repeat_mode(self) -> RepeatMode:
         return RepeatMode.OFF # TODO
 
-    @repeat_mode.setter
-    def setRepeatMode(self, value: RepeatMode):
-        # TODO
-        self._addEvent(PropertyChangedEvent("repeat_mode"))
-
     @property
     def volume(self) -> float:
         return self.player.volume # type: ignore
-
-    @volume.setter
-    def setVolume(self, value: float):
-        self.player.volume = value
-        self._addEvent(PropertyChangedEvent("volume"))
 
     @property
     def playlist(self) -> list:
@@ -228,13 +219,6 @@ class Player:
                 self.__setattr__(key, value)
                 return
         raise KeyError(key)
-
-    def getEvents(self, from_id: int) -> dict:
-        events = [event.toDict() for event in self.events if event.id > from_id]
-        return {
-            "events": events,
-            "playlist": None if len(events) == 0 else self.playlist
-        }
 
     def play(self):
         pass
@@ -262,7 +246,7 @@ class Player:
         if position_ms > 0:
             self.seekTo(position_ms)
 
-        self._addEvent(SongTransitionEvent(index)) # type: ignore
+        self._onEvent(SongTransitionEvent(index))
 
     def seekToNext(self):
         index = self.current_song_index
@@ -270,7 +254,7 @@ class Player:
 
         new_index = self.current_song_index
         if index != new_index:
-            self._addEvent(SongTransitionEvent(index)) # type: ignore
+            self._onEvent(SongTransitionEvent(index))
 
     def seekToPrevious(self):
         index = self.current_song_index
@@ -278,7 +262,7 @@ class Player:
 
         new_index = self.current_song_index
         if index != new_index:
-            self._addEvent(SongTransitionEvent(index)) # type: ignore
+            self._onEvent(SongTransitionEvent(index))
 
     def getSong(self, index: int = -1) -> str | None:
         if not self.hasSong(index):
@@ -300,17 +284,18 @@ class Player:
         if index >= self.song_count or index < 0:
             index = self.song_count - 1
         elif index + 1 < self.song_count:
-            self.moveSong(self.song_count - 1, index)
+            self.moveSong(self.song_count - 1, index, False)
 
-        self._addEvent(SongAddedEvent(id, index))
+        self._onEvent(SongAddedEvent(id, index))
 
-    def moveSong(self, from_index: int, to_index: int):
+    def moveSong(self, from_index: int, to_index: int, add_event: bool = True):
         if from_index == to_index or not self.hasSong(from_index) or not self.hasSong(to_index):
             return
 
         self.player.playlist_move(from_index, to_index)
 
-        self._addEvent(SongMovedEvent(from_index, to_index))
+        if add_event:
+            self._onEvent(SongMovedEvent(from_index, to_index))
 
     def removeSong(self, index: int):
         if not self.hasSong(index):
@@ -318,9 +303,17 @@ class Player:
 
         self.player.playlist_remove(str(index))
 
-        self._addEvent(SongRemovedEvent(index))
+        self._onEvent(SongRemovedEvent(index))
 
-    ACTIONS = (getProperty, setProperty, getEvents, play, pause, playPause, seekTo, seekToIndex, seekToNext, seekToPrevious, getSong, addSong, moveSong, removeSong)
+    def setRepeatMode(self, value: RepeatMode):
+        # TODO
+        self._onEvent(PropertyChangedEvent("repeat_mode"))
+
+    def setVolume(self, value: float):
+        self.player.volume = value
+        self._onEvent(PropertyChangedEvent("volume"))
+
+    ACTIONS = (getProperty, setProperty, play, pause, playPause, seekTo, seekToIndex, seekToNext, seekToPrevious, getSong, addSong, moveSong, removeSong, setRepeatMode, setVolume)
 
     def hasSong(self, index: int) -> bool:
         return index >= 0 and index + 1 < self.song_count
