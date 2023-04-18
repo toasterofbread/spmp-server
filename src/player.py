@@ -1,25 +1,12 @@
+import mpv
 from enum import Enum
 from typing import Callable
-import mpv
 import yt_dlp
-import requests
 
 ID = "LoK17z6xDwI"
 
 def mpvLog(loglevel, component, message):
     print('[{}] {}: {}'.format(loglevel, component, message))
-
-# https://mpv.io/manual/master/#list-of-input-commands
-# https://mpv.io/manual/master/#property-list
-# player.pause
-# player.duration (seconds)
-# player.seek("00:02:14.0", "absolute", "exact")
-# player.percent_pos
-# player.time_pos (seconds)
-# player.playlist_pos
-# player.playlist_playing_pos (current pos)
-# player.playlist_count
-# player.playlist
 
 class AudioQuality(int, Enum):
     LOW = 0
@@ -33,65 +20,17 @@ class RepeatMode(int, Enum):
 
 class PlayerState(int, Enum):
     IDLE = 0
-    BUFFERING = 1
+    BUFFERING = 1   
     READY = 2
     ENDED = 3
-
-class YoutubeStream:
-    PROTOCOL = "yt"
-
-    @staticmethod
-    def url2id(url: str) -> str:
-        return url[len(YoutubeStream.PROTOCOL) + 3:]
-    @staticmethod
-    def id2url(id: str) -> str:
-        return f"{YoutubeStream.PROTOCOL}://{id}"
-
-    def __init__(self, url: str):
-        self.stream_url = url
-        self.response = requests.get(self.stream_url, stream=True)
-        self.bytes_read = 0
-        self.buffer = b''
-
-    @property
-    def size(self):
-        content_length = self.response.headers.get("content-length")
-        if content_length is not None:
-            return int(content_length)
-        else:
-            return None
-
-    def read(self, size):
-        if len(self.buffer) < size:
-            chunk = self.response.raw.read(size - len(self.buffer))
-            if not chunk:
-                return b''  # end of stream
-            self.buffer += chunk
-        data, self.buffer = self.buffer[:size], self.buffer[size:]
-        self.bytes_read += len(data)
-        return data
-
-    def seek(self, pos):
-        if pos < self.bytes_read:
-            self.response.close()
-            self.response = requests.get(self.stream_url, stream=True, headers={'Range': f'bytes={pos}-'})
-            self.buffer = b''
-            self.bytes_read = pos
-        elif pos > self.bytes_read:
-            delta = pos - self.bytes_read
-            self.read(delta)
-        return self.bytes_read
-
-    def close(self):
-        self.response.close()
-
-    def cancel(self):
-        self.response.close()
 
 class Event:
     current_client_id: bytes | None = None
 
-    def __init__(self):
+    def __init__(self, properties: list[str]):
+        assert("id" not in properties and "type" not in properties)
+        self.properties = properties
+
         self.id = -1
 
         assert(Event.current_client_id is not None)
@@ -102,78 +41,75 @@ class Event:
         self.client_amount = client_amount
 
     def toDict(self) -> dict:
-        return {"type": type(self).__name__[:-5], "id": self.id}
+        ret = {"type": type(self).__name__[:-5], "id": self.id}
+        for key in self.properties:
+            ret[key] = self.__getattribute__(key)
+        return ret
 
 class SongTransitionEvent(Event):
     def __init__(self, index: int):
-        super().__init__()
+        super().__init__(["index"])
         self.index = index
 
-    def toDict(self) -> dict:
-        ret = super().toDict()
-        ret["index"] = self.index
-        return ret
-
 class PropertyChangedEvent(Event):
-    def __init__(self, property_key: str):
-        super().__init__()
-        self.property_key = property_key
+    def __init__(self, key: str, value):
+        super().__init__(["key", "value"])
+        self.key = key
+        self.value = value
 
-    def toDict(self) -> dict:
-        ret = super().toDict()
-        ret["property_key"] = self.property_key
-        return ret
+class SeekedEvent(Event):
+    def __init__(self, position_ms: int):
+        super().__init__(["position_ms"])
+        self.position_ms = position_ms
 
 class SongAddedEvent(Event):
     def __init__(self, song_id: str, index: int):
-        super().__init__()
+        super().__init__(["song_id", "index"])
         self.song_id = song_id
         self.index = index
 
-    def toDict(self) -> dict:
-        ret = super().toDict()
-        ret["song_id"] = self.song_id
-        ret["index"] = self.index
-        return ret
-
 class SongRemovedEvent(Event):
     def __init__(self, index: int):
-        super().__init__()
+        super().__init__(["index"])
         self.index = index
-
-    def toDict(self) -> dict:
-        ret = super().toDict()
-        ret["index"] = self.index
-        return ret
 
 class SongMovedEvent(Event):
     def __init__(self, from_index: int, to_index: int):
-        super().__init__()
+        super().__init__(["from_index", "to_index"])
         self.from_index = from_index
         self.to_index = to_index
 
-    def toDict(self) -> dict:
-        ret = super().toDict()
-        ret["from_index"] = self.from_index
-        ret["to_index"] = self.to_index
-        return ret
-
 class Player:
 
-    def __init__(self, getMpvUrl: Callable | None = None, eventListener: Callable | None = None):
-        self.player = mpv.MPV(log_handler=mpvLog, ytdl=True, vid="no", start_event_thread=True)
-        self.getMpvUrl = getMpvUrl
+    def __init__(
+        self,
+        id2filename: Callable = lambda f: f,
+        filename2id: Callable = lambda id: id,
+        eventListener: Callable | None = None
+    ):
+        self.id2filename = id2filename
+        self.filename2id = filename2id
         self.eventListener = eventListener
-        
-        # self.player.register_stream_protocol(YoutubeStream.PROTOCOL, lambda url: YoutubeStream(self.getStreamUrl(YoutubeStream.url2id(url))))
+
+        self.player = mpv.MPV(log_handler=mpvLog, ytdl=True, vid="no", start_event_thread=True)
+
+        @self.player.property_observer("playlist")
+        def onFilenameChanged(a, b):
+            print(f"CHANGED {a} {b}")
 
     def _onEvent(self, event: Event):
         if self.eventListener is not None:
             self.eventListener(event)
 
     @property
+    def state(self) -> PlayerState:
+        # raise NotImplementedError()
+        return PlayerState.IDLE
+
+    @property
     def is_playing(self) -> bool:
-        return not self.player.pause # type: ignore
+        return not self.player.core_idle
+        #return self.state == PlayerState.READY and not self.player.pause
 
     @property
     def song_count(self) -> int:
@@ -185,7 +121,7 @@ class Player:
 
     @property
     def current_position_ms(self) -> int:
-        return int((self.player.time_pos or 0) * 1000) # type: ignore
+        return int((self.player.playback_time or 0) * 1000) # type: ignore
 
     @property
     def duration_ms(self) -> int:
@@ -205,31 +141,26 @@ class Player:
 
     @property
     def playlist(self) -> list:
-        return [YoutubeStream.url2id(url) for url in self.player.playlist_filenames]
+        return [self.filename2id(filename) for filename in self.player.playlist_filenames]
 
-    PROPERTIES = (is_playing, song_count, current_song_index, current_position_ms, duration_ms, shuffle_enabled, repeat_mode, volume, playlist)
+    STATE_PROPERTIES = (is_playing, current_song_index, current_position_ms, duration_ms, shuffle_enabled, repeat_mode, volume, playlist)
 
-    def getProperty(self, key: str):
-        for prop in self.PROPERTIES:
-            if prop.fget.__name__ == key:
-                return prop.__get__(self)
-        raise KeyError(key)
-
-    def setProperty(self, key: str, value):
-        for prop in self.PROPERTIES:
-            if prop.fget.__name__ == key and prop.setter != None:
-                self.__setattr__(key, value)
-                return
-        raise KeyError(key)
+    def getCurrentState(self) -> dict:
+        return {prop.fget.__name__: prop.__get__(self) for prop in self.STATE_PROPERTIES}
 
     def play(self):
-        pass
+        if self.player.paused:
+            self.player.paused = False
+            self._onEvent(PropertyChangedEvent("is_playing", self.is_playing))
 
     def pause(self):
-        pass
+        if not self.player.paused:
+            self.player.paused = True
+            self._onEvent(PropertyChangedEvent("is_playing", self.is_playing))
 
     def playPause(self):
-        pass
+        self.player.paused = not self.player.paused
+        self._onEvent(PropertyChangedEvent("is_playing", self.is_playing))
 
     def seekTo(self, position_ms: int):
         seconds, position_ms = divmod(position_ms, 1000)
@@ -239,16 +170,17 @@ class Player:
         seek_time =  f"{hours:02d}:{minutes:02d}:{seconds:02d}.{position_ms//100}"
         self.player.seek(seek_time, "absolute", "exact")
 
+        self._onEvent(SeekedEvent(position_ms))
+
     def seekToIndex(self, index: int, position_ms: int):
         if index == self.current_song_index or index < 0 or index >= self.song_count:
             return
 
         self.player.playlist_play_index(index)
+        self._onEvent(SongTransitionEvent(index))
 
         if position_ms > 0:
             self.seekTo(position_ms)
-
-        self._onEvent(SongTransitionEvent(index))
 
     def seekToNext(self):
         index = self.current_song_index
@@ -273,15 +205,10 @@ class Player:
         if index < 0:
             index = self.current_song_index
 
-        url: str = self.player.playlist_filenames[index]
-        return YoutubeStream.url2id(url)
+        return self.filename2id(self.player.playlist_filenames[index])
 
     def addSong(self, id: str, index: int = -1):
-
-        if self.getMpvUrl is None:
-            url = YoutubeStream.id2url(id)
-        else:
-            url = self.getMpvUrl(id)
+        url = self.id2filename(id)
 
         if self.song_count == 0:
             self.player.loadfile(url)
@@ -313,14 +240,18 @@ class Player:
         self._onEvent(SongRemovedEvent(index))
 
     def setRepeatMode(self, value: RepeatMode):
+        if value == self.repeat_mode:
+            return
         # TODO
-        self._onEvent(PropertyChangedEvent("repeat_mode"))
+        self._onEvent(PropertyChangedEvent("repeat_mode", self.repeat_mode))
 
     def setVolume(self, value: float):
+        if value == self.volume:
+            return
         self.player.volume = value
-        self._onEvent(PropertyChangedEvent("volume"))
+        self._onEvent(PropertyChangedEvent("volume", self.volume))
 
-    ACTIONS = (getProperty, setProperty, play, pause, playPause, seekTo, seekToIndex, seekToNext, seekToPrevious, getSong, addSong, moveSong, removeSong, setRepeatMode, setVolume)
+    ACTIONS = (play, pause, playPause, seekTo, seekToIndex, seekToNext, seekToPrevious, getSong, addSong, moveSong, removeSong, setRepeatMode, setVolume)
 
     def hasSong(self, index: int) -> bool:
         return index >= 0 and index + 1 < self.song_count

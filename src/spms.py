@@ -4,8 +4,9 @@ import time
 import zmq
 import flask
 from flask import Flask
-from werkzeug.serving import make_server as wserve
+from waitress import serve
 from player import Player, Event
+import multiprocessing
 
 CLIENT_REPLY_TIMEOUT = 1000
 POLL_INTERVAL = 100
@@ -36,19 +37,21 @@ class SpMs:
         self.context = zmq.Context()
         self.socket = None
 
-        self.flask = Flask("SpMs")
+        self.flask = Flask(__name__)
         self.flask_server = None
         self.flask_port = None
         self.initFlask()
 
-        def getMpvUrl(id: str):
+        def id2filename(id: str):
             assert(self.flask_port is not None)
-            return f"http://127.0.0.1:{flask_port}/yt/{id}"
+            return f"http://127.0.0.1:{self.flask_port}/yt/{id}"
+        def filename2id(filename: str):
+            return filename[filename.rfind("/") + 1:]
         def onEvent(event: Event):
             event.init(self.event_count, len(self.events))
             self.event_count += 1
             self.events.append(event)
-        self.player = Player(getMpvUrl, onEvent)
+        self.player = Player(id2filename, filename2id, onEvent)
 
         self.config_path = config_path
         self.loadConfig()
@@ -57,15 +60,22 @@ class SpMs:
         # TODO invalidation
         self.youtube_stream_cache = {}
 
+        @self.flask.route("/")
+        def root():
+            return "Hello World"
+
         @self.flask.route("/yt/<id>")
         def youtubeStreamRedirect(id: str):
+            print("REDIRECT " + id)
             stream_url = self.youtube_stream_cache.get(id)
-            
+
             if stream_url is None:
                 stream_url = self.player.getStreamUrl(id)
                 self.youtube_stream_cache[id] = stream_url
-            
-            flask.redirect(stream_url)
+
+            print(f"REDIRECT {id} TO {stream_url}")
+
+            return flask.redirect(stream_url)
 
     def loadConfig(self):
         if path.exists(self.config_path):
@@ -97,14 +107,17 @@ class SpMs:
         if self.flask_port is None:
             raise RuntimeError("No port specified")
 
-        self.flask_server = wserve(app = self.flask, host = "0.0.0.0", port = self.flask_port, threaded = True)
+        def run():
+            serve(app = self.flask, host = "0.0.0.0", port = self.flask_port)
+
+        multiprocessing.Process(target = run).start()
 
     def isClientNameTaken(self, name: str) -> bool:
         for client in self.clients.values():
             if client.name == name:
                 return True
         return False
-    
+
     def _getNewClientName(self, client_name: str) -> str:
         client_name_no = 1
         numbered_client_name = client_name
@@ -121,6 +134,10 @@ class SpMs:
         client_name = self._getNewClientName(msg.pop(0).decode())
         self.clients[client_id] = Client(client_id, client_name, self.event_count)
         print(f"Client {client_name} connected")
+
+        assert(self.socket)
+        state = self.player.getCurrentState()
+        self.socket.send_multipart([client_id, json.dumps(state).encode()])
 
     def onClientDisconnected(self, client_id: bytes):
         client_name = self.clients.pop(client_id).name
@@ -175,7 +192,8 @@ class SpMs:
 
                 self.socket.send_multipart(message)
 
-                print(f"Sent events {events} to client {client.name}")
+                if len(events) != 0:
+                    print(f"Sent events {events} to client {client.name}")
 
                 # Wait for client to reply...
                 client_reply: list[bytes] | None = None
@@ -238,14 +256,14 @@ class SpMs:
 
             time.sleep(POLL_INTERVAL / 1000)
 
-    def actionGet(self, key: str):
-        return self.player.getProperty(key)
+    # def actionGet(self, key: str):
+    #     return self.player.getProperty(key)
 
-    def actionSet(self, key: str, value):
-        self.player.setProperty(key, value)
-        return True
+    # def actionSet(self, key: str, value):
+    #     self.player.setProperty(key, value)
+    #     return True
 
-    ACTIONS = (actionGet, actionSet)
+    ACTIONS = ()
 
 def main():
     from argparse import ArgumentParser
