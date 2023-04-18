@@ -1,13 +1,21 @@
-import zmq
 from os import path
 import json
-from player import Player, Event
 import time
+import zmq
+import flask
+from flask import Flask
+from werkzeug.serving import make_server as wserve
+from player import Player, Event
 
-DEFAULT_PORT = 3973
+CLIENT_REPLY_TIMEOUT = 1000
+POLL_INTERVAL = 100
+
+DEFAULT_TCP_PORT = 3973
+DEFAULT_FLASK_PORT = 3974
 DEFAULT_CONFIG_PATH = path.expanduser("~/.config/spmp.json")
 
-CONFIG_KEY_PORT = "server_port"
+CONFIG_KEY_TCP_PORT = "tcp_server_port"
+CONFIG_KEY_FLASK_PORT = "FLASK_server_port"
 
 class Client:
     def __init__(self, id: bytes, name: str | None, event_head: int):
@@ -25,17 +33,39 @@ class SpMs:
         self.events: list[Event] = []
         self.event_count = 0
 
+        self.context = zmq.Context()
+        self.socket = None
+
+        self.flask = Flask("SpMs")
+        self.flask_server = None
+        self.flask_port = None
+        self.initFlask()
+
+        def getMpvUrl(id: str):
+            assert(self.flask_port is not None)
+            return f"http://127.0.0.1:{flask_port}/yt/{id}"
         def onEvent(event: Event):
             event.init(self.event_count, len(self.events))
             self.event_count += 1
             self.events.append(event)
-        self.player = Player(onEvent)
-
-        self.context = zmq.Context()
-        self.socket = None
+        self.player = Player(getMpvUrl, onEvent)
 
         self.config_path = config_path
         self.loadConfig()
+
+    def initFlask(self):
+        # TODO invalidation
+        self.youtube_stream_cache = {}
+
+        @self.flask.route("/yt/<id>")
+        def youtubeStreamRedirect(id: str):
+            stream_url = self.youtube_stream_cache.get(id)
+            
+            if stream_url is None:
+                stream_url = self.player.getStreamUrl(id)
+                self.youtube_stream_cache[id] = stream_url
+            
+            flask.redirect(stream_url)
 
     def loadConfig(self):
         if path.exists(self.config_path):
@@ -43,14 +73,14 @@ class SpMs:
             self.config: dict = json.loads(f.read())
             f.close()
         else:
-            self.config = {CONFIG_KEY_PORT: DEFAULT_PORT}
+            self.config = {CONFIG_KEY_TCP_PORT: DEFAULT_TCP_PORT, CONFIG_KEY_FLASK_PORT: DEFAULT_FLASK_PORT}
 
     def bind(self, port: int | None):
         if self.socket is not None:
             raise RuntimeError("Already bound")
 
         if port is None:
-            port = self.config[CONFIG_KEY_PORT]
+            port = self.config[CONFIG_KEY_TCP_PORT]
             if port is None:
                 raise RuntimeError("No port specified")
 
@@ -60,10 +90,35 @@ class SpMs:
         self.poller = zmq.Poller()
         self.poller.register(self.socket, zmq.POLLIN)
 
+        if self.flask_server is not None:
+            raise RuntimeError("Already hosting")
+
+        self.flask_port = self.config[CONFIG_KEY_FLASK_PORT]
+        if self.flask_port is None:
+            raise RuntimeError("No port specified")
+
+        self.flask_server = wserve(app = self.flask, host = "0.0.0.0", port = self.flask_port, threaded = True)
+
+    def isClientNameTaken(self, name: str) -> bool:
+        for client in self.clients.values():
+            if client.name == name:
+                return True
+        return False
+    
+    def _getNewClientName(self, client_name: str) -> str:
+        client_name_no = 1
+        numbered_client_name = client_name
+
+        while self.isClientNameTaken(numbered_client_name):
+            client_name_no += 1
+            numbered_client_name = f"{client_name} #{client_name_no}"
+
+        return numbered_client_name
+
     def onClientConnected(self, client_id: bytes, msg: list[bytes]):
         assert(client_id not in self.clients.keys())
 
-        client_name = msg.pop(0).decode()
+        client_name = self._getNewClientName(msg.pop(0).decode())
         self.clients[client_id] = Client(client_id, client_name, self.event_count)
         print(f"Client {client_name} connected")
 
@@ -94,7 +149,7 @@ class SpMs:
 
         while self.socket:
 
-            # Process stray messages (connecting clients)
+            # Process stray messages (hopefully client handshakes)
             while True:
                 try:
                     msg = self.socket.recv_multipart(zmq.NOBLOCK)
@@ -124,13 +179,14 @@ class SpMs:
 
                 # Wait for client to reply...
                 client_reply: list[bytes] | None = None
-                for _ in self.poller.poll(1000):
+                for _ in self.poller.poll(CLIENT_REPLY_TIMEOUT):
                     reply = self.socket.recv_multipart()
                     reply_client = getMsgClient(reply)
 
                     if reply_client == client.id:
                         client_reply = reply
-                    else: # Handle client connection during wait
+                    else:
+                        # Handle client connection during wait
                         self.onClientConnected(reply_client, reply)
 
                 # Client did not reply to message within timeout
@@ -139,7 +195,7 @@ class SpMs:
                     continue
 
                 # Empty response
-                if len(client_reply) == 1:
+                if len(client_reply) <= 1:
                     continue
 
                 assert(len(client_reply) % 2 == 0)
@@ -180,7 +236,7 @@ class SpMs:
 
                 Event.current_client_id = None
 
-            time.sleep(0.1)
+            time.sleep(POLL_INTERVAL / 1000)
 
     def actionGet(self, key: str):
         return self.player.getProperty(key)

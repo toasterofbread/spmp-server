@@ -48,7 +48,7 @@ class YoutubeStream:
         return f"{YoutubeStream.PROTOCOL}://{id}"
 
     def __init__(self, url: str):
-        self.stream_url = getStreamUrl(YoutubeStream.url2id(url))
+        self.stream_url = url
         self.response = requests.get(self.stream_url, stream=True)
         self.bytes_read = 0
         self.buffer = b''
@@ -160,10 +160,12 @@ class SongMovedEvent(Event):
 
 class Player:
 
-    def __init__(self, eventListener: Callable | None = None):
+    def __init__(self, getMpvUrl: Callable | None = None, eventListener: Callable | None = None):
         self.player = mpv.MPV(log_handler=mpvLog, ytdl=True, vid="no", start_event_thread=True)
-        self.player.register_stream_protocol(YoutubeStream.PROTOCOL, lambda url: YoutubeStream(url))
+        self.getMpvUrl = getMpvUrl
         self.eventListener = eventListener
+        
+        # self.player.register_stream_protocol(YoutubeStream.PROTOCOL, lambda url: YoutubeStream(self.getStreamUrl(YoutubeStream.url2id(url))))
 
     def _onEvent(self, event: Event):
         if self.eventListener is not None:
@@ -276,10 +278,15 @@ class Player:
 
     def addSong(self, id: str, index: int = -1):
 
-        if self.song_count == 0:
-            self.player.loadfile(YoutubeStream.id2url(id))
+        if self.getMpvUrl is None:
+            url = YoutubeStream.id2url(id)
         else:
-            self.player.playlist_append(YoutubeStream.id2url(id))
+            url = self.getMpvUrl(id)
+
+        if self.song_count == 0:
+            self.player.loadfile(url)
+        else:
+            self.player.playlist_append(url)
 
         if index >= self.song_count or index < 0:
             index = self.song_count - 1
@@ -318,22 +325,22 @@ class Player:
     def hasSong(self, index: int) -> bool:
         return index >= 0 and index + 1 < self.song_count
 
-def getStreamUrl(video_id: str) -> str:
-    ytd = yt_dlp.YoutubeDL({"skip_download": True, "quiet": True})
+    def getStreamUrl(self, video_id: str) -> str:
+        ytd = yt_dlp.YoutubeDL({"skip_download": True, "quiet": True})
 
-    info = ytd.extract_info(video_id, download=False)
-    if info == None:
-        raise RuntimeError("No formats returned by yt-dlp")
+        info = ytd.extract_info(video_id, download=False)
+        if info == None:
+            raise RuntimeError("No formats returned by yt-dlp")
 
-    audio_formats = []
-    for format in info["formats"]:
-        if format["video_ext"] != "none":
-            continue
-        if format["audio_ext"] == "none":
-            continue
-        audio_formats.append(format)
+        audio_formats = []
+        for format in info["formats"]:
+            if format["video_ext"] != "none":
+                continue
+            if format["audio_ext"] == "none":
+                continue
+            audio_formats.append(format)
 
-    return getFormatByQuality(audio_formats, AudioQuality.MEDIUM)["url"]
+        return getFormatByQuality(audio_formats, AudioQuality.MEDIUM)["url"]
 
 def getFormatByQuality(formats: list[dict], quality: AudioQuality) -> dict:
     formats.sort(key = lambda f: f["quality"], reverse = True)
