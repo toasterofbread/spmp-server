@@ -20,7 +20,7 @@ class RepeatMode(int, Enum):
 
 class PlayerState(int, Enum):
     IDLE = 0
-    BUFFERING = 1   
+    BUFFERING = 1
     READY = 2
     ENDED = 3
 
@@ -32,13 +32,14 @@ class Event:
         self.properties = properties
 
         self.id = -1
-
-        assert(Event.current_client_id is not None)
         self.client_id = Event.current_client_id
 
     def init(self, id: int, client_amount: int):
         self.id = id
         self.client_amount = client_amount
+
+    def unassociateClient(self):
+        self.client_id = None
 
     def toDict(self) -> dict:
         ret = {"type": type(self).__name__[:-5], "id": self.id}
@@ -93,9 +94,17 @@ class Player:
 
         self.player = mpv.MPV(log_handler=mpvLog, ytdl=True, vid="no", start_event_thread=True)
 
-        @self.player.property_observer("playlist")
-        def onFilenameChanged(a, b):
-            print(f"CHANGED {a} {b}")
+        @self.player.property_observer("playlist-pos")
+        def onFileStarted(key: str, index: int):
+            event = SongTransitionEvent(index)
+            event.unassociateClient()
+            self._onEvent(event)
+
+        @self.player.property_observer("file-loaded")
+        def onFileLoaded(key: str, _):
+            event = PropertyChangedEvent("duration_ms", self.duration_ms)
+            event.unassociateClient()
+            self._onEvent(event)
 
     def _onEvent(self, event: Event):
         if self.eventListener is not None:
@@ -143,23 +152,23 @@ class Player:
     def playlist(self) -> list:
         return [self.filename2id(filename) for filename in self.player.playlist_filenames]
 
-    STATE_PROPERTIES = (is_playing, current_song_index, current_position_ms, duration_ms, shuffle_enabled, repeat_mode, volume, playlist)
+    STATE_PROPERTIES = (state, is_playing, current_song_index, current_position_ms, duration_ms, shuffle_enabled, repeat_mode, volume, playlist)
 
     def getCurrentState(self) -> dict:
         return {prop.fget.__name__: prop.__get__(self) for prop in self.STATE_PROPERTIES}
 
     def play(self):
-        if self.player.paused:
-            self.player.paused = False
+        if self.player.pause:
+            self.player.pause = False
             self._onEvent(PropertyChangedEvent("is_playing", self.is_playing))
 
     def pause(self):
-        if not self.player.paused:
-            self.player.paused = True
+        if not self.player.pause:
+            self.player.pause = True
             self._onEvent(PropertyChangedEvent("is_playing", self.is_playing))
 
     def playPause(self):
-        self.player.paused = not self.player.paused
+        self.player.pause = not self.player.pause
         self._onEvent(PropertyChangedEvent("is_playing", self.is_playing))
 
     def seekTo(self, position_ms: int):
@@ -172,15 +181,12 @@ class Player:
 
         self._onEvent(SeekedEvent(position_ms))
 
-    def seekToIndex(self, index: int, position_ms: int):
+    def seekToSong(self, index: int):
         if index == self.current_song_index or index < 0 or index >= self.song_count:
             return
 
         self.player.playlist_play_index(index)
         self._onEvent(SongTransitionEvent(index))
-
-        if position_ms > 0:
-            self.seekTo(position_ms)
 
     def seekToNext(self):
         index = self.current_song_index
@@ -251,7 +257,7 @@ class Player:
         self.player.volume = value
         self._onEvent(PropertyChangedEvent("volume", self.volume))
 
-    ACTIONS = (play, pause, playPause, seekTo, seekToIndex, seekToNext, seekToPrevious, getSong, addSong, moveSong, removeSong, setRepeatMode, setVolume)
+    ACTIONS = (play, pause, playPause, seekTo, seekToSong, seekToNext, seekToPrevious, getSong, addSong, moveSong, removeSong, setRepeatMode, setVolume)
 
     def hasSong(self, index: int) -> bool:
         return index >= 0 and index + 1 < self.song_count

@@ -7,6 +7,7 @@ from flask import Flask
 from waitress import serve
 from player import Player, Event
 import multiprocessing
+from spectre7 import utils
 
 CLIENT_REPLY_TIMEOUT = 1000
 POLL_INTERVAL = 100
@@ -49,6 +50,7 @@ class SpMs:
             return filename[filename.rfind("/") + 1:]
         def onEvent(event: Event):
             event.init(self.event_count, len(self.events))
+            print(f"EVENT {event.toDict()}")
             self.event_count += 1
             self.events.append(event)
         self.player = Player(id2filename, filename2id, onEvent)
@@ -66,14 +68,11 @@ class SpMs:
 
         @self.flask.route("/yt/<id>")
         def youtubeStreamRedirect(id: str):
-            print("REDIRECT " + id)
             stream_url = self.youtube_stream_cache.get(id)
 
             if stream_url is None:
                 stream_url = self.player.getStreamUrl(id)
                 self.youtube_stream_cache[id] = stream_url
-
-            print(f"REDIRECT {id} TO {stream_url}")
 
             return flask.redirect(stream_url)
 
@@ -148,6 +147,8 @@ class SpMs:
         ret = []
 
         for event in self.events:
+            assert(event.id != -1)
+
             if event.id < client.event_head or event.client_id == client_id:
                 continue
 
@@ -193,7 +194,7 @@ class SpMs:
                 self.socket.send_multipart(message)
 
                 if len(events) != 0:
-                    print(f"Sent events {events} to client {client.name}")
+                    print(f"Sent events {[type(event) for event in events]} to client {client.name}")
 
                 # Wait for client to reply...
                 client_reply: list[bytes] | None = None
@@ -230,40 +231,27 @@ class SpMs:
                     assert(isinstance(params, list))
                     i += 1
 
-                    print(f"Performing action {action_name}{params}")
+                    print(f"Performing action {action_name}{params} from client {client.name}")
 
                     found = False
-                    for actions, instance in ((self.ACTIONS, self), (self.player.ACTIONS, self.player)):
-                        for action in actions:
-                            if action.__name__ != action_name and action.__name__.removeprefix("action").lower() != action_name:
-                                continue
+                    for action in self.player.ACTIONS:
+                        if action.__name__ != action_name and action.__name__.removeprefix("action").lower() != action_name:
+                            continue
 
-                            try:
-                                reply = action(instance, *params) # type: ignore
-                            except TypeError as e:
-                                error = str(e)
+                        try:
+                            reply = action(self.player, *params)
+                        except TypeError as e:
+                            utils.err(f"Client {client.name} requested action {action_name} with invalid params {params} ({e})")
 
-                            found = True
-                            break
-
-                        if found:
-                            break
+                        found = True
+                        break
 
                     if not found:
-                        error = f"No action with name {action_name}"
+                        utils.err(f"Client {client.name} requested unknown action {action_name}{params}")
 
                 Event.current_client_id = None
 
             time.sleep(POLL_INTERVAL / 1000)
-
-    # def actionGet(self, key: str):
-    #     return self.player.getProperty(key)
-
-    # def actionSet(self, key: str, value):
-    #     self.player.setProperty(key, value)
-    #     return True
-
-    ACTIONS = ()
 
 def main():
     from argparse import ArgumentParser
