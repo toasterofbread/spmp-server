@@ -3,13 +3,18 @@ package mpv
 interface MpvClient {
     fun release()
 
-    var is_playing: Boolean
+    val state: State
+    val is_playing: Boolean
     val song_count: Int
     val current_song_index: Int
     val current_position_ms: Long
     val duration_ms: Long
     val repeat_mode: RepeatMode
     val volume: Double
+
+    fun play()
+    fun pause()
+    fun playPause()
 
     fun seekTo(position_ms: Long)
     fun seekToSong(index: Int)
@@ -23,6 +28,13 @@ interface MpvClient {
     fun moveSong(from: Int, to: Int)
     fun removeSong(index: Int)
     fun clear()
+
+    enum class State {
+        IDLE,
+        BUFFERING,
+        READY,
+        ENDED
+    }
 
     enum class RepeatMode {
         NONE,

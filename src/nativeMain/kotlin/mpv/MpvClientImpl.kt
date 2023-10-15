@@ -10,10 +10,14 @@ private fun idToFilename(song_id: String): String {
 }
 
 open class MpvClientImpl: LibMpvClient() {
-    override var is_playing: Boolean
+    override val state: MpvClient.State
+        get() =
+            if (getProperty("eof-reached")) MpvClient.State.ENDED
+            else if (getProperty("idle-active")) MpvClient.State.IDLE
+            else if (getProperty("paused-for-cache")) MpvClient.State.BUFFERING
+            else MpvClient.State.READY
+    override val is_playing: Boolean
         get() = !getProperty<Boolean>("core-idle")
-        set(value) { setProperty("pause", !value) }
-
     override val song_count: Int
         get() = getProperty("playlist-count")
     override val current_song_index: Int
@@ -26,6 +30,21 @@ open class MpvClientImpl: LibMpvClient() {
         get() = MpvClient.RepeatMode.NONE // TODO
     override val volume: Double
         get() = getProperty("volume")
+
+    override fun play() {
+        setProperty("pause", false)
+    }
+    override fun pause() {
+        setProperty("pause", true)
+    }
+    override fun playPause() {
+        if (is_playing) {
+            pause()
+        }
+        else {
+            play()
+        }
+    }
 
     override fun seekTo(position_ms: Long) {
         var current: Long = position_ms
