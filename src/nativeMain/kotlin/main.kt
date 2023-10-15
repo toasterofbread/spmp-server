@@ -22,16 +22,23 @@ const val CLIENT_REPLY_TIMEOUT_MS: Long = 1000 // TODO | Test this
 fun main(args: Array<String>) {
     println("--- main(${args.toList()}) ---")
 
+    val enable_gui: Boolean = args.contains("--enable-gui") || args.contains("-g")
+    val mute_on_start: Boolean = args.contains("--mute-on-start") || args.contains("-m")
+
     memScoped {
-        val server = SpMpServer(this)
+        val server = SpMpServer(this, !enable_gui)
         server.bind(PORT)
+
+        if (mute_on_start) {
+            server.mpv.setVolume(0f)
+        }
 
         runBlocking {
             println("--- Polling started ---")
-            while (true) {
-                server.poll(CLIENT_REPLY_TIMEOUT_MS)
+            while (server.poll(CLIENT_REPLY_TIMEOUT_MS)) {
                 delay(POLL_INTERVAL_MS)
             }
+            println("--- Polling ended ---")
         }
 
         server.release()

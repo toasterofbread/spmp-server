@@ -29,6 +29,8 @@ interface MpvClient {
     fun removeSong(index: Int)
     fun clear()
 
+    fun setVolume(value: Float)
+
     enum class State {
         IDLE,
         BUFFERING,

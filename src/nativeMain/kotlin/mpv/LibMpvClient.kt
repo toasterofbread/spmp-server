@@ -12,6 +12,7 @@ import kotlinx.cinterop.MemScope
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.cstr
 import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.pointed
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.toCValues
 import kotlinx.cinterop.toKString
@@ -19,8 +20,10 @@ import kotlinx.cinterop.value
 import libmpv.MPV_FORMAT_DOUBLE
 import libmpv.MPV_FORMAT_FLAG
 import libmpv.MPV_FORMAT_INT64
+import libmpv.MPV_FORMAT_STRING
 import libmpv.mpv_command
 import libmpv.mpv_create_client
+import libmpv.mpv_event_id
 import libmpv.mpv_format as MpvFormat
 import libmpv.mpv_get_property
 import libmpv.mpv_get_property_string
@@ -28,9 +31,10 @@ import libmpv.mpv_initialize
 import libmpv.mpv_set_option
 import libmpv.mpv_set_property
 import libmpv.mpv_terminate_destroy
+import libmpv.mpv_wait_event
 
 @OptIn(ExperimentalForeignApi::class)
-abstract class LibMpvClient: MpvClient {
+abstract class LibMpvClient(headless: Boolean = true): MpvClient {
     protected val ctx: CPointer<MpvHandle>
 
     init {
@@ -38,8 +42,18 @@ abstract class LibMpvClient: MpvClient {
             ?: throw NullPointerException("Creating MPV client failed")
 
         memScoped {
-            val pointer = alloc<BooleanVar>()
-            mpv_set_option(ctx, "vid", MPV_FORMAT_FLAG, pointer.ptr)
+            val vid: BooleanVar = alloc()
+            vid.value = !headless
+            mpv_set_option(ctx, "vid", MPV_FORMAT_FLAG, vid.ptr)
+
+            if (!headless) {
+                mpv_set_option(ctx, "osc", MPV_FORMAT_STRING, "yes".cstr)
+                mpv_set_option(ctx, "osc-visibility", MPV_FORMAT_STRING, "always".cstr)
+
+                val osd_level: IntVar = alloc()
+                osd_level.value = 3
+                mpv_set_option(ctx, "osd-level", MPV_FORMAT_INT64, osd_level.ptr)
+            }
         }
 
         check(mpv_initialize(ctx) == 0) { "Initialising MPV client failed" }
@@ -113,20 +127,18 @@ abstract class LibMpvClient: MpvClient {
         when (T::class) {
             Boolean::class -> alloc<BooleanVar>().apply { if (v != null) value = v as Boolean }
             Int::class -> alloc<IntVar>().apply { if (v != null) value = v as Int }
+            Double::class -> alloc<DoubleVar>().apply { if (v != null) value = v as Double }
             else -> throw NotImplementedError(T::class.toString())
         }
-
-//    protected fun MemScope.getPointerOf(v: Any): CPrimitiveVar =
-//        when (v) {
-//            is Boolean -> alloc<BooleanVar>().apply { value = v }
-//            is Int -> alloc<IntVar>().apply { value = v }
-//            else -> throw NotImplementedError(v::class.toString())
-//        }
 
     protected fun getFormatOf(v: Any): MpvFormat =
         when (v) {
             is Boolean -> MPV_FORMAT_FLAG
             is Int -> MPV_FORMAT_INT64
+            is Double -> MPV_FORMAT_DOUBLE
             else -> throw NotImplementedError(v::class.toString())
         }
+
+    protected fun waitForEvent(): mpv_event_id? =
+        mpv_wait_event(ctx, -1.0)?.pointed?.event_id
 }

@@ -9,7 +9,7 @@ private fun idToFilename(song_id: String): String {
     return "https://www.youtube.com/watch?v=$song_id"
 }
 
-open class MpvClientImpl: LibMpvClient() {
+open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
     override val state: MpvClient.State
         get() =
             if (getProperty("eof-reached")) MpvClient.State.ENDED
@@ -58,7 +58,7 @@ open class MpvClientImpl: LibMpvClient() {
         val minutes: String = (current % 60).toString().padStart(2, '0')
         val hours: String = (current / 60).toString().padStart(2, '0')
 
-        runCommand("seek", "$hours:$minutes:$seconds.$milliseconds", "absolute", "exact")
+        runCommand("seek", "$hours:$minutes:$seconds.$milliseconds", "absolute", "exact", check_result = false)
     }
 
     override fun seekToSong(index: Int) {
@@ -121,5 +121,9 @@ open class MpvClientImpl: LibMpvClient() {
 
     override fun clear() {
         runCommand("playlist-clear")
+    }
+
+    override fun setVolume(value: Float) {
+        setProperty("volume", value.toDouble())
     }
 }

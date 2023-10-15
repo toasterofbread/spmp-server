@@ -1,11 +1,54 @@
 package mpv
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
+import libmpv.MPV_EVENT_END_FILE
+import libmpv.MPV_EVENT_PLAYBACK_RESTART
+import libmpv.MPV_EVENT_SHUTDOWN
+import libmpv.MPV_EVENT_START_FILE
+import libmpv.mpv_event_id
 import kotlin.properties.Delegates
 
-abstract class EventEmitterMpvClient: MpvClientImpl() {
-    protected abstract fun onEvent(event: PlayerEvent)
+abstract class EventEmitterMpvClient(headless: Boolean = false): MpvClientImpl(headless) {
+    protected abstract fun onEvent(event: PlayerEvent, clientless: Boolean = false)
+    protected abstract fun onShutdown()
+
+    private val coroutine_scope = CoroutineScope(Dispatchers.IO)
+
+    init {
+        coroutine_scope.launch {
+            while (true) {
+                val event: mpv_event_id? = waitForEvent()
+                when (event) {
+                    MPV_EVENT_START_FILE -> {
+                        onEvent(PlayerEvent.SongTransition(current_song_index), clientless = true)
+                    }
+                    MPV_EVENT_PLAYBACK_RESTART -> {
+                        onEvent(PlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
+                        onEvent(PlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration_ms)), clientless = true)
+                        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)), clientless = true)
+                    }
+                    MPV_EVENT_END_FILE -> {
+                        onEvent(PlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
+                        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)), clientless = true)
+                    }
+                    MPV_EVENT_SHUTDOWN -> {
+                        onShutdown()
+                    }
+                }
+            }
+        }
+    }
+
+    override fun release() {
+        coroutine_scope.cancel()
+        super.release()
+    }
 
     override fun seekTo(position_ms: Long) {
         super.seekTo(position_ms)
@@ -59,13 +102,11 @@ data class PlayerEvent(private val type: String, private val properties: Map<Str
         private set
 
     fun init(event_id: Int, client_id: Int?, client_amount: Int) {
+        require(client_amount > 0)
+
         this.event_id = event_id
         this.client_id = client_id
         this.pending_client_amount = client_amount
-    }
-
-    fun unassociateClient() {
-        client_id = null
     }
 
     fun onConsumedByClient() {

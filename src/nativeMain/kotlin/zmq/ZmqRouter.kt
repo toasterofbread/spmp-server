@@ -26,7 +26,10 @@ const val MESSAGE_SIZE = 255
 
 @OptIn(ExperimentalForeignApi::class)
 abstract class ZmqRouter(mem_scope: MemScope) {
-    protected class Message(val client_id: ByteArray, val parts: List<String>)
+    protected class Message(val client_id: ByteArray, val parts: List<String>) {
+        override fun toString(): String =
+            "Message(client_id=${client_id.contentHashCode()}, parts=$parts)"
+    }
 
     private val message_buffer: CPointer<ByteVarOf<Byte>>
     private val message_buffer_size: ULong

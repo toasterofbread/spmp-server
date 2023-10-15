@@ -15,18 +15,35 @@ import zmq.ZmqRouter
 import kotlin.system.getTimeMillis
 
 @OptIn(ExperimentalForeignApi::class)
-class SpMpServer(mem_scope: MemScope): ZmqRouter(mem_scope) {
+class SpMpServer(mem_scope: MemScope, val headless: Boolean = true): ZmqRouter(mem_scope) {
     private var executing_client_id: Int? = null
     private var player_event_incr: Int = 0
+    private var player_shut_down: Boolean = false
 
-    private val mpv = object : EventEmitterMpvClient() {
+    inner class SpMpMpvClient(): EventEmitterMpvClient(headless) {
         val events: MutableList<PlayerEvent> = mutableListOf()
 
-        override fun onEvent(event: PlayerEvent) {
-            event.init(player_event_incr++, executing_client_id, clients.size)
+        override fun onEvent(event: PlayerEvent, clientless: Boolean) {
+            println("Event ($clientless): $event")
+
+            if (clients.isEmpty()) {
+                return
+            }
+
+            event.init(
+                event_id = player_event_incr++,
+                client_id = if (clientless) null else executing_client_id,
+                client_amount = clients.size
+            )
             events.add(event)
         }
+
+        override fun onShutdown() {
+            player_shut_down = true
+        }
     }
+
+    val mpv = SpMpMpvClient()
 
     private class Client(val id_bytes: ByteArray, val name: String, val event_head: Int) {
         val id: Int = id_bytes.contentHashCode()
@@ -77,7 +94,7 @@ class SpMpServer(mem_scope: MemScope): ZmqRouter(mem_scope) {
             event.event_id >= client.event_head && event.client_id != client.id
         }
 
-    fun poll(client_reply_timeout_ms: Long) {
+    fun poll(client_reply_timeout_ms: Long): Boolean {
 
         // Process stray messages (hopefully client handshakes)
         while (true) {
@@ -101,7 +118,7 @@ class SpMpServer(mem_scope: MemScope): ZmqRouter(mem_scope) {
                     message_parts.add(Json.encodeToString(event))
 
                     event.onConsumedByClient()
-                    if (event.pending_client_amount == 0) {
+                    if (event.pending_client_amount <= 0) {
                         mpv.events.remove(event)
                     }
                 }
@@ -139,7 +156,7 @@ class SpMpServer(mem_scope: MemScope): ZmqRouter(mem_scope) {
             }
 
             // Empty response
-            if (client_reply.parts.isEmpty()) {
+            if (client_reply.parts.size < 2) {
                 continue
             }
 
@@ -147,6 +164,8 @@ class SpMpServer(mem_scope: MemScope): ZmqRouter(mem_scope) {
                 println("$client reply size (${client_reply.parts.size}) is invalid")
                 continue
             }
+
+            println("Got reply from $client $client_reply")
 
             check(executing_client_id == null)
             executing_client_id = client.id
@@ -169,5 +188,7 @@ class SpMpServer(mem_scope: MemScope): ZmqRouter(mem_scope) {
 
             executing_client_id = null
         }
+
+        return !player_shut_down
     }
 }
