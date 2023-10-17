@@ -26,7 +26,7 @@ abstract class EventEmitterMpvClient(headless: Boolean = false): MpvClientImpl(h
                 val event: mpv_event_id? = waitForEvent()
                 when (event) {
                     MPV_EVENT_START_FILE -> {
-                        onEvent(PlayerEvent.SongTransition(current_song_index), clientless = true)
+                        onEvent(PlayerEvent.ItemTransition(current_item_index), clientless = true)
                     }
                     MPV_EVENT_PLAYBACK_RESTART -> {
                         onEvent(PlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
@@ -50,45 +50,45 @@ abstract class EventEmitterMpvClient(headless: Boolean = false): MpvClientImpl(h
         super.release()
     }
 
-    override fun seekTo(position_ms: Long) {
-        super.seekTo(position_ms)
-        onEvent(PlayerEvent.Seeked(position_ms))
+    override fun seekToTime(position_ms: Long) {
+        super.seekToTime(position_ms)
+        onEvent(PlayerEvent.SeekedToTime(position_ms))
     }
-    override fun seekToSong(index: Int) {
-        super.seekToSong(index)
-        onEvent(PlayerEvent.SongTransition(index))
+    override fun seekToItem(index: Int) {
+        super.seekToItem(index)
+        onEvent(PlayerEvent.ItemTransition(index))
     }
     override fun seekToNext(): Boolean {
         if (super.seekToNext()) {
-            onEvent(PlayerEvent.SongTransition(current_song_index))
+            onEvent(PlayerEvent.ItemTransition(current_item_index))
             return true
         }
         return false
     }
     override fun seekToPrevious(): Boolean {
         if (super.seekToPrevious()) {
-            onEvent(PlayerEvent.SongTransition(current_song_index))
+            onEvent(PlayerEvent.ItemTransition(current_item_index))
             return true
         }
         return false
     }
 
-    override fun addSong(song_id: String, index: Int): Int {
-        val added_index: Int = super.addSong(song_id, index)
-        onEvent(PlayerEvent.SongAdded(song_id, added_index))
+    override fun addItem(item_id: String, index: Int): Int {
+        val added_index: Int = super.addItem(item_id, index)
+        onEvent(PlayerEvent.ItemAdded(item_id, added_index))
         return added_index
     }
-    override fun moveSong(from: Int, to: Int) {
-        super.moveSong(from, to)
-        onEvent(PlayerEvent.SongMoved(from, to))
+    override fun moveItem(from: Int, to: Int) {
+        super.moveItem(from, to)
+        onEvent(PlayerEvent.ItemMoved(from, to))
     }
-    override fun removeSong(index: Int) {
-        super.removeSong(index)
-        onEvent(PlayerEvent.SongRemoved(index))
+    override fun removeItem(index: Int) {
+        super.removeItem(index)
+        onEvent(PlayerEvent.ItemRemoved(index))
     }
-    override fun clear() {
-        super.clear()
-        onEvent(PlayerEvent.Cleared())
+    override fun clearQueue() {
+        super.clearQueue()
+        onEvent(PlayerEvent.QueueCleared())
     }
 }
 
@@ -118,12 +118,12 @@ data class PlayerEvent(private val type: String, private val properties: Map<Str
     }
 
     companion object {
-        fun SongTransition(index: Int) = PlayerEvent("SongTransition", mapOf("index" to JsonPrimitive(index)))
-        fun Seeked(position_ms: Long) = PlayerEvent("Seeked", mapOf("position_ms" to JsonPrimitive(position_ms)))
-        fun SongRemoved(index: Int) = PlayerEvent("SongRemoved", mapOf("index" to JsonPrimitive(index)))
+        fun ItemTransition(index: Int) = PlayerEvent("ItemTransition", mapOf("index" to JsonPrimitive(index)))
+        fun SeekedToTime(position_ms: Long) = PlayerEvent("Seeked", mapOf("position_ms" to JsonPrimitive(position_ms)))
+        fun ItemRemoved(index: Int) = PlayerEvent("ItemRemoved", mapOf("index" to JsonPrimitive(index)))
         fun PropertyChanged(key: String, value: JsonPrimitive) = PlayerEvent("PropertyChanged", mapOf("key" to JsonPrimitive(key), "value" to value))
-        fun SongAdded(song_id: String, index: Int) = PlayerEvent("SongAdded", mapOf("song_id" to JsonPrimitive(song_id), "index" to JsonPrimitive(index)))
-        fun SongMoved(from: Int, to: Int) = PlayerEvent("SongMoved", mapOf("from" to JsonPrimitive(from), "to" to JsonPrimitive(to)))
-        fun Cleared() = PlayerEvent("Cleared")
+        fun ItemAdded(item_id: String, index: Int) = PlayerEvent("ItemAdded", mapOf("item_id" to JsonPrimitive(item_id), "index" to JsonPrimitive(index)))
+        fun ItemMoved(from: Int, to: Int) = PlayerEvent("ItemMoved", mapOf("from" to JsonPrimitive(from), "to" to JsonPrimitive(to)))
+        fun QueueCleared() = PlayerEvent("Cleared")
     }
 }

@@ -4,8 +4,8 @@ import Command
 import com.github.ajalt.clikt.core.requireObject
 import zmq.ZmqSocket
 
-abstract class SpMsControllerModeCommand(name: String): Command(name) {
-    private val context: SpMpControllerCommandContext by requireObject()
+abstract class ControllerMode(name: String, help: String? = null): Command(name, help = help) {
+    protected val context: ControllerModeContext by requireObject()
     protected val socket: ZmqSocket get() = context.socket
 
     fun releaseSocket() {

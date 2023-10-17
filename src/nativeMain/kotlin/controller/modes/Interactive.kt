@@ -1,8 +1,8 @@
 package controller.modes
 
-import controller.SpMsControllerModeCommand
+import controller.ControllerMode
 
-class Interactive: SpMsControllerModeCommand("interactive") {
+class Interactive: ControllerMode("interactive") {
     override fun run() {
         println("Running in interactive mode")
 

@@ -2,23 +2,44 @@ package spms
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.MemScope
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
 import libzmq.ZMQ_NOBLOCK
 import mpv.EventEmitterMpvClient
 import mpv.PlayerEvent
-import mpv.executeActionByName
-import mpv.getSerialisedProperties
+import mpv.getCurrentStatusJson
+import spms.actions.ServerAction
 import zmq.ZmqRouter
 import kotlin.system.getTimeMillis
+
+const val SERVER_EXPECT_REPLY_CHAR: Char = '!'
 
 @OptIn(ExperimentalForeignApi::class)
 class SpMpServer(mem_scope: MemScope, val headless: Boolean = true): ZmqRouter(mem_scope) {
     private var executing_client_id: Int? = null
     private var player_event_incr: Int = 0
     private var player_shut_down: Boolean = false
+
+    @Serializable
+    data class ActionReply(val success: Boolean, val error: String? = null, val error_cause: String? = null, val result: JsonElement? = null)
+
+    private class Client(val id_bytes: ByteArray, val name: String, val event_head: Int) {
+        val id: Int = id_bytes.contentHashCode()
+
+        fun createMessage(parts: List<String>): Message =
+            Message(id_bytes, parts)
+
+        override fun toString(): String =
+            "Client(id=$id, name=$name, event_head=$event_head)"
+    }
 
     inner class SpMpMpvClient(): EventEmitterMpvClient(headless) {
         val events: MutableList<PlayerEvent> = mutableListOf()
@@ -44,16 +65,6 @@ class SpMpServer(mem_scope: MemScope, val headless: Boolean = true): ZmqRouter(m
     }
 
     val mpv = SpMpMpvClient()
-
-    private class Client(val id_bytes: ByteArray, val name: String, val event_head: Int) {
-        val id: Int = id_bytes.contentHashCode()
-
-        fun createMessage(parts: List<String>): Message =
-            Message(id_bytes, parts)
-
-        override fun toString(): String =
-            "Client(id=$id, name=$name, event_head=$event_head)"
-    }
     private val clients: MutableList<Client> = mutableListOf()
 
     private fun getNewClientName(requested_name: String): String {
@@ -81,7 +92,12 @@ class SpMpServer(mem_scope: MemScope, val headless: Boolean = true): ZmqRouter(m
         clients.add(client)
         println("$client connected")
 
-        sendMultipart(Message(client.id_bytes, listOf(mpv.getSerialisedProperties())))
+        sendMultipart(
+            Message(
+                client.id_bytes,
+                listOf(Json.encodeToString(mpv.getCurrentStatusJson()))
+            )
+        )
     }
 
     private fun onClientTimedOut(client: Client, failed_timeout_ms: Long) {
@@ -110,7 +126,7 @@ class SpMpServer(mem_scope: MemScope, val headless: Boolean = true): ZmqRouter(m
 
             val events: List<PlayerEvent> = getEventsForClient(client)
             if (events.isEmpty()) {
-                message_parts.add("")
+                message_parts.add("null")
             }
             else {
                 // Add events to message, then consume
@@ -157,6 +173,7 @@ class SpMpServer(mem_scope: MemScope, val headless: Boolean = true): ZmqRouter(m
 
             // Empty response
             if (client_reply.parts.size < 2) {
+                println("EMPTY RESPONSE $client")
                 continue
             }
 
@@ -165,24 +182,44 @@ class SpMpServer(mem_scope: MemScope, val headless: Boolean = true): ZmqRouter(m
                 continue
             }
 
-            println("Got reply from $client $client_reply")
+            println("Got reply from $client: $client_reply")
 
             check(executing_client_id == null)
             executing_client_id = client.id
 
             var i: Int = 0
             while (i < client_reply.parts.size) {
-                val action_name: String = client_reply.parts[i++]
+                val first: String = client_reply.parts[i++]
+                val expects_reply: Boolean = first.first() == SERVER_EXPECT_REPLY_CHAR
+
+                val action_name: String = if (expects_reply) first.substring(1) else first
                 val action_params: List<JsonPrimitive> = Json.decodeFromString(client_reply.parts[i++])
 
                 try {
-                    mpv.executeActionByName(action_name, action_params)
+                    val result: JsonElement? = ServerAction.executeByName(this@SpMpServer, action_name, action_params)
+                    if (expects_reply) {
+                        val reply = ActionReply(
+                            success = true,
+                            result = result
+                        )
+                        sendMultipart(client.createMessage(listOf(Json.encodeToString(reply))))
+
+                        println("Sent reply to $client for action '$action_name': $reply")
+                    }
                 }
                 catch (e: Throwable) {
-                    RuntimeException(
-                        "Action $action_name(${action_params.map { it.contentOrNull }}) from $client failed:",
-                        e
-                    ).printStackTrace()
+                    val message: String = "Action $action_name(${action_params.map { it.contentOrNull }}) from $client failed"
+
+                    if (expects_reply) {
+                        val reply = ActionReply(
+                            success = false,
+                            error = message,
+                            error_cause = e.message
+                        )
+                        sendMultipart(client.createMessage(listOf(Json.encodeToString(reply))))
+                    }
+
+                    RuntimeException(message, e).printStackTrace()
                 }
             }
 

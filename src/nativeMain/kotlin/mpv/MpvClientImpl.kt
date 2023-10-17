@@ -20,7 +20,7 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         get() = !getProperty<Boolean>("core-idle")
     override val song_count: Int
         get() = getProperty("playlist-count")
-    override val current_song_index: Int
+    override val current_item_index: Int
         get() = getProperty("playlist-playing-pos")
     override val current_position_ms: Long
         get() = (getProperty<Double>("playback-time") * 1000).toLong()
@@ -46,7 +46,7 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         }
     }
 
-    override fun seekTo(position_ms: Long) {
+    override fun seekToTime(position_ms: Long) {
         var current: Long = position_ms
 
         val milliseconds: String = (current % 1000).toString().padStart(2, '0')
@@ -61,7 +61,7 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         runCommand("seek", "$hours:$minutes:$seconds.$milliseconds", "absolute", "exact", check_result = false)
     }
 
-    override fun seekToSong(index: Int) {
+    override fun seekToItem(index: Int) {
         require(index >= 0)
         runCommand("playlist-play-index", index.toString())
     }
@@ -74,7 +74,7 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         return runCommand("playlist-prev", check_result = false) == 0
     }
 
-    override fun getSong(): String? = getSong(current_song_index)
+    override fun getSong(): String? = getSong(current_item_index)
 
     override fun getSong(index: Int): String? {
         if (index < 0) {
@@ -89,7 +89,7 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         }
     }
 
-    override fun addSong(song_id: String, index: Int): Int {
+    override fun addItem(song_id: String, index: Int): Int {
         val filename: String = idToFilename(song_id)
 
         val sc = song_count
@@ -103,7 +103,7 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         return index
     }
 
-    override fun moveSong(from: Int, to: Int) {
+    override fun moveItem(from: Int, to: Int) {
         require(from >= 0)
         require(to >= 0)
 
@@ -120,12 +120,12 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         }
     }
 
-    override fun removeSong(index: Int) {
+    override fun removeItem(index: Int) {
         require(index >= 0)
         runCommand("playlist-remove", index)
     }
 
-    override fun clear() {
+    override fun clearQueue() {
         runCommand("playlist-clear")
     }
 

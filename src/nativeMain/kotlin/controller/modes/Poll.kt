@@ -1,7 +1,7 @@
 package controller.modes
 
 import controller.SpMsControllerError
-import controller.SpMsControllerModeCommand
+import controller.ControllerMode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import libzmq.ZMQ_NOBLOCK
@@ -10,7 +10,7 @@ import kotlin.system.getTimeMillis
 private const val SERVER_EVENT_TIMEOUT_MS: Long = 10000
 private const val POLL_INTERVAL: Long = 100
 
-class Poll: SpMsControllerModeCommand("poll") {
+class Poll: ControllerMode("poll") {
     override fun run() {
         runBlocking {
             println("Polling server for events...")

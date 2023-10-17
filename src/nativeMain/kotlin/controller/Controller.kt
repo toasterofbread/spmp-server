@@ -4,6 +4,7 @@ import Command
 import com.github.ajalt.clikt.core.CliktError
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
@@ -14,10 +15,11 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.MemScope
 import libzmq.ZMQ_DEALER
 import spms.DEFAULT_PORT
+import spms.SpMpServer
 import toRed
 import zmq.ZmqSocket
 
-private const val SERVER_REPLY_TIMEOUT_MS: Long = 1000
+const val SERVER_REPLY_TIMEOUT_MS: Long = 10000
 
 private fun getClientName(): String =
     "SpMs Controller"
@@ -25,24 +27,26 @@ private fun getClientName(): String =
 internal class SpMsControllerError(message: String): CliktError(message.toRed())
 
 @OptIn(ExperimentalForeignApi::class)
-class SpMsController private constructor(): Command(
+class Controller private constructor(): Command(
     name = "ctrl",
     is_default = true
 ) {
-    private val port: Int by option().int().default(DEFAULT_PORT).help("The port use when connecting to the server interface")
+    private val port: Int by option("-p", "--port").int().default(DEFAULT_PORT).help("The port use when connecting to the server interface")
+    private val verbose: Boolean by option("-v", "--verbose").flag()
 
     override fun run() {
         val mem_scope = MemScope()
         val socket: ZmqSocket = ZmqSocket(mem_scope, ZMQ_DEALER, is_binder = false)
 
-        val context = SpMpControllerCommandContext(socket, mem_scope)
-        currentContext.obj = SpMpControllerCommandContext(socket, mem_scope)
+        val context = ControllerModeContext(socket, mem_scope, verbose)
+        currentContext.obj = context
 
         try {
-            println("Connecting to port $port...")
+            context.logVerbose("Connecting to port $port...")
             socket.connect("tcp://localhost:$port")
 
-            println("Sending handshake...")
+            context.logVerbose("Sending handshake...")
+
             socket.sendStringMultipart(listOf(getClientName()))
 
             val reply: List<String>? = socket.recvStringMultipart(SERVER_REPLY_TIMEOUT_MS)
@@ -51,7 +55,7 @@ class SpMsController private constructor(): Command(
                 throw SpMsControllerError("Server did not respond within timeout (${SERVER_REPLY_TIMEOUT_MS}ms)")
             }
 
-            println("Got handshake reply from server $reply")
+            context.logVerbose("Got handshake reply from server $reply")
         }
         catch (e: Throwable) {
             context.release()
@@ -64,7 +68,7 @@ class SpMsController private constructor(): Command(
     }
 
     companion object {
-        fun get(): SpMsController =
-            SpMsController().subcommands(Interactive(), Run(), Poll())
+        fun get(): Controller =
+            Controller().subcommands(Interactive(), Run.get(), Poll())
     }
 }

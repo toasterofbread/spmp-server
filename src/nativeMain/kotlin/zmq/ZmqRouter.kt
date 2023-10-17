@@ -45,7 +45,7 @@ abstract class ZmqRouter(mem_scope: MemScope) {
                 client_id = part
             }
             else {
-                message_parts.add(part.decodeToString())
+                message_parts.add(part.decodeToString().removeSuffix("\u0000"))
             }
         }
 

@@ -6,7 +6,7 @@ interface MpvClient {
     val state: State
     val is_playing: Boolean
     val song_count: Int
-    val current_song_index: Int
+    val current_item_index: Int
     val current_position_ms: Long
     val duration_ms: Long
     val repeat_mode: RepeatMode
@@ -16,18 +16,18 @@ interface MpvClient {
     fun pause()
     fun playPause()
 
-    fun seekTo(position_ms: Long)
-    fun seekToSong(index: Int)
+    fun seekToTime(position_ms: Long)
+    fun seekToItem(index: Int)
     fun seekToNext(): Boolean
     fun seekToPrevious(): Boolean
 
     fun getSong(): String?
     fun getSong(index: Int): String?
     /** Returns the actual index of the added song **/
-    fun addSong(song_id: String, index: Int): Int
-    fun moveSong(from: Int, to: Int)
-    fun removeSong(index: Int)
-    fun clear()
+    fun addItem(song_id: String, index: Int): Int
+    fun moveItem(from: Int, to: Int)
+    fun removeItem(index: Int)
+    fun clearQueue()
 
     fun setVolume(value: Float)
 

@@ -124,7 +124,9 @@ class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
     }
 
     fun recvStringMultipart(timeout_ms: Long?): List<String>? =
-        recvMultipart(timeout_ms)?.map { it.decodeToString() }
+        recvMultipart(timeout_ms)?.mapNotNull { part ->
+            part.decodeToString().removeSuffix("\u0000").takeIf { it.isNotEmpty() }
+        }
 
     fun recvMultipart(timeout_ms: Long?): List<ByteArray>? = memScoped {
         val event: zmq_poller_event_t = alloc()
