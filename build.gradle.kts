@@ -18,7 +18,7 @@ kotlin {
         host_os.startsWith("Windows") -> mingwX64("native")
         host_os == "Mac OS X" && arch == "x86_64" -> macosX64("native")
         host_os == "Mac OS X" && arch == "aarch64" -> macosArm64("native")
-        else -> throw GradleException("Host OS '$host_os' is not supported Kotlin/Native")
+        else -> throw GradleException("Host OS '$host_os' is not supported by Kotlin/Native")
     }
 
     nativeTarget.apply {
@@ -41,6 +41,7 @@ kotlin {
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
+                implementation("com.github.ajalt.clikt:clikt:4.2.1")
             }
         }
     }

@@ -111,7 +111,13 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
             return
         }
 
-        runCommand("playlist-move", from, to)
+        // https://mpv.io/manual/master/#command-interface-playlist-move
+        if (from < to) {
+            runCommand("playlist-move", from, to + 1)
+        }
+        else {
+            runCommand("playlist-move", from, to)
+        }
     }
 
     override fun removeSong(index: Int) {
