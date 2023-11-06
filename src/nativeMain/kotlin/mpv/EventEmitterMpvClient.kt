@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
 import libmpv.MPV_EVENT_END_FILE
 import libmpv.MPV_EVENT_PLAYBACK_RESTART
+import libmpv.MPV_EVENT_PROPERTY_CHANGE
 import libmpv.MPV_EVENT_SHUTDOWN
 import libmpv.MPV_EVENT_START_FILE
 import libmpv.mpv_event_id
@@ -48,6 +49,16 @@ abstract class EventEmitterMpvClient(headless: Boolean = false): MpvClientImpl(h
     override fun release() {
         coroutine_scope.cancel()
         super.release()
+    }
+
+    override fun play() {
+        super.play()
+        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
+    }
+
+    override fun pause() {
+        super.pause()
+        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
     }
 
     override fun seekToTime(position_ms: Long) {
@@ -117,6 +128,7 @@ data class PlayerEvent(private val type: String, private val properties: Map<Str
         return "$type($properties)"
     }
 
+    @Suppress("FunctionName")
     companion object {
         fun ItemTransition(index: Int) = PlayerEvent("ItemTransition", mapOf("index" to JsonPrimitive(index)))
         fun SeekedToTime(position_ms: Long) = PlayerEvent("Seeked", mapOf("position_ms" to JsonPrimitive(position_ms)))

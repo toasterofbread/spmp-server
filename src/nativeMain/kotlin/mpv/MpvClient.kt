@@ -5,7 +5,7 @@ interface MpvClient {
 
     val state: State
     val is_playing: Boolean
-    val song_count: Int
+    val item_count: Int
     val current_item_index: Int
     val current_position_ms: Long
     val duration_ms: Long
@@ -21,10 +21,10 @@ interface MpvClient {
     fun seekToNext(): Boolean
     fun seekToPrevious(): Boolean
 
-    fun getSong(): String?
-    fun getSong(index: Int): String?
-    /** Returns the actual index of the added song **/
-    fun addItem(song_id: String, index: Int): Int
+    fun getItem(): String?
+    fun getItem(index: Int): String?
+    /** Returns the actual index of the added item **/
+    fun addItem(item_id: String, index: Int): Int
     fun moveItem(from: Int, to: Int)
     fun removeItem(index: Int)
     fun clearQueue()

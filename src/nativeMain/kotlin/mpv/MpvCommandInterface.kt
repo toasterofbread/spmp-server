@@ -8,16 +8,16 @@ import kotlinx.serialization.json.putJsonArray
 
 fun MpvClient.getCurrentStatusJson(): JsonElement =
     buildJsonObject {
-        val sc: Int = song_count
+        val sc: Int = item_count
         putJsonArray("queue") {
             for (i in 0 until sc) {
-                add(getSong(i))
+                add(getItem(i))
             }
         }
 
         put("state", state.ordinal)
         put("is_playing", is_playing)
-        put("current_song_index", current_item_index)
+        put("current_item_index", current_item_index)
         put("current_position_ms", current_position_ms)
         put("duration_ms", duration_ms)
         put("repeat_mode", repeat_mode.ordinal)

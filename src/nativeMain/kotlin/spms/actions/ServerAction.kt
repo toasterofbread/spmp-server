@@ -91,6 +91,8 @@ sealed class ServerAction(
             ServerActionPlayPause(),
 
             ServerActionSeekToItem(),
+            ServerActionSeekToNext(),
+            ServerActionSeekToPrevious(),
             ServerActionSeekToTime(),
             ServerActionSetVolume(),
 

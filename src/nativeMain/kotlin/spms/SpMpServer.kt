@@ -21,6 +21,7 @@ import zmq.ZmqRouter
 import kotlin.system.getTimeMillis
 
 const val SERVER_EXPECT_REPLY_CHAR: Char = '!'
+const val SEND_EVENTS_TO_INSTIGATING_CLIENT: Boolean = true
 
 @OptIn(ExperimentalForeignApi::class)
 class SpMpServer(mem_scope: MemScope, val headless: Boolean = true): ZmqRouter(mem_scope) {
@@ -31,7 +32,7 @@ class SpMpServer(mem_scope: MemScope, val headless: Boolean = true): ZmqRouter(m
     @Serializable
     data class ActionReply(val success: Boolean, val error: String? = null, val error_cause: String? = null, val result: JsonElement? = null)
 
-    private class Client(val id_bytes: ByteArray, val name: String, val event_head: Int) {
+    private class Client(val id_bytes: ByteArray, val name: String, var event_head: Int) {
         val id: Int = id_bytes.contentHashCode()
 
         fun createMessage(parts: List<String>): Message =
@@ -107,7 +108,7 @@ class SpMpServer(mem_scope: MemScope, val headless: Boolean = true): ZmqRouter(m
 
     private fun getEventsForClient(client: Client): List<PlayerEvent> =
         mpv.events.filter { event ->
-            event.event_id >= client.event_head && event.client_id != client.id
+            event.event_id >= client.event_head && (SEND_EVENTS_TO_INSTIGATING_CLIENT || event.client_id != client.id)
         }
 
     fun poll(client_reply_timeout_ms: Long): Boolean {
@@ -132,6 +133,7 @@ class SpMpServer(mem_scope: MemScope, val headless: Boolean = true): ZmqRouter(m
                 // Add events to message, then consume
                 for (event in events) {
                     message_parts.add(Json.encodeToString(event))
+                    client.event_head = maxOf(event.event_id, client.event_head)
 
                     event.onConsumedByClient()
                     if (event.pending_client_amount <= 0) {
@@ -173,7 +175,6 @@ class SpMpServer(mem_scope: MemScope, val headless: Boolean = true): ZmqRouter(m
 
             // Empty response
             if (client_reply.parts.size < 2) {
-                println("EMPTY RESPONSE $client")
                 continue
             }
 

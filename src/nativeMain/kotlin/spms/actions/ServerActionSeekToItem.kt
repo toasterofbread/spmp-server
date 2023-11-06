@@ -5,7 +5,7 @@ import kotlinx.serialization.json.int
 import spms.SpMpServer
 
 class ServerActionSeekToItem: ServerAction(
-    identifier = "seekToSong",
+    identifier = "seekToItem",
     help = "Seek to the queue item at the specified index",
     parameters = listOf(
         Parameter(

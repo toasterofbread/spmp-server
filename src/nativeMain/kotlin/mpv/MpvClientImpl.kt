@@ -5,8 +5,8 @@ private fun filenameToId(filename: String): String {
     return filename.substring(index + 2)
 }
 
-private fun idToFilename(song_id: String): String {
-    return "https://www.youtube.com/watch?v=$song_id"
+private fun idToFilename(video_id: String): String {
+    return "https://www.youtube.com/watch?v=$video_id"
 }
 
 open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
@@ -18,7 +18,7 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
             else MpvClient.State.READY
     override val is_playing: Boolean
         get() = !getProperty<Boolean>("core-idle")
-    override val song_count: Int
+    override val item_count: Int
         get() = getProperty("playlist-count")
     override val current_item_index: Int
         get() = getProperty("playlist-playing-pos")
@@ -74,9 +74,9 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         return runCommand("playlist-prev", check_result = false) == 0
     }
 
-    override fun getSong(): String? = getSong(current_item_index)
+    override fun getItem(): String? = getItem(current_item_index)
 
-    override fun getSong(index: Int): String? {
+    override fun getItem(index: Int): String? {
         if (index < 0) {
             return null
         }
@@ -89,10 +89,10 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         }
     }
 
-    override fun addItem(song_id: String, index: Int): Int {
-        val filename: String = idToFilename(song_id)
+    override fun addItem(item_id: String, index: Int): Int {
+        val filename: String = idToFilename(item_id)
 
-        val sc = song_count
+        val sc = item_count
         runCommand("loadfile", filename, if (sc == 0) "replace" else "append")
 
         if (index < 0 || index >= sc) {
