@@ -26,6 +26,7 @@ kotlin {
             cinterops {
                 val libmpv by creating
                 val libzmq by creating
+                val libappindicator by creating
             }
         }
 

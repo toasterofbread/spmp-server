@@ -5,13 +5,26 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
-import com.github.ajalt.clikt.parameters.options.switch
-import com.github.ajalt.clikt.parameters.types.boolean
 import com.github.ajalt.clikt.parameters.types.int
+import indicator.TrayIndicator
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.IntVar
+import kotlinx.cinterop.IntVarOf
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.cstr
 import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.objcPtr
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.reinterpret
+import kotlinx.cinterop.staticCFunction
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import libappindicator.*
+import platform.posix.LC_NUMERIC
+import platform.posix.setlocale
 
 const val DEFAULT_PORT: Int = 3973
 private const val POLL_INTERVAL_MS: Long = 100
@@ -31,6 +44,19 @@ class SpMs: Command(
             return
         }
 
+        var close: Boolean = false
+
+        val indicator: TrayIndicator? = TrayIndicator.create("SpMs", listOf("home", "toaster", "Media", "rollin.png"))
+        indicator?.apply {
+            addClickCallback {
+                println("ON CLICK")
+            }
+
+            addButton("Close") {
+                close = true
+            }
+        }
+
         memScoped {
             val server = SpMpServer(this, !enable_gui)
             server.bind(port)
@@ -40,14 +66,21 @@ class SpMs: Command(
             }
 
             runBlocking {
+                if (indicator != null) {
+                    launch(Dispatchers.Default) {
+                        indicator.show()
+                    }
+                }
+
                 println("--- Polling started ---")
-                while (server.poll(CLIENT_REPLY_TIMEOUT_MS)) {
+                while (server.poll(CLIENT_REPLY_TIMEOUT_MS) && !close) {
                     delay(POLL_INTERVAL_MS)
                 }
                 println("--- Polling ended ---")
-            }
 
-            server.release()
+                server.release()
+                indicator?.release()
+            }
         }
     }
 }

@@ -1,0 +1,119 @@
+@file:Suppress("INVISIBLE_MEMBER")
+package indicator
+
+import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.IntVar
+import kotlinx.cinterop.IntVarOf
+import kotlinx.cinterop.MemScope
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.pointed
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.reinterpret
+import kotlinx.cinterop.staticCFunction
+import kotlinx.cinterop.value
+import libappindicator.*
+import platform.posix.LC_NUMERIC
+import platform.posix.setlocale
+
+@OptIn(ExperimentalForeignApi::class)
+class LibAppIndicator(name: String, icon_path: List<String>): TrayIndicator {
+    private val mem_scope = MemScope()
+    private val indicator: CPointer<AppIndicator>
+    private val menu: CPointer<GtkWidget>
+    private var main_loop: CPointer<GMainLoop>? = null
+
+    override fun show() {
+        app_indicator_set_menu(indicator, menu.reinterpret())
+
+        main_loop = g_main_loop_new(null, FALSE)
+        g_main_loop_run(main_loop)
+        main_loop = null
+    }
+
+    override fun hide() {
+        main_loop?.also { loop ->
+            g_main_loop_quit(loop)
+        }
+    }
+
+    override fun release() {
+        hide()
+    }
+
+    override fun addClickCallback(onClick: ClickCallback) {
+        // TODO
+    }
+
+    override fun addButton(label: String, onClick: ButtonCallback) {
+        val callback_index: CPointer<IntVar> = button_callbacks.addCallback(onClick, mem_scope)
+
+        val item: CPointer<GtkWidget> = gtk_menu_item_new_with_label(label)!!
+        g_signal_connect_data(
+            item,
+            "activate",
+            staticCFunction { _: CPointer<*>, index: CPointer<IntVar> ->
+                button_callbacks.getCallback(index).invoke()
+            }.reinterpret(),
+            callback_index,
+            null,
+            0U
+        )
+        gtk_menu_shell_append(menu.reinterpret(), item)
+        gtk_widget_show(item)
+    }
+
+    override fun addScrollCallback(onScroll: (delta: Int, direction: Int) -> Unit) {
+        val callback_index: CPointer<IntVar> = scroll_callbacks.addCallback(onScroll, mem_scope)
+
+        g_signal_connect_data(
+            indicator,
+            "scroll-event",
+            staticCFunction { _: CPointer<*>, delta: gint, direction: guint, index: CPointer<IntVar> ->
+                scroll_callbacks.getCallback(index).invoke(delta, if (direction == 1U) 1 else -1)
+            }.reinterpret(),
+            callback_index,
+            null,
+            0U
+        )
+    }
+
+    init {
+        memScoped {
+            val gtk_argc: IntVarOf<Int> = alloc()
+            gtk_init(gtk_argc.ptr, null)
+        }
+
+        indicator = app_indicator_new("spms", "indicator-messages", AppIndicatorCategory.APP_INDICATOR_CATEGORY_APPLICATION_STATUS)!!
+
+        app_indicator_set_title(indicator, name)
+        app_indicator_set_status(indicator, AppIndicatorStatus.APP_INDICATOR_STATUS_ACTIVE)
+
+        val path: MutableList<String> = icon_path.toMutableList()
+        val icon_file: String = path.removeLast().split('.', limit = 2).first()
+
+        app_indicator_set_icon_theme_path(indicator, '/' + path.joinToString("/"))
+        app_indicator_set_icon_full(indicator, icon_file, name)
+
+        menu = gtk_menu_new()!!
+
+        setlocale(LC_NUMERIC, "C")
+    }
+
+    companion object {
+        private val click_callbacks: MutableList<ClickCallback> = mutableListOf()
+        private val button_callbacks: MutableList<ButtonCallback> = mutableListOf()
+        private val scroll_callbacks: MutableList<ScrollCallback> = mutableListOf()
+
+        private fun <T> MutableList<T>.addCallback(callback: T, mem_scope: MemScope): CPointer<IntVar> {
+            val callback_index: IntVarOf<Int> = mem_scope.alloc()
+            callback_index.value = size
+            add(callback)
+            return callback_index.ptr
+        }
+
+        private fun <T> MutableList<T>.getCallback(index: CPointer<IntVar>): T =
+            get(index.pointed.value)
+    }
+}
