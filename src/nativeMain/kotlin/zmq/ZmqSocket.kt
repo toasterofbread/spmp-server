@@ -29,7 +29,6 @@ import libzmq.zmq_close
 import libzmq.zmq_connect
 import libzmq.zmq_ctx_destroy
 import libzmq.zmq_ctx_new
-import libzmq.zmq_ctx_term
 import libzmq.zmq_disconnect
 import libzmq.zmq_getsockopt
 import libzmq.zmq_msg_close
@@ -47,6 +46,8 @@ import libzmq.zmq_setsockopt
 import libzmq.zmq_socket
 import libzmq.zmq_unbind
 import platform.posix.memcpy
+
+const val MESSAGE_MAX_SIZE: Int = 1024
 
 @OptIn(ExperimentalForeignApi::class)
 class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
@@ -68,8 +69,8 @@ class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
             linger.value = 0
             zmq_setsockopt(socket, ZMQ_LINGER, linger.ptr, sizeOf<IntVar>().toULong())
 
-            message_buffer = allocArray(MESSAGE_SIZE)
-            message_buffer_size = (sizeOf<ByteVar>() * MESSAGE_SIZE).toULong()
+            message_buffer = allocArray(MESSAGE_MAX_SIZE)
+            message_buffer_size = (sizeOf<ByteVar>() * MESSAGE_MAX_SIZE).toULong()
 
             has_more = alloc()
             has_more_size = alloc<ULongVar>().apply { value = sizeOf<IntVar>().toULong() }

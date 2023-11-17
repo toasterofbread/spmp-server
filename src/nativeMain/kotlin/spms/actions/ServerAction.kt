@@ -1,7 +1,5 @@
 package spms.actions
 
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -9,7 +7,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import libzmq.ZMQ_NOBLOCK
 import spms.SERVER_EXPECT_REPLY_CHAR
 import spms.SpMpServer
-import toRed
 import zmq.ZmqSocket
 import kotlin.system.getTimeMillis
 
@@ -71,7 +68,10 @@ sealed class ServerAction(
                 if (verbose) {
                     println("Received reply from server for action '$identifier'")
                 }
-                return reply.firstOrNull()?.let { Json.decodeFromString(it) }
+
+                // Hacky workaround, but if it works who cares?
+                val joined: String = reply.joinToString().replace("\u0000, ", "")
+                return Json.decodeFromString(joined)
             }
             else if (verbose) {
                 println("Received empty reply from server for action '$identifier', continuing to wait...")

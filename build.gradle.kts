@@ -43,6 +43,11 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
                 implementation("com.github.ajalt.clikt:clikt:4.2.1")
+                implementation("com.squareup.okio:okio:3.6.0")
+
+                val ktor_version: String = "2.3.6"
+                implementation("io.ktor:ktor-client-core:$ktor_version")
+                implementation("io.ktor:ktor-client-curl:$ktor_version")
             }
         }
     }

@@ -7,8 +7,6 @@ import kotlinx.cinterop.toCValues
 import kotlinx.cinterop.value
 import libzmq.*
 
-const val MESSAGE_SIZE = 255
-
 @OptIn(ExperimentalForeignApi::class)
 abstract class ZmqRouter(mem_scope: MemScope) {
     protected class Message(val client_id: ByteArray, val parts: List<String>) {
@@ -58,7 +56,12 @@ abstract class ZmqRouter(mem_scope: MemScope) {
 
     protected fun sendMultipart(message: Message) {
         socket.sendMultipart(
-            listOf(message.client_id.toCValues()) + message.parts.map { it.cstr }
+            listOf(message.client_id.toCValues()) + message.parts.flatMap { part ->
+                val chunks: List<String> = part.chunked(MESSAGE_MAX_SIZE - 8)
+                chunks.mapIndexed { i, chunk ->
+                    (if (i + 1 == chunks.size) chunk else chunk + '\u0000').cstr
+                }
+            }
         )
     }
 }

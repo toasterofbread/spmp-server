@@ -55,7 +55,7 @@ class Controller private constructor(): Command(
                 throw SpMsControllerError("Server did not respond within timeout (${SERVER_REPLY_TIMEOUT_MS}ms)")
             }
 
-            context.logVerbose("Got handshake reply from server $reply")
+            context.logVerbose("Got handshake reply from server")
         }
         catch (e: Throwable) {
             context.release()

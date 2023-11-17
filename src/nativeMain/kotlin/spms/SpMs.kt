@@ -7,28 +7,36 @@ import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
 import indicator.TrayIndicator
-import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.IntVar
-import kotlinx.cinterop.IntVarOf
-import kotlinx.cinterop.alloc
-import kotlinx.cinterop.cstr
 import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.objcPtr
-import kotlinx.cinterop.ptr
-import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.staticCFunction
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import libappindicator.*
-import platform.posix.LC_NUMERIC
-import platform.posix.setlocale
 
 const val DEFAULT_PORT: Int = 3973
 private const val POLL_INTERVAL_MS: Long = 100
 private const val CLIENT_REPLY_TIMEOUT_MS: Long = 1000
+
+@OptIn(ExperimentalForeignApi::class)
+fun createIndicator(coroutine_scope: CoroutineScope, endProgram: () -> Unit): TrayIndicator? {
+    val indicator: TrayIndicator? = TrayIndicator.create("SpMs", listOf("home", "toaster", "Media", "rollin.png"))
+    indicator?.apply {
+        addButton("Open client") {
+            coroutine_scope.launch(Dispatchers.Default) {
+                popen("spmp", "r")
+            }
+        }
+
+        addButton("Stop") {
+            endProgram()
+        }
+    }
+
+    return indicator
+}
 
 @OptIn(ExperimentalForeignApi::class)
 class SpMs: Command(
@@ -44,18 +52,7 @@ class SpMs: Command(
             return
         }
 
-        var close: Boolean = false
-
-        val indicator: TrayIndicator? = TrayIndicator.create("SpMs", listOf("home", "toaster", "Media", "rollin.png"))
-        indicator?.apply {
-            addClickCallback {
-                println("ON CLICK")
-            }
-
-            addButton("Close") {
-                close = true
-            }
-        }
+        var stop: Boolean = false
 
         memScoped {
             val server = SpMpServer(this, !enable_gui)
@@ -66,6 +63,10 @@ class SpMs: Command(
             }
 
             runBlocking {
+                val indicator: TrayIndicator? = createIndicator(this) {
+                    stop = true
+                }
+
                 if (indicator != null) {
                     launch(Dispatchers.Default) {
                         indicator.show()
@@ -73,14 +74,19 @@ class SpMs: Command(
                 }
 
                 println("--- Polling started ---")
-                while (server.poll(CLIENT_REPLY_TIMEOUT_MS) && !close) {
+                while (server.poll(CLIENT_REPLY_TIMEOUT_MS) && !stop) {
                     delay(POLL_INTERVAL_MS)
                 }
                 println("--- Polling ended ---")
 
                 server.release()
                 indicator?.release()
+                kill(0, SIGTERM)
             }
         }
+    }
+
+    companion object {
+        val applicationName: String = "spmp-server"
     }
 }
