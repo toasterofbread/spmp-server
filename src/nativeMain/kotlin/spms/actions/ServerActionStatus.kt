@@ -28,6 +28,7 @@ import platform.posix.getenv
 import spms.SpMpServer
 import spms.SpMs
 
+@Suppress("OPT_IN_USAGE")
 @OptIn(ExperimentalForeignApi::class)
 fun getCacheDir(): Path =
     when (Platform.osFamily) {

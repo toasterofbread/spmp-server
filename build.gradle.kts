@@ -1,5 +1,7 @@
 @file:Suppress("UNUSED_VARIABLE")
 
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetWithHostTests
+
 plugins {
     kotlin("multiplatform") version "1.9.10"
     kotlin("plugin.serialization") version "1.9.0"
@@ -11,9 +13,9 @@ repositories {
 }
 
 kotlin {
-    val host_os = System.getProperty("os.name")
-    val arch = System.getProperty("os.arch")
-    val nativeTarget = when {
+    val host_os: String = System.getProperty("os.name")
+    val arch: String = System.getProperty("os.arch")
+    val nativeTarget: KotlinNativeTargetWithHostTests = when {
         host_os == "Linux" -> linuxX64("native")
         host_os.startsWith("Windows") -> mingwX64("native")
         host_os == "Mac OS X" && arch == "x86_64" -> macosX64("native")
@@ -53,11 +55,44 @@ kotlin {
     }
 }
 
-subprojects {
-    apply(plugin = "org.jetbrains.dokka")
-}
-
 tasks.withType<Wrapper> {
     gradleVersion = "7.6"
     distributionType = Wrapper.DistributionType.BIN
+}
+
+tasks.register("bundleIcon") {
+    val in_file = project.file("icon.png")
+    inputs.file(in_file)
+
+    val out_file = project.file("src/nativeMain/kotlin/icon.gen.kt")
+    outputs.file(out_file)
+
+    doLast {
+        check(in_file.isFile)
+
+        out_file.writer().use { writer ->
+            writer.write("// https://youtrack.jetbrains.com/issue/KT-39194\n")
+            writer.write("val ICON_BYTES: ByteArray = byteArrayOf(")
+
+            val bytes: ByteArray = in_file.readBytes()
+            for ((i, byte) in bytes.withIndex()) {
+                if (byte >= 0) {
+                    writer.write("0x${byte.toString(16)}")
+                }
+                else {
+                    writer.write("-0x${byte.toString(16).substring(1)}")
+                }
+
+                if (i + 1 != bytes.size) {
+                    writer.write(",")
+                }
+            }
+
+            writer.write(")\n")
+        }
+    }
+}
+
+tasks.getByName("compileKotlinNative") {
+    dependsOn("bundleIcon")
 }
