@@ -117,6 +117,8 @@ class ServerActionStatus: ServerAction(
     private val json: Json = Json { ignoreUnknownKeys = true }
 
     private suspend fun HttpClient.getVideoInfo(video_id: String): String {
+        return video_id
+
         suspend fun tryRequest(): String {
             var parsed: PipedStreamsResponse? = cache_files["video_info"]?.jsonObject?.get(video_id)?.jsonObject?.let { Json.decodeFromJsonElement(it) }
             if (parsed == null) {

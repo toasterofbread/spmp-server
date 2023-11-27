@@ -23,9 +23,9 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
     override val current_item_index: Int
         get() = getProperty("playlist-playing-pos")
     override val current_position_ms: Long
-        get() = (getProperty<Double>("playback-time") * 1000).toLong()
+        get() = (getProperty<Double>("playback-time") * 1000).toLong().coerceAtLeast(0)
     override val duration_ms: Long
-        get() = (getProperty<Double>("duration") * 1000).toLong()
+        get() = (getProperty<Double>("duration") * 1000).toLong().coerceAtLeast(0)
     override val repeat_mode: MpvClient.RepeatMode
         get() = MpvClient.RepeatMode.NONE // TODO
     override val volume: Double
