@@ -17,8 +17,11 @@ import spms.SpMpServer
 import spms.actions.ServerAction
 import toRed
 
+private fun ControllerMode.jsonModeOption() = 
+    option("-j", "--json").flag().help("Output result data in JSON format if possible")
+
 class Run private constructor(): ControllerMode("run") {
-    private val json_mode: Boolean by option("-j", "--json", help = "Output result data in JSON format if possible").flag()
+    private val json_mode: Boolean by jsonModeOption()
 
     override fun run() {
         val mode: ServerActionControllerMode? = currentContext.invokedSubcommand as? ServerActionControllerMode
@@ -37,7 +40,7 @@ class Run private constructor(): ControllerMode("run") {
 }
 
 class ServerActionControllerMode(val action: ServerAction): ControllerMode(action.identifier, action.help) {
-    private val json_mode: Boolean by option("-j", "--json", help = "Output result data in JSON format if possible").flag()
+    private val json_mode: Boolean by jsonModeOption()
 
     internal var parent_json_mode: Boolean = false
     internal var verbose: Boolean = false

@@ -62,8 +62,8 @@ class SpMs: Command(
     is_default = true
 ) {
     private val port: Int by option("-p", "--port").int().default(DEFAULT_PORT).help("The port on which to bind the server interface")
-    private val enable_gui: Boolean by option("-g", "--gui").flag()
-    private val mute_on_start: Boolean by option("-m", "--mute").flag()
+    private val enable_gui: Boolean by option("-g", "--gui").flag().help("Show mpv's graphical interface")
+    private val mute_on_start: Boolean by option("-m", "--mute").flag().help("Mute player on startup")
 
     override fun run() {
         if (currentContext.invokedSubcommand != null) {

@@ -119,25 +119,25 @@ class ServerActionStatus: ServerAction(
     private suspend fun HttpClient.getVideoInfo(video_id: String): String {
         return video_id
 
-        suspend fun tryRequest(): String {
-            var parsed: PipedStreamsResponse? = cache_files["video_info"]?.jsonObject?.get(video_id)?.jsonObject?.let { Json.decodeFromJsonElement(it) }
-            if (parsed == null) {
-                val response: HttpResponse = get("https://pipedapi.kavin.rocks/streams/$video_id")
-                parsed = json.decodeFromString(response.bodyAsText())!!
+        // suspend fun tryRequest(): String {
+        //     var parsed: PipedStreamsResponse? = cache_files["video_info"]?.jsonObject?.get(video_id)?.jsonObject?.let { Json.decodeFromJsonElement(it) }
+        //     if (parsed == null) {
+        //         val response: HttpResponse = get("https://pipedapi.kavin.rocks/streams/$video_id")
+        //         parsed = json.decodeFromString(response.bodyAsText())!!
 
-                val array: MutableMap<String, JsonElement> = cache_files.getOrPut("video_info") { JsonObject(emptyMap()) }.jsonObject.toMutableMap()
-                array[video_id] = json.encodeToJsonElement(parsed)
-                cache_files["video_info"] = JsonObject(array)
-            }
-            return "$video_id - ${parsed.title}"
-        }
+        //         val array: MutableMap<String, JsonElement> = cache_files.getOrPut("video_info") { JsonObject(emptyMap()) }.jsonObject.toMutableMap()
+        //         array[video_id] = json.encodeToJsonElement(parsed)
+        //         cache_files["video_info"] = JsonObject(array)
+        //     }
+        //     return "$video_id - ${parsed.title}"
+        // }
 
-        for (i in 0 until 5) {
-            try {
-                return tryRequest()
-            }
-            catch (_: Throwable) {}
-        }
-        return video_id
+        // for (i in 0 until 5) {
+        //     try {
+        //         return tryRequest()
+        //     }
+        //     catch (_: Throwable) {}
+        // }
+        // return video_id
     }
 }

@@ -31,8 +31,8 @@ class Controller private constructor(): Command(
     name = "ctrl",
     is_default = true
 ) {
-    private val port: Int by option("-p", "--port").int().default(DEFAULT_PORT).help("The port use when connecting to the server interface")
-    private val verbose: Boolean by option("-v", "--verbose").flag()
+    private val port: Int by option("-p", "--port").int().default(DEFAULT_PORT).help("The port to use when connecting to the server interface")
+    private val verbose: Boolean by option("-v", "--verbose").flag().help("Enable verbose logging")
 
     override fun run() {
         val mem_scope = MemScope()
