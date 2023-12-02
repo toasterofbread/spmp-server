@@ -1,6 +1,6 @@
 import com.github.ajalt.clikt.core.subcommands
-import controller.Controller
-import spms.SpMs
+import spms.controller.Controller
+import spms.SpMsCommand
 import kotlin.system.exitProcess
 
 fun String.toRed() =
@@ -8,7 +8,7 @@ fun String.toRed() =
 
 fun main(args: Array<String>) {
     try {
-        SpMs().subcommands(Controller.get()).main(args)
+        SpMsCommand().subcommands(Controller.get()).main(args)
     }
     catch (e: Throwable) {
         e.printStackTrace()
