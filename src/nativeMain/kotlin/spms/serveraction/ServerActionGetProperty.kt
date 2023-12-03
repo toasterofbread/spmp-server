@@ -1,7 +1,7 @@
 package spms.serveraction
 
 import kotlinx.serialization.json.JsonElement
-import spms.SpMs
+import spms.server.SpMs
 
 class ServerActionGetProperty: ServerAction(
     identifier = "getProperty",

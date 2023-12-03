@@ -1,21 +1,68 @@
 package cinterop.mpv
 
-private fun filenameToId(filename: String): String {
-    val index = filename.indexOf("v=")
-    return filename.substring(index + 2)
-}
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonPrimitive
+import libmpv.MPV_EVENT_END_FILE
+import libmpv.MPV_EVENT_FILE_LOADED
+import libmpv.MPV_EVENT_PLAYBACK_RESTART
+import libmpv.MPV_EVENT_SHUTDOWN
+import libmpv.MPV_EVENT_START_FILE
+import libmpv.mpv_event_id
+import spms.player.Player
+import spms.player.PlayerEvent
+import kotlin.math.roundToInt
 
-private fun idToFilename(video_id: String): String {
-    return "https://www.youtube.com/watch?v=$video_id"
-}
+abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
+    private val coroutine_scope = CoroutineScope(Dispatchers.IO)
 
-open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
-    override val state: MpvClient.State
+    abstract fun urlToId(url: String): String
+    abstract fun idToUrl(item_id: String): String
+
+    init {
+        coroutine_scope.launch {
+            while (true) {
+                val event: mpv_event_id? = waitForEvent()
+                when (event) {
+                    MPV_EVENT_START_FILE -> {
+                        onEvent(PlayerEvent.ItemTransition(current_item_index), clientless = true)
+                        setProperty("pause", true)
+                        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(false)))
+                    }
+                    MPV_EVENT_PLAYBACK_RESTART -> {
+                        onEvent(PlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
+                        onEvent(PlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration_ms)), clientless = true)
+                        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)), clientless = true)
+                    }
+                    MPV_EVENT_END_FILE -> {
+                        onEvent(PlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
+                        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)), clientless = true)
+                    }
+                    MPV_EVENT_SHUTDOWN -> {
+                        onShutdown()
+                    }
+                    MPV_EVENT_FILE_LOADED -> {
+                        onEvent(PlayerEvent.ReadyToPlay(), clientless = true)
+                    }
+                }
+            }
+        }
+    }
+
+    override fun release() {
+        coroutine_scope.cancel()
+        super.release()
+    }
+
+    override val state: Player.State
         get() =
-            if (getProperty("eof-reached")) MpvClient.State.ENDED
-            else if (getProperty("idle-active")) MpvClient.State.IDLE
-            else if (getProperty("paused-for-cache")) MpvClient.State.BUFFERING
-            else MpvClient.State.READY
+            if (getProperty("eof-reached")) Player.State.ENDED
+            else if (getProperty("idle-active")) Player.State.IDLE
+            else if (getProperty("paused-for-cache")) Player.State.BUFFERING
+            else Player.State.READY
     override val is_playing: Boolean
         get() = !getProperty<Boolean>("core-idle")
     override val item_count: Int
@@ -26,16 +73,18 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         get() = (getProperty<Double>("playback-time") * 1000).toLong().coerceAtLeast(0)
     override val duration_ms: Long
         get() = (getProperty<Double>("duration") * 1000).toLong().coerceAtLeast(0)
-    override val repeat_mode: MpvClient.RepeatMode
-        get() = MpvClient.RepeatMode.NONE // TODO
+    override val repeat_mode: Player.RepeatMode
+        get() = Player.RepeatMode.NONE // TODO
     override val volume: Double
         get() = getProperty("volume")
 
     override fun play() {
         setProperty("pause", false)
+        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
     }
     override fun pause() {
         setProperty("pause", true)
+        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
     }
     override fun playPause() {
         if (is_playing) {
@@ -59,19 +108,30 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         val hours: String = (current / 60).toString().padStart(2, '0')
 
         runCommand("seek", "$hours:$minutes:$seconds.$milliseconds", "absolute", "exact", check_result = false)
+        onEvent(PlayerEvent.SeekedToTime(position_ms))
     }
 
     override fun seekToItem(index: Int) {
-        require(index >= 0)
-        runCommand("playlist-play-index", index.toString())
+        val max: Int = item_count - 1
+        val target_index: Int = if (index < 0) max else index.coerceAtMost(max)
+        runCommand("playlist-play-index", target_index.toString())
+        onEvent(PlayerEvent.ItemTransition(target_index))
     }
 
     override fun seekToNext(): Boolean {
-        return runCommand("playlist-next", check_result = false) == 0
+        if (runCommand("playlist-next", check_result = false) == 0) {
+            onEvent(PlayerEvent.ItemTransition(current_item_index))
+            return true
+        }
+        return false
     }
 
     override fun seekToPrevious(): Boolean {
-        return runCommand("playlist-prev", check_result = false) == 0
+        if (runCommand("playlist-prev", check_result = false) == 0) {
+            onEvent(PlayerEvent.ItemTransition(current_item_index))
+            return true
+        }
+        return false
     }
 
     override fun getItem(): String? = getItem(current_item_index)
@@ -82,7 +142,7 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         }
 
         try {
-            return filenameToId(getProperty("playlist/$index/filename"))
+            return urlToId(getProperty("playlist/$index/filename"))
         }
         catch (_: Throwable) {
             return null
@@ -90,16 +150,19 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
     }
 
     override fun addItem(item_id: String, index: Int): Int {
-        val filename: String = idToFilename(item_id)
+        val filename: String = idToUrl(item_id)
 
-        val sc = item_count
+        val sc: Int = item_count
         runCommand("loadfile", filename, if (sc == 0) "replace" else "append")
 
         if (index < 0 || index >= sc) {
+            onEvent(PlayerEvent.ItemAdded(item_id, sc))
             return sc
         }
 
         runCommand("playlist-move", sc, index)
+        onEvent(PlayerEvent.ItemAdded(item_id, index))
+
         return index
     }
 
@@ -118,18 +181,24 @@ open class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         else {
             runCommand("playlist-move", from, to)
         }
+
+        onEvent(PlayerEvent.ItemMoved(from, to))
     }
 
     override fun removeItem(index: Int) {
         require(index >= 0)
         runCommand("playlist-remove", index)
+        onEvent(PlayerEvent.ItemRemoved(index))
     }
 
     override fun clearQueue() {
         runCommand("playlist-clear")
+        onEvent(PlayerEvent.QueueCleared())
     }
 
-    override fun setVolume(value: Float) {
-        setProperty("volume", value.toDouble())
+    override fun setVolume(value: Double) {
+        setProperty("volume", (value * 100).roundToInt())
     }
+
+    override fun toString(): String = "MpvClientImpl(headless=$headless)"
 }

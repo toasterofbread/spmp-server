@@ -2,7 +2,7 @@ package spms.serveraction
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
-import spms.SpMs
+import spms.server.SpMs
 
 class ServerActionMoveItem: ServerAction(
     identifier = "moveItem",
@@ -27,7 +27,7 @@ class ServerActionMoveItem: ServerAction(
         val from: Int = context.getParameterValue("from")!!.int
         val to: Int = context.getParameterValue("to")!!.int
 
-        server.mpv.moveItem(from, to)
+        server.player.moveItem(from, to)
         return null
     }
 }

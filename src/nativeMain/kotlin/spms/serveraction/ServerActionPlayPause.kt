@@ -1,7 +1,7 @@
 package spms.serveraction
 
 import kotlinx.serialization.json.JsonElement
-import spms.SpMs
+import spms.server.SpMs
 
 class ServerActionPlayPause: ServerAction(
     identifier = "playPause",
@@ -10,7 +10,7 @@ class ServerActionPlayPause: ServerAction(
     parameters = emptyList()
 ) {
     override fun execute(server: SpMs, context: ActionContext): JsonElement? {
-        server.mpv.playPause()
+        server.player.playPause()
         return null
     }
 }

@@ -1,4 +1,4 @@
-package spms.controller.modes
+package spms.client.cli.modes
 
 import com.github.ajalt.clikt.core.CliktError
 import com.github.ajalt.clikt.core.subcommands
@@ -13,24 +13,24 @@ import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.float
 import com.github.ajalt.clikt.parameters.types.int
-import spms.controller.ControllerMode
-import spms.controller.SERVER_REPLY_TIMEOUT_MS
 import kotlinx.serialization.json.JsonPrimitive
-import spms.SpMs
+import spms.client.cli.CommandLineClientMode
+import spms.client.cli.SERVER_REPLY_TIMEOUT_MS
 import spms.localisation.loc
+import spms.server.SpMs
 import spms.serveraction.ServerAction
 import toRed
 
-private fun ControllerMode.jsonModeOption() =
+private fun CommandLineClientMode.jsonModeOption() =
     option("-j", "--json").flag().help { context.loc.server_actions.option_help_json }
 
-class Run private constructor(): ControllerMode("run", { "TODO" }) {
+class Run private constructor(): CommandLineClientMode("run", { "TODO" }) {
     private val json_mode: Boolean by jsonModeOption()
 
     override fun run() {
         super.run()
 
-        val mode: ServerActionControllerMode? = currentContext.invokedSubcommand as? ServerActionControllerMode
+        val mode: ServerActionCommandLineClientMode? = currentContext.invokedSubcommand as? ServerActionCommandLineClientMode
         mode?.parent_json_mode = json_mode
     }
 
@@ -38,15 +38,16 @@ class Run private constructor(): ControllerMode("run", { "TODO" }) {
         fun get(): Run =
             Run().subcommands(
                 ServerAction.getAll().map { action: ServerAction ->
-                    ServerActionControllerMode(action)
+                    ServerActionCommandLineClientMode(action)
                 }
             )
     }
 }
 
-class ServerActionControllerMode(val action: ServerAction): ControllerMode(action.identifier, action.help) {
+class ServerActionCommandLineClientMode(
+    val action: ServerAction
+): CommandLineClientMode(action.identifier, action.help, hidden = action.hidden) {
     private val json_mode: Boolean by jsonModeOption()
-
     internal var parent_json_mode: Boolean = false
 
     init {

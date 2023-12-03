@@ -1,6 +1,7 @@
 package spms.serveraction
 
-import cinterop.mpv.MpvClient
+import cinterop.mpv.getCurrentStatusJson
+import com.github.ajalt.clikt.core.Context
 import io.ktor.client.HttpClient
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
@@ -8,24 +9,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import cinterop.mpv.getCurrentStatusJson
-import com.github.ajalt.clikt.core.Context
-import kotlinx.serialization.json.int
-import kotlinx.serialization.json.intOrNull
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
 import platform.posix.getenv
-import spms.SpMs
-import spms.SpMsCommand
 import spms.localisation.loc
+import spms.player.Player
+import spms.server.SpMs
+import spms.server.SpMsCommand
 
 @Suppress("OPT_IN_USAGE")
 @OptIn(ExperimentalForeignApi::class)
@@ -42,7 +40,7 @@ class ServerActionStatus: ServerAction(
     parameters = emptyList()
 ) {
     override fun execute(server: SpMs, context: ActionContext): JsonElement {
-        return server.mpv.getCurrentStatusJson()
+        return server.player.getCurrentStatusJson()
     }
 
     private val cache_files: MutableMap<String, JsonElement> = mutableMapOf()
@@ -121,8 +119,8 @@ class ServerActionStatus: ServerAction(
                         }
                     }
                 }
-            "state" -> value.jsonPrimitive.intOrNull?.let { MpvClient.State.values().getOrNull(it)?.name } ?: value.jsonPrimitive.toString()
-            "repeat_mode" -> value.jsonPrimitive.intOrNull?.let { MpvClient.RepeatMode.values().getOrNull(it)?.name } ?: value.jsonPrimitive.toString()
+            "state" -> value.jsonPrimitive.intOrNull?.let { Player.State.values().getOrNull(it)?.name } ?: value.jsonPrimitive.toString()
+            "repeat_mode" -> value.jsonPrimitive.intOrNull?.let { Player.RepeatMode.values().getOrNull(it)?.name } ?: value.jsonPrimitive.toString()
             else -> value.toString()
         }
 

@@ -1,23 +1,19 @@
-package spms.controller.modes
+package spms.client.cli.modes
 
-import spms.controller.SpMsControllerError
-import spms.controller.ControllerMode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.internal.decodeStringToJsonTree
-import kotlinx.serialization.json.jsonNull
-import kotlinx.serialization.json.jsonPrimitive
 import libzmq.ZMQ_NOBLOCK
+import spms.client.cli.CommandLineClientMode
+import spms.client.cli.SpMsCommandLineClientError
 import spms.localisation.loc
-import spms.serveraction.ServerAction
 import kotlin.system.getTimeMillis
 
 private const val SERVER_EVENT_TIMEOUT_MS: Long = 10000
 private const val POLL_INTERVAL: Long = 100
 
-class Poll: ControllerMode("poll", { "TODO" }) {
+class Poll: CommandLineClientMode("poll", { "TODO" }) {
     override fun run() {
         super.run()
 
@@ -46,7 +42,7 @@ class Poll: ControllerMode("poll", { "TODO" }) {
                 }
 
                 if (events == null) {
-                    throw SpMsControllerError(currentContext.loc.cli.errServerDidNotSendEvents(SERVER_EVENT_TIMEOUT_MS))
+                    throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotSendEvents(SERVER_EVENT_TIMEOUT_MS))
                 }
 
                 if (events.isNotEmpty()) {

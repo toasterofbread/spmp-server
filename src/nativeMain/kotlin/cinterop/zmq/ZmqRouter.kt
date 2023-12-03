@@ -15,13 +15,17 @@ abstract class ZmqRouter(mem_scope: MemScope) {
     }
 
     private val socket: ZmqSocket = ZmqSocket(mem_scope, ZMQ_ROUTER, is_binder = true)
+    var bound_port: Int? = null
+        private set
 
     fun bind(port: Int) {
         socket.connect("tcp://*:$port")
+        bound_port = port
     }
 
     fun unbind() {
         socket.disconnect()
+        bound_port = null
     }
 
     fun release() {

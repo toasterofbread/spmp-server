@@ -64,4 +64,12 @@ class ServerActionLocalisationJa: ServerActionLocalisation {
     override val status_name: String = "状態表示"
     override val status_help: String = "サーバーの現在の状態を表示"
     override val status_output_start: String = "サーバー状態"
+
+    override val ready_to_play_name: String = ""
+    override val ready_to_play_help: String
+        get() = TODO("Not yet implemented")
+    override val ready_to_play_param_item_index: String
+        get() = TODO("Not yet implemented")
+    override val ready_to_play_param_item_id: String
+        get() = TODO("Not yet implemented")
 }

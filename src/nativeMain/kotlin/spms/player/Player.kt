@@ -1,6 +1,14 @@
-package cinterop.mpv
+package spms.player
 
-interface MpvClient {
+data class PlayerStreamInfo(
+    val url: String,
+    val duration: Long
+)
+
+interface Player {
+    fun onEvent(event: PlayerEvent, clientless: Boolean = false) {}
+    fun onShutdown() {}
+
     fun release()
 
     val state: State
@@ -29,7 +37,7 @@ interface MpvClient {
     fun removeItem(index: Int)
     fun clearQueue()
 
-    fun setVolume(value: Float)
+    fun setVolume(value: Double)
 
     enum class State {
         IDLE,

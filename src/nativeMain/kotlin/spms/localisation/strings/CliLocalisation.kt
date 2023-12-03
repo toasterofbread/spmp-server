@@ -10,7 +10,7 @@ interface CliLocalisation {
     val option_help_silent: String
     val option_help_language: String
     val option_help_halt: String
-    val option_help_server_address: String
+    val option_help_server_ip: String
     val option_help_server_port: String
 
     val status_key_queue: String

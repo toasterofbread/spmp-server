@@ -1,12 +1,12 @@
 @file:Suppress("INVISIBLE_MEMBER")
-package spms.controller
+package spms.client.cli
 
+import cinterop.zmq.ZmqSocket
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.MemScope
-import cinterop.zmq.ZmqSocket
 
 @OptIn(ExperimentalForeignApi::class)
-data class ControllerModeContext(
+data class CommandLineModeContext(
     val socket: ZmqSocket,
     val mem_scope: MemScope,
     val client_name: String

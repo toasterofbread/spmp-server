@@ -1,6 +1,6 @@
 package spms.localisation.strings
 
-import spms.BUG_REPORT_URL
+import spms.server.BUG_REPORT_URL
 
 class CliLocalisationEn: CliLocalisation {
     override val bug_report_notice: String = "Report bugs at $BUG_REPORT_URL"
@@ -12,7 +12,7 @@ class CliLocalisationEn: CliLocalisation {
     override val option_help_silent: String = "Disable logging"
     override val option_help_language: String = "Language of outputted logs"
     override val option_help_halt: String = "Halt on start"
-    override val option_help_server_address: String = "The IP address of the server to connect to"
+    override val option_help_server_ip: String = "The IP address of the server to connect to"
     override val option_help_server_port: String = "The port of the server to connect to"
 
     override val status_key_queue: String = "Queue"

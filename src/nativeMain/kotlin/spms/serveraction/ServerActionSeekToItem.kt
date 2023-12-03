@@ -2,7 +2,7 @@ package spms.serveraction
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
-import spms.SpMs
+import spms.server.SpMs
 
 class ServerActionSeekToItem: ServerAction(
     identifier = "seekToItem",
@@ -19,7 +19,7 @@ class ServerActionSeekToItem: ServerAction(
 ) {
     override fun execute(server: SpMs, context: ActionContext): JsonElement? {
         val index: Int = context.getParameterValue("index")!!.int
-        server.mpv.seekToItem(index)
+        server.player.seekToItem(index)
         return null
     }
 }

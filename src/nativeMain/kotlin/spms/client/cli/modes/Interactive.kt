@@ -1,8 +1,8 @@
-package spms.controller.modes
+package spms.client.cli.modes
 
-import spms.controller.ControllerMode
+import spms.client.cli.CommandLineClientMode
 
-class Interactive: ControllerMode("interactive", { "TODO" }) {
+class Interactive: CommandLineClientMode("interactive", { "TODO" }) {
     override fun run() {
         super.run()
 

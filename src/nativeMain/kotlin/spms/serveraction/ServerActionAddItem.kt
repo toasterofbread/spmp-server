@@ -2,7 +2,7 @@ package spms.serveraction
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
-import spms.SpMs
+import spms.server.SpMs
 
 class ServerActionAddItem: ServerAction(
     identifier = "addItem",
@@ -27,7 +27,7 @@ class ServerActionAddItem: ServerAction(
         val item_id: String = context.getParameterValue("item_id")!!.content
         val index: Int = context.getParameterValue("index")?.int ?: -1
 
-        server.mpv.addItem(item_id, index)
+        server.player.addItem(item_id, index)
         return null
     }
 }

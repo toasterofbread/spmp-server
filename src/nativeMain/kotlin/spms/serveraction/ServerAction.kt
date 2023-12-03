@@ -1,23 +1,25 @@
 package spms.serveraction
 
+import cinterop.zmq.ZmqSocket
+import com.github.ajalt.clikt.core.Context
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import libzmq.ZMQ_NOBLOCK
-import spms.SERVER_EXPECT_REPLY_CHAR
-import spms.SpMs
-import cinterop.zmq.ZmqSocket
-import com.github.ajalt.clikt.core.Context
 import spms.LocalisedMessageProvider
 import spms.localisation.loc
+import spms.server.SERVER_EXPECT_REPLY_CHAR
+import spms.server.SpMs
+import spms.server.SpMsClientID
 import kotlin.system.getTimeMillis
 
 sealed class ServerAction(
     val identifier: String,
     val name: LocalisedMessageProvider,
     val help: LocalisedMessageProvider,
-    val parameters: List<Parameter>
+    val parameters: List<Parameter>,
+    val hidden: Boolean = false
 ) {
     data class Parameter(
         val type: Type,
@@ -29,7 +31,7 @@ sealed class ServerAction(
             String, Int, Float
         }
     }
-    protected inner class ActionContext(private val parameter_values: List<JsonPrimitive>) {
+    protected inner class ActionContext(val client: SpMsClientID, private val parameter_values: List<JsonPrimitive>) {
         fun getParameterValue(identifier: String): JsonPrimitive? {
             val index: Int = parameters.indexOfFirst { it.identifier == identifier }
             val parameter: Parameter = parameters[index]
@@ -47,8 +49,8 @@ sealed class ServerAction(
     open fun formatResult(result: JsonElement, context: Context) = result.toString()
     protected abstract fun execute(server: SpMs, context: ActionContext): JsonElement?
 
-    fun execute(server: SpMs, parameter_values: List<JsonPrimitive>): JsonElement? =
-        execute(server, ActionContext(parameter_values))
+    fun execute(server: SpMs, client: SpMsClientID, parameter_values: List<JsonPrimitive>): JsonElement? =
+        execute(server, ActionContext(client, parameter_values))
 
     fun executeOnRemoteServer(
         socket: ZmqSocket,
@@ -109,19 +111,21 @@ sealed class ServerAction(
             ServerActionAddItem(),
             ServerActionMoveItem(),
             ServerActionRemoveItem(),
-            ServerActionClearQueue()
+            ServerActionClearQueue(),
+
+            ServerActionReadyToPlay()
         )
 
         fun getAll(): List<ServerAction> = ALL
         fun getByName(action_name: String): ServerAction? = ALL.firstOrNull { it.identifier == action_name }
 
-        fun executeByName(server: SpMs, action_name: String, parameter_values: List<JsonPrimitive>): JsonElement? {
+        fun executeByName(server: SpMs, client: SpMsClientID, action_name: String, parameter_values: List<JsonPrimitive>): JsonElement? {
             val action: ServerAction? = getByName(action_name)
             if (action == null) {
                 throw NotImplementedError("Unknown action '$action_name'")
             }
 
-            return action.execute(server, parameter_values)
+            return action.execute(server, client, parameter_values)
         }
     }
 }

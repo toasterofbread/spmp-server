@@ -2,7 +2,7 @@ package spms.serveraction
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.float
-import spms.SpMs
+import spms.server.SpMs
 
 class ServerActionSetVolume: ServerAction(
     identifier = "setVolume",
@@ -19,7 +19,7 @@ class ServerActionSetVolume: ServerAction(
 ) {
     override fun execute(server: SpMs, context: ActionContext): JsonElement? {
         val volume: Float = context.getParameterValue("volume")!!.float
-        server.mpv.setVolume(volume)
+        server.player.setVolume(volume.toDouble())
         return null
     }
 }

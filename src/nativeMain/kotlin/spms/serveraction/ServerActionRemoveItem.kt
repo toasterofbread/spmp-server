@@ -2,7 +2,7 @@ package spms.serveraction
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
-import spms.SpMs
+import spms.server.SpMs
 
 class ServerActionRemoveItem: ServerAction(
     identifier = "removeItem",
@@ -19,7 +19,7 @@ class ServerActionRemoveItem: ServerAction(
 ) {
     override fun execute(server: SpMs, context: ActionContext): JsonElement? {
         val from: Int = context.getParameterValue("from")!!.int
-        server.mpv.removeItem(from)
+        server.player.removeItem(from)
         return null
     }
 }

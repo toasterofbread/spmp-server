@@ -16,10 +16,12 @@ typealias LocalisedMessageProvider = SpMsLocalisation.() -> String
 abstract class Command(
     name: String,
     private val help: LocalisedMessageProvider,
-    is_default: Boolean = false
+    is_default: Boolean = false,
+    hidden: Boolean = false
 ): CliktCommand(
     name = name,
-    invokeWithoutSubcommand = is_default
+    invokeWithoutSubcommand = is_default,
+    hidden = hidden
 ) {
     protected val silent: Boolean by option("-s", "--silent").flag().help { context.loc.cli.option_help_silent }
     protected val language: String by option("-l", "--lang").default("").help { context.loc.cli.option_help_language }

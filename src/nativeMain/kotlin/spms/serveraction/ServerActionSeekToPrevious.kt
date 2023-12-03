@@ -1,7 +1,7 @@
 package spms.serveraction
 
 import kotlinx.serialization.json.JsonElement
-import spms.SpMs
+import spms.server.SpMs
 
 class ServerActionSeekToPrevious: ServerAction(
     identifier = "seekToPrevious",
@@ -10,7 +10,7 @@ class ServerActionSeekToPrevious: ServerAction(
     parameters = emptyList()
 ) {
     override fun execute(server: SpMs, context: ActionContext): JsonElement? {
-        server.mpv.seekToPrevious()
+        server.player.seekToPrevious()
         return null
     }
 }

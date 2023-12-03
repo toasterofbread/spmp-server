@@ -68,6 +68,8 @@ kotlin {
                 val ktor_version: String = "2.3.6"
                 implementation("io.ktor:ktor-client-core:$ktor_version")
                 implementation("io.ktor:ktor-client-curl:$ktor_version")
+                implementation("io.ktor:ktor-server-core:$ktor_version")
+                implementation("io.ktor:ktor-server-cio:$ktor_version")
             }
         }
     }

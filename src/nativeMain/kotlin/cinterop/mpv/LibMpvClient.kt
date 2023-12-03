@@ -1,6 +1,5 @@
 package cinterop.mpv
 
-import cnames.structs.mpv_handle as MpvHandle
 import kotlinx.cinterop.BooleanVar
 import kotlinx.cinterop.ByteVarOf
 import kotlinx.cinterop.CPointer
@@ -20,21 +19,25 @@ import kotlinx.cinterop.value
 import libmpv.MPV_FORMAT_DOUBLE
 import libmpv.MPV_FORMAT_FLAG
 import libmpv.MPV_FORMAT_INT64
-import libmpv.MPV_FORMAT_STRING
 import libmpv.mpv_command
 import libmpv.mpv_create_client
 import libmpv.mpv_event_id
-import libmpv.mpv_format as MpvFormat
 import libmpv.mpv_get_property
 import libmpv.mpv_get_property_string
 import libmpv.mpv_initialize
 import libmpv.mpv_set_option
+import libmpv.mpv_set_option_string
 import libmpv.mpv_set_property
 import libmpv.mpv_terminate_destroy
 import libmpv.mpv_wait_event
+import spms.player.Player
+import spms.player.toInt
+import cnames.structs.mpv_handle as MpvHandle
+import libmpv.mpv_format as MpvFormat
+
 
 @OptIn(ExperimentalForeignApi::class)
-abstract class LibMpvClient(headless: Boolean = true): MpvClient {
+abstract class LibMpvClient(val headless: Boolean = true): Player {
     protected val ctx: CPointer<MpvHandle>
 
     init {
@@ -47,8 +50,7 @@ abstract class LibMpvClient(headless: Boolean = true): MpvClient {
             mpv_set_option(ctx, "vid", MPV_FORMAT_FLAG, vid.ptr)
 
             if (!headless) {
-                mpv_set_option(ctx, "osc", MPV_FORMAT_STRING, "yes".cstr)
-                mpv_set_option(ctx, "osc-visibility", MPV_FORMAT_STRING, "always".cstr)
+                mpv_set_option_string(ctx, "force-window", "immediate")
 
                 val osd_level: IntVar = alloc()
                 osd_level.value = 3
@@ -70,7 +72,7 @@ abstract class LibMpvClient(headless: Boolean = true): MpvClient {
 
     protected fun runCommand(name: String, vararg args: Any?, check_result: Boolean = true): Int =
         memScoped {
-            val result = mpv_command(ctx, buildArgs(listOf(name).plus(args)))
+            val result: Int = mpv_command(ctx, buildArgs(listOf(name).plus(args)))
 
             if (check_result) {
                 check(result == 0) {

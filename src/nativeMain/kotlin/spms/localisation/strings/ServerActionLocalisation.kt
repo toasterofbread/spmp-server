@@ -58,4 +58,9 @@ interface ServerActionLocalisation {
     val status_name: String
     val status_help: String
     val status_output_start: String
+
+    val ready_to_play_name: String
+    val ready_to_play_help: String
+    val ready_to_play_param_item_index: String
+    val ready_to_play_param_item_id: String
 }
