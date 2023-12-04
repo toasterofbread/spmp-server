@@ -179,7 +179,7 @@ class PlayerClient private constructor(): Command(
             }
 
             override fun onReadyToPlay() {
-                queued_messages.add("readyToPlay" to listOf(JsonPrimitive(current_item_index), JsonPrimitive(getItem())))
+                queued_messages.add("readyToPlay" to listOf(JsonPrimitive(current_item_index), JsonPrimitive(getItem()), JsonPrimitive(duration_ms)))
             }
 
             val stream_url: String get() = "https://www.youtube.com/watch?v="//stream_provider_server.getStreamUrl()

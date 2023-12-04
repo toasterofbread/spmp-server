@@ -2,7 +2,7 @@ package spms.serveraction
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import spms.server.SpMs
 
 class ServerActionReadyToPlay: ServerAction(
@@ -22,14 +22,21 @@ class ServerActionReadyToPlay: ServerAction(
             true,
             "item_id",
             { server_actions.ready_to_play_param_item_id }
+        ),
+        Parameter(
+            Parameter.Type.Int,
+            true,
+            "item_duration_ms",
+            { server_actions.ready_to_play_param_item_duration_ms }
         )
     )
 ) {
     override fun execute(server: SpMs, context: ActionContext): JsonElement? {
         server.onClientReadyToPlay(
             context.client,
-            context.getParameterValue("item_index")!!.jsonPrimitive.int,
-            context.getParameterValue("item_id")!!.jsonPrimitive.content
+            context.getParameterValue("item_index")!!.int,
+            context.getParameterValue("item_id")!!.content,
+            context.getParameterValue("item_duration_ms")!!.long
         )
         return null
     }

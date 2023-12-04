@@ -5,6 +5,9 @@ import cinterop.mpv.getCurrentStatusJson
 import cinterop.zmq.ZmqRouter
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.MemScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -27,9 +30,23 @@ class SpMs(mem_scope: MemScope, headless: Boolean = false, enable_gui: Boolean):
     @Serializable
     data class ActionReply(val success: Boolean, val error: String? = null, val error_cause: String? = null, val result: JsonElement? = null)
 
+    private var item_durations: MutableMap<String, Long> = mutableMapOf()
+    private val item_durations_channel: Channel<Unit> = Channel()
+
     val player: Player =
         if (headless)
             object : HeadlessPlayer() {
+                override fun getCachedItemDuration(item_id: String): Long? = item_durations[item_id]
+
+                override suspend fun loadItemDuration(item_id: String): Long {
+                    var cached: Long? = item_durations[item_id]
+                    while (cached == null) {
+                        item_durations_channel.receive()
+                        cached = item_durations[item_id]
+                    }
+                    return cached
+                }
+
                 override fun onEvent(event: PlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
                 override fun onShutdown() = onPlayerShutdown()
             }
@@ -173,7 +190,7 @@ class SpMs(mem_scope: MemScope, headless: Boolean = false, enable_gui: Boolean):
         return !player_shut_down
     }
 
-    fun onClientReadyToPlay(client_id: SpMsClientID, item_index: Int, item_id: String) {
+    fun onClientReadyToPlay(client_id: SpMsClientID, item_index: Int, item_id: String, item_duration_ms: Long) {
         if (!playback_waiting_for_clients) {
             return
         }
@@ -184,6 +201,13 @@ class SpMs(mem_scope: MemScope, headless: Boolean = false, enable_gui: Boolean):
             println("Got readyToPlay from $ready_client with mismatched index and/or item ID ($item_index, $item_id instead of ${player.current_item_index}, ${player.getItem()})")
             return
         }
+
+        item_durations[item_id] = item_duration_ms
+        if (player is HeadlessPlayer) {
+            player.onDurationLoaded(item_id, item_duration_ms)
+        }
+
+        item_durations_channel.trySend(Unit)
 
         if (ready_client.ready_to_play) {
             return

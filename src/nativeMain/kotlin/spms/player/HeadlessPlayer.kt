@@ -3,20 +3,22 @@ package spms.player
 import kotlinx.atomicfu.locks.ReentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.system.getTimeNanos
 
-private const val ITEMS_TO_LOAD_IN_ADVANCE: Int = 0
-
 abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Player {
+    protected abstract fun getCachedItemDuration(item_id: String): Long?
+    protected abstract suspend fun loadItemDuration(item_id: String): Long
+    fun onDurationLoaded(item_id: String, item_duration_ms: Long) {
+        if (item_id == getItem()) {
+            onEvent(PlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(item_duration_ms)))
+        }
+    }
+
     override fun release() {}
 
     private var _state: Player.State = Player.State.IDLE
@@ -39,7 +41,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
         get() =
             if (is_playing) (getTimeNanos() - playback_mark) / 1000000
             else playback_mark
-    final override val duration_ms: Long get() = queue.getOrNull(current_item_index)?.let { item_durations[it] } ?: 0
+    final override val duration_ms: Long get() = queue.getOrNull(current_item_index)?.let { getCachedItemDuration(it) } ?: 0
     final override var repeat_mode: Player.RepeatMode = Player.RepeatMode.NONE
         private set
     final override var volume: Double = 1.0
@@ -49,10 +51,6 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
 
     private val playback_scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
     private var playback_mark: Long = 0
-
-    private val load_scope: CoroutineScope = CoroutineScope(SupervisorJob())
-    private val duration_loaders: MutableMap<String, Deferred<Long>> = mutableMapOf()
-    private val item_durations: MutableMap<String, Long> = mutableMapOf()
 
     private val playback_lock: ReentrantLock = ReentrantLock()
     private inline fun <T> withLock(block: () -> T): T = playback_lock.withLock(block)
@@ -84,70 +82,11 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
 
         val item_id: String = queue.getOrNull(to) ?: return
 
-        val duration: Long? = item_durations[item_id]
+        val duration: Long? = getCachedItemDuration(item_id)
         onEvent(PlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration ?: 0)))
     }
 
-    @Suppress("DeferredResultUnused")
     private fun onQueueOrPositionChanged() {
-//        log("onQueueOrPositionChanged() start")
-//
-//        val load_range: IntRange = current_item_index .. minOf(current_item_index + ITEMS_TO_LOAD_IN_ADVANCE, queue.size - 1)
-//
-//        for ((i, item_id) in queue.withIndex()) {
-//            if (item_streams[item_id] != null) {
-//                continue
-//            }
-//
-//            val loader: Job? = stream_loaders[item_id]
-//            if (i in load_range) {
-//                if (loader == null) {
-//                    loadDuration(item_id)
-//                }
-//            }
-//            else {
-//                if (loader != null) {
-//                    loader.cancel()
-//                    stream_loaders.remove(item_id)
-//                }
-//            }
-//        }
-//
-//        log("onQueueOrPositionChanged() end")
-    }
-
-    private fun loadDuration(item_id: String): Deferred<Long> {
-        var loader: Deferred<Long>? = duration_loaders[item_id]
-
-        if (loader == null) {
-            loader = load_scope.async(Dispatchers.IO) {
-                log("Loading duration for item '$item_id'")
-                val duration: Long
-                try {
-                    duration = VideoInfoProvider.getVideoDuration(item_id)
-                }
-                catch (e: Throwable) {
-                    val exception = RuntimeException("Exception during getVideoDuration($item_id)", e)
-                    exception.printStackTrace()
-                    throw exception
-                }
-
-                log("Loaded duration for item '$item_id': $duration")
-                withLock {
-                    @Suppress("DeferredResultUnused")
-                    duration_loaders.remove(item_id)
-
-                    item_durations[item_id] = duration
-
-                    if (item_id == queue.getOrNull(current_item_index)) {
-                        onEvent(PlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration)), clientless = true)
-                    }
-                }
-                return@async duration
-            }
-            duration_loaders[item_id] = loader
-        }
-        return loader
     }
 
     override fun play() {
@@ -171,15 +110,12 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                 playback_mark = getTimeNanos() - current_position
 
                 val item_id: String = queue[current_item_index]
-                val existing_duration: Long? = item_durations[item_id]
+                var duration: Long? = getCachedItemDuration(item_id)
 
-                val duration_job: Deferred<Long>?
-                if (existing_duration == null) {
-                    duration_job = loadDuration(item_id)
+                if (duration == null) {
                     state = Player.State.BUFFERING
                 }
                 else {
-                    duration_job = null
                     state = Player.State.READY
                     is_playing = true
                     onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(true)))
@@ -188,10 +124,18 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                 log("play() $item_id: Launching timer")
 
                 playback_scope.launch {
-                    val duration: Long?
-                    if (duration_job != null) {
-                        log("play() $item_id: Awaiting duration job")
-                        duration = duration_job.await()
+                    if (duration == null) {
+                        log("play() $item_id: loadItemDuration()")
+
+                        duration = loadItemDuration(item_id)
+
+                        if (duration == null) {
+                            state = Player.State.IDLE
+                            is_playing = false
+                            playback_mark = 0
+                            println("play(): Duration is null, cannot play")
+                            TODO()
+                        }
 
                         withLock {
                             state = Player.State.READY
@@ -201,25 +145,16 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                     }
                     else {
                         log("play() $item_id: Using existing duration")
-                        duration = existing_duration
                     }
 
-                    if (duration == null) {
-                        state = Player.State.IDLE
-                        is_playing = false
-                        playback_mark = 0
-                        println("play(): Duration is null, cannot play")
-                        TODO()
-                    }
-
-                    log("play() will wait for ${duration - current_position}ms (${duration} $current_position)")
-                    delay(duration - current_position)
+                    log("play() will wait for ${duration!! - current_position}ms (${duration} $current_position)")
+                    delay(duration!! - current_position)
                     log("play() resumed after delay")
 
                     withLock {
                         is_playing = false
                         state = Player.State.IDLE
-                        playback_mark = duration
+                        playback_mark = duration!!
                         onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(false)))
                         onItemPlaybackEnded()
                     }

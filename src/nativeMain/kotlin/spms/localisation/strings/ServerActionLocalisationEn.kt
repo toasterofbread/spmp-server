@@ -65,8 +65,9 @@ class ServerActionLocalisationEn: ServerActionLocalisation {
     override val status_help: String = "Get detailed information about the server's current status"
     override val status_output_start: String = "Server status"
 
-    override val ready_to_play_name: String = "サーバーに再生準備完了と知らせる"
-    override val ready_to_play_help: String = "クライアントが再生を始める準備ができたとサーバーに知らせる"
-    override val ready_to_play_param_item_index: String = "再生準備が完了したアイテムのインデックス"
-    override val ready_to_play_param_item_id: String = "再生準備が完了したアイテムのID"
+    override val ready_to_play_name: String = "Notify ready to play"
+    override val ready_to_play_help: String = "Notify server that client is ready to play the current item"
+    override val ready_to_play_param_item_index: String = "Index of the current item"
+    override val ready_to_play_param_item_id: String = "ID of the current item"
+    override val ready_to_play_param_item_duration_ms: String = "Duration (ms) of the current item"
 }

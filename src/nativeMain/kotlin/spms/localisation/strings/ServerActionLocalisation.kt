@@ -63,4 +63,5 @@ interface ServerActionLocalisation {
     val ready_to_play_help: String
     val ready_to_play_param_item_index: String
     val ready_to_play_param_item_id: String
+    val ready_to_play_param_item_duration_ms: String
 }
