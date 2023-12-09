@@ -26,7 +26,7 @@ import spms.player.Player
 import spms.player.PlayerEvent
 import spms.player.StreamProviderServer
 import spms.server.PlayerOptions
-import spms.server.SpMsClientInfo
+import spms.server.SpMsClientHandshake
 import spms.server.SpMsClientType
 import kotlin.system.getTimeMillis
 
@@ -157,11 +157,12 @@ class PlayerClient private constructor(): Command(
 
         log(currentContext.loc.cli.sending_handshake)
 
-        val info: SpMsClientInfo = SpMsClientInfo(
-            getClientName(),
-            SpMsClientType.PLAYER
+        val handshake: SpMsClientHandshake = SpMsClientHandshake(
+            name = getClientName(),
+            type = SpMsClientType.PLAYER,
+            language = currentContext.loc.language.name
         )
-        socket.sendStringMultipart(listOf(json.encodeToString(info)))
+        socket.sendStringMultipart(listOf(json.encodeToString(handshake)))
 
         val reply: List<String>? = socket.recvStringMultipart(SERVER_REPLY_TIMEOUT_MS)
 
@@ -171,7 +172,7 @@ class PlayerClient private constructor(): Command(
 
         var shutdown: Boolean = false
         val queued_messages: MutableList<Pair<String, List<JsonPrimitive>>> = mutableListOf()
-        val stream_provider_server: StreamProviderServer = StreamProviderServer()
+        val stream_provider_server: StreamProviderServer = StreamProviderServer(client_options.port + 1)
 
         val player: PlayerImpl = object : PlayerImpl(headless = !player_options.enable_gui) {
             override fun onShutdown() {

@@ -10,7 +10,7 @@ import spms.LocalisedMessageProvider
 import spms.client.ClientOptions
 import spms.client.cli.modes.Interactive
 import spms.localisation.loc
-import spms.server.SpMsClientInfo
+import spms.server.SpMsClientHandshake
 import spms.server.SpMsClientType
 
 abstract class CommandLineClientMode(
@@ -37,11 +37,12 @@ abstract class CommandLineClientMode(
 
             log(currentContext.loc.cli.sending_handshake)
 
-            val info: SpMsClientInfo = SpMsClientInfo(
-                context.client_name,
-                SpMsClientType.HEADLESS
+            val handshake: SpMsClientHandshake = SpMsClientHandshake(
+                name = context.client_name,
+                type = SpMsClientType.HEADLESS_PLAYER,
+                language = currentContext.loc.language.name
             )
-            context.socket.sendStringMultipart(listOf(Json.encodeToString(info)))
+            context.socket.sendStringMultipart(listOf(Json.encodeToString(handshake)))
 
             val reply: List<String>? = context.socket.recvStringMultipart(SERVER_REPLY_TIMEOUT_MS)
 

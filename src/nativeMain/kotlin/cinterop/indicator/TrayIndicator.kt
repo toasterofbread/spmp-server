@@ -11,7 +11,7 @@ interface TrayIndicator {
     fun release() {}
 
     fun addClickCallback(onClick: ClickCallback)
-    fun addButton(label: String, onClick: ButtonCallback)
+    fun addButton(label: String, onClick: ButtonCallback?)
     fun addScrollCallback(onScroll: ScrollCallback)
 
     companion object {

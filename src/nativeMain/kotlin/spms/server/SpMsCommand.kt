@@ -11,6 +11,7 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.memScoped
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -36,7 +37,7 @@ private const val CLIENT_REPLY_TIMEOUT_MS: Long = 1000
 
 @Suppress("OPT_IN_USAGE")
 @OptIn(ExperimentalForeignApi::class)
-fun createIndicator(coroutine_scope: CoroutineScope, loc: SpMsLocalisation, endProgram: () -> Unit): TrayIndicator? {
+fun createIndicator(coroutine_scope: CoroutineScope, loc: SpMsLocalisation, port: Int, endProgram: () -> Unit): TrayIndicator? {
     val icon_path: Path =
         when (Platform.osFamily) {
             OsFamily.LINUX -> "/tmp/ic_spmp.png".toPath()
@@ -49,8 +50,10 @@ fun createIndicator(coroutine_scope: CoroutineScope, loc: SpMsLocalisation, endP
         }
     }
 
-    val indicator: TrayIndicator? = TrayIndicator.create("SpMs", icon_path.segments)
+    val indicator: TrayIndicator? = TrayIndicator.create("SpMs (port $port)", icon_path.segments)
     indicator?.apply {
+        addButton("Running on port $port", null)
+
         addButton(loc.server.indicator_button_open_client) {
             coroutine_scope.launch(Dispatchers.Default) {
                 popen("spmp", "r")
@@ -94,7 +97,7 @@ class SpMsCommand: Command(
         var stop: Boolean = false
 
         memScoped {
-            val server: SpMs = SpMs(this, headless, player_options.enable_gui)
+            val server: SpMs = SpMs(this, port + 1, headless, player_options.enable_gui)
             server.bind(port)
 
             println(localisation.server.serverBoundToPort(server.toString(), port))
@@ -104,25 +107,31 @@ class SpMsCommand: Command(
             }
 
             runBlocking {
-                val indicator: TrayIndicator? = createIndicator(this, localisation) {
-                    stop = true
-                }
-
-                if (indicator != null) {
-                    launch(Dispatchers.Default) {
-                        indicator.show()
+                try {
+                    val indicator: TrayIndicator? = createIndicator(this, localisation, port) {
+                        stop = true
                     }
-                }
 
-                println("--- ${localisation.server.polling_started} ---")
-                while (server.poll(CLIENT_REPLY_TIMEOUT_MS) && !stop) {
-                    delay(POLL_INTERVAL_MS)
-                }
-                println("--- ${localisation.server.polling_ended} ---")
+                    if (indicator != null) {
+                        launch(Dispatchers.Default) {
+                            indicator.show()
+                        }
+                    }
 
-                server.release()
-                indicator?.release()
-                kill(0, SIGTERM)
+                    println("--- ${localisation.server.polling_started} ---")
+                    while (server.poll(CLIENT_REPLY_TIMEOUT_MS) && !stop) {
+                        delay(POLL_INTERVAL_MS)
+                    }
+                    println("--- ${localisation.server.polling_ended} ---")
+
+                    server.release()
+                    indicator?.release()
+                    kill(0, SIGTERM)
+                }
+                catch (e: Throwable) {
+                    e.printStackTrace()
+                    throw e
+                }
             }
         }
     }

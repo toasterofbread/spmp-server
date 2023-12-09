@@ -6,9 +6,8 @@ import cinterop.zmq.ZmqRouter
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.MemScope
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -26,7 +25,7 @@ const val SERVER_EXPECT_REPLY_CHAR: Char = '!'
 const val SEND_EVENTS_TO_INSTIGATING_CLIENT: Boolean = true
 
 @OptIn(ExperimentalForeignApi::class)
-class SpMs(mem_scope: MemScope, headless: Boolean = false, enable_gui: Boolean): ZmqRouter(mem_scope) {
+class SpMs(mem_scope: MemScope, val secondary_port: Int, headless: Boolean = false, enable_gui: Boolean = false): ZmqRouter(mem_scope) {
     @Serializable
     data class ActionReply(val success: Boolean, val error: String? = null, val error_cause: String? = null, val result: JsonElement? = null)
 
@@ -52,7 +51,7 @@ class SpMs(mem_scope: MemScope, headless: Boolean = false, enable_gui: Boolean):
             }
         else
             object : MpvClientImpl(!enable_gui) {
-                val stream_provider_server = StreamProviderServer()
+                val stream_provider_server = StreamProviderServer(secondary_port)
 
                 override fun urlToId(url: String): String = url.drop(stream_provider_server.getStreamUrl().length)
                 override fun idToUrl(item_id: String): String = stream_provider_server.getStreamUrl() + item_id
@@ -71,11 +70,15 @@ class SpMs(mem_scope: MemScope, headless: Boolean = false, enable_gui: Boolean):
     private val clients: MutableList<SpMsClient> = mutableListOf()
     private var playback_waiting_for_clients: Boolean = false
 
+    fun getClients(): List<SpMsClientInfo> =
+        clients.map { it.info }
+
     fun poll(client_reply_timeout_ms: Long): Boolean {
 
         // Process stray messages (hopefully client handshakes)
         while (true) {
             val message: Message = recvMultipart(null) ?: break
+            println("Got stray message before polling")
             onClientMessage(message)
         }
 
@@ -83,6 +86,7 @@ class SpMs(mem_scope: MemScope, headless: Boolean = false, enable_gui: Boolean):
         var client_i: Int = clients.size - 1
         while (client_i >= 0) {
             val client: SpMsClient = clients[client_i--]
+
             val message_parts: MutableList<String> = mutableListOf()
 
             val events: List<PlayerEvent> = getEventsForClient(client)
@@ -113,9 +117,12 @@ class SpMs(mem_scope: MemScope, headless: Boolean = false, enable_gui: Boolean):
             var client_reply: Message? = null
 
             while (true) {
-                val message: Message = recvMultipart(
-                    (wait_end - getTimeMillis()).coerceAtLeast(ZMQ_NOBLOCK.toLong())
-                ) ?: break
+                val remaining = wait_end - getTimeMillis()
+                if (remaining <= 0) {
+                    break
+                }
+
+                val message: Message = recvMultipart(remaining) ?: continue
 
                 if (message.client_id.contentHashCode() == client.id) {
                     client_reply = message
@@ -123,6 +130,7 @@ class SpMs(mem_scope: MemScope, headless: Boolean = false, enable_gui: Boolean):
                 }
                 else {
                     // Handle connections from other clients
+                    println("Got stray message during polling")
                     onClientMessage(message)
                 }
             }
@@ -148,6 +156,8 @@ class SpMs(mem_scope: MemScope, headless: Boolean = false, enable_gui: Boolean):
             check(executing_client_id == null)
             executing_client_id = client.id
 
+            val reply: MutableList<ActionReply> = mutableListOf()
+
             var i: Int = 0
             while (i < client_reply.parts.size) {
                 val first: String = client_reply.parts[i++]
@@ -156,32 +166,41 @@ class SpMs(mem_scope: MemScope, headless: Boolean = false, enable_gui: Boolean):
                 val action_name: String = if (expects_reply) first.substring(1) else first
                 val action_params: List<JsonPrimitive> = Json.decodeFromString(client_reply.parts[i++])
 
+                val result: JsonElement?
                 try {
-                    val result: JsonElement? = ServerAction.executeByName(this@SpMs, client.id, action_name, action_params)
-                    if (expects_reply) {
-                        val reply: ActionReply = ActionReply(
-                            success = true,
-                            result = result
-                        )
-                        sendMultipart(client.createMessage(listOf(Json.encodeToString(reply))))
-
-                        println("Sent reply to $client for action '$action_name': $reply")
-                    }
+                    result = ServerAction.executeByName(this@SpMs, client.id, action_name, action_params)
                 }
                 catch (e: Throwable) {
                     val message: String = "Action $action_name(${action_params.map { it.contentOrNull }}) from $client failed"
 
                     if (expects_reply) {
-                        val reply = ActionReply(
-                            success = false,
-                            error = message,
-                            error_cause = e.message
+                        reply.add(
+                            ActionReply(
+                                success = false,
+                                error = message,
+                                error_cause = e.message
+                            )
                         )
-                        sendMultipart(client.createMessage(listOf(Json.encodeToString(reply))))
                     }
 
                     RuntimeException(message, e).printStackTrace()
+
+                    continue
                 }
+
+                if (expects_reply) {
+                    reply.add(
+                        ActionReply(
+                            success = true,
+                            result = result
+                        )
+                    )
+                }
+            }
+
+            if (reply.isNotEmpty()) {
+                sendMultipart(client.createMessage(listOf(Json.encodeToString(reply))))
+                println("Sent reply to $client: $reply")
             }
 
             executing_client_id = null
@@ -276,11 +295,22 @@ class SpMs(mem_scope: MemScope, headless: Boolean = false, enable_gui: Boolean):
             return
         }
 
-        val info: SpMsClientInfo = handshake_message.parts.firstOrNull()?.let { Json.decodeFromString(it) } ?: return
+        val handshake: SpMsClientHandshake
+        try {
+            handshake = handshake_message.parts.firstOrNull()?.let { Json.decodeFromString(it) } ?: return
+        }
+        catch (e: SerializationException) {
+            println("Ignoring SerializationException in onClientMessage")
+            return
+        }
+
         val client: SpMsClient = SpMsClient(
             handshake_message.client_id,
-            getNewClientName(info.name),
-            info.type,
+            SpMsClientInfo(
+                getNewClientName(handshake.name),
+                handshake.type,
+                handshake.getLanguage()
+            ),
             player_event_inc
         )
 

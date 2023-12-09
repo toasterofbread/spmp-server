@@ -83,7 +83,7 @@ sealed class ServerAction(
 
                 // Hacky workaround, but if it works who cares?
                 val joined: String = reply.joinToString().replace("\u0000, ", "")
-                return Json.decodeFromString(joined)
+                return Json.decodeFromString<List<SpMs.ActionReply>>(joined).first()
             }
             else if (!silent) {
                 println(context.loc.server_actions.receivedEmptyReplyFromServer(identifier))
@@ -95,7 +95,8 @@ sealed class ServerAction(
 
     companion object {
         private val ALL: List<ServerAction> = listOf(
-            ServerActionStatus(),
+            ServerActionGetStatus(),
+            ServerActionGetClients(),
             ServerActionGetProperty(),
 
             ServerActionPause(),

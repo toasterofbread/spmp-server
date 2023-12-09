@@ -65,6 +65,9 @@ class ServerActionLocalisationJa: ServerActionLocalisation {
     override val status_help: String = "サーバーの現在の状態を表示"
     override val status_output_start: String = "サーバー状態"
 
+    override val clients_name: String = "クライアント情報"
+    override val clients_help: String = "サーバーに接続されているクライアントの情報を表示"
+
     override val ready_to_play_name: String = "サーバーに再生準備完了と知らせる"
     override val ready_to_play_help: String = "クライアントが再生を始める準備ができたとサーバーに知らせる"
     override val ready_to_play_param_item_index: String = "再生準備が完了したアイテムのインデックス"

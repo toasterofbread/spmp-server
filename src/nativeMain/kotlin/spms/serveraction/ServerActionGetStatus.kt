@@ -33,7 +33,7 @@ fun getCacheDir(): Path =
         else -> throw NotImplementedError(Platform.osFamily.name)
     }.resolve(SpMsCommand.application_name)
 
-class ServerActionStatus: ServerAction(
+class ServerActionGetStatus: ServerAction(
     identifier = "status",
     name = { server_actions.status_name },
     help = { server_actions.status_help },

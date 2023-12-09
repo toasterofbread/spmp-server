@@ -20,10 +20,8 @@ import platform.posix.signal
 import spms.server.PROJECT_URL
 import kotlin.system.exitProcess
 
-private const val DEFAULT_PORT: Int = spms.server.DEFAULT_PORT + 1
-
 @OptIn(ExperimentalForeignApi::class)
-class StreamProviderServer(val port: Int = DEFAULT_PORT) {
+class StreamProviderServer(val port: Int) {
     private val server: ApplicationEngine
 
     init {

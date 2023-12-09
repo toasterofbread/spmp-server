@@ -46,20 +46,23 @@ class LibAppIndicator(name: String, icon_path: List<String>): TrayIndicator {
         // TODO
     }
 
-    override fun addButton(label: String, onClick: ButtonCallback) {
-        val callback_index: CPointer<IntVar> = button_callbacks.addCallback(onClick, mem_scope)
-
+    override fun addButton(label: String, onClick: ButtonCallback?) {
         val item: CPointer<GtkWidget> = gtk_menu_item_new_with_label(label)!!
-        g_signal_connect_data(
-            item,
-            "activate",
-            staticCFunction { _: CPointer<*>, index: CPointer<IntVar> ->
-                button_callbacks.getCallback(index).invoke()
-            }.reinterpret(),
-            callback_index,
-            null,
-            0U
-        )
+
+        if (onClick != null) {
+            val callback_index: CPointer<IntVar> = button_callbacks.addCallback(onClick, mem_scope)
+            g_signal_connect_data(
+                item,
+                "activate",
+                staticCFunction { _: CPointer<*>, index: CPointer<IntVar> ->
+                    button_callbacks.getCallback(index).invoke()
+                }.reinterpret(),
+                callback_index,
+                null,
+                0U
+            )
+        }
+
         gtk_menu_shell_append(menu.reinterpret(), item)
         gtk_widget_show(item)
     }
@@ -80,7 +83,7 @@ class LibAppIndicator(name: String, icon_path: List<String>): TrayIndicator {
     }
 
     init {
-        // Effectively disable GTK warnings
+        // Effectively disables GTK warnings
         g_log_set_writer_func(
             staticCFunction { level: GLogLevelFlags ->
                 if (level == G_LOG_LEVEL_ERROR || level == G_LOG_LEVEL_CRITICAL) {

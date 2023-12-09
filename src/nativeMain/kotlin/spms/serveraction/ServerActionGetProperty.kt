@@ -7,6 +7,7 @@ class ServerActionGetProperty: ServerAction(
     identifier = "getProperty",
     name = { "TODO" },
     help = { "TODO" },
+    hidden = true,
     parameters = listOf(
         // TODO
     )
