@@ -12,6 +12,6 @@ class ServerActionGetClients: ServerAction(
     parameters = emptyList()
 ) {
     override fun execute(server: SpMs, context: ActionContext): JsonElement {
-        return Json.encodeToJsonElement(server.getClients())
+        return Json.encodeToJsonElement(server.getClients(context.client))
     }
 }

@@ -70,8 +70,8 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, headless: Boolean = fal
     private val clients: MutableList<SpMsClient> = mutableListOf()
     private var playback_waiting_for_clients: Boolean = false
 
-    fun getClients(): List<SpMsClientInfo> =
-        clients.map { it.info }
+    fun getClients(caller: SpMsClientID? = null): List<SpMsClientInfo> =
+        clients.map { it.info.copy(is_caller = it.id == caller) }
 
     fun poll(client_reply_timeout_ms: Long): Boolean {
 

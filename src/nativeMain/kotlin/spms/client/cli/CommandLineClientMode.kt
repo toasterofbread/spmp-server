@@ -39,7 +39,7 @@ abstract class CommandLineClientMode(
 
             val handshake: SpMsClientHandshake = SpMsClientHandshake(
                 name = context.client_name,
-                type = SpMsClientType.HEADLESS_PLAYER,
+                type = SpMsClientType.COMMAND_LINE,
                 language = currentContext.loc.language.name
             )
             context.socket.sendStringMultipart(listOf(Json.encodeToString(handshake)))

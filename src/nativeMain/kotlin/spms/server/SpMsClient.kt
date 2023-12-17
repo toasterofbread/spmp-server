@@ -6,7 +6,7 @@ import spms.localisation.Language
 typealias SpMsClientID = Int
 
 enum class SpMsClientType {
-    PLAYER, HEADLESS_PLAYER
+    SPMP_PLAYER, SPMP_STANDALONE, PLAYER, COMMAND_LINE
 }
 
 @Serializable
@@ -23,7 +23,8 @@ data class SpMsClientHandshake(
 data class SpMsClientInfo(
     val name: String,
     val type: SpMsClientType,
-    val language: Language
+    val language: Language,
+    val is_caller: Boolean = false
 )
 
 internal class SpMsClient(
