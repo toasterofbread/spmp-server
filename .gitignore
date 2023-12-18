@@ -1,6 +1,7 @@
 local.properties
 build/
 .idea/
+.fleet/
 .gradle/
 *.gen.kt
 src/nativeInterop/cinterop

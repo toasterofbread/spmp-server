@@ -3,6 +3,9 @@
 import org.jetbrains.kotlin.gradle.internal.ensureParentDirsCreated
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetWithHostTests
 import java.io.PrintWriter
+import java.io.ByteArrayOutputStream
+
+val GENERATED_FILE_PREFIX = "// Generated on build in build.gradle.kts\n"
 
 plugins {
     kotlin("multiplatform") version "1.9.10"
@@ -81,17 +84,17 @@ tasks.withType<Wrapper> {
 }
 
 tasks.register("bundleIcon") {
-    val in_file = project.file("icon.png")
+    val in_file: File = project.file("icon.png")
     inputs.file(in_file)
 
-    val out_file = project.file("src/nativeMain/kotlin/icon.gen.kt")
+    val out_file: File = project.file("src/nativeMain/kotlin/Icon.gen.kt")
     outputs.file(out_file)
 
     doLast {
         check(in_file.isFile)
 
         out_file.writer().use { writer ->
-            writer.write("// https://youtrack.jetbrains.com/issue/KT-39194\n")
+            writer.write("${GENERATED_FILE_PREFIX}\n// https://youtrack.jetbrains.com/issue/KT-39194\n")
             writer.write("val ICON_BYTES: ByteArray = byteArrayOf(")
 
             val bytes: ByteArray = in_file.readBytes()
@@ -113,8 +116,19 @@ tasks.register("bundleIcon") {
     }
 }
 
+tasks.register("bundleGitCommitHash") {
+    val out_file: File = project.file("src/nativeMain/kotlin/GitCommitHash.gen.kt")
+    outputs.file(out_file)
+
+    doLast {
+        val git_commit_hash: String = getCurrentGitCommitHash()!!
+        out_file.writeText("${GENERATED_FILE_PREFIX}val GIT_COMMIT_HASH: String = \"$git_commit_hash\"\n")
+    }
+}
+
 tasks.getByName("compileKotlinNative") {
     dependsOn("bundleIcon")
+    dependsOn("bundleGitCommitHash")
 }
 
 tasks.register("generateCInteropDefinitions") {
@@ -219,3 +233,31 @@ fun pkgConfig(
     }
 }
 
+fun cmd(vararg args: String): String {
+    val out = ByteArrayOutputStream()
+    exec {
+        commandLine(args.toList())
+        standardOutput = out
+    }
+    return out.toString().trim()
+}
+
+fun getCurrentGitTag(): String? {
+    try {
+        return cmd("git", "tag", "--points-at", "HEAD").ifBlank { null }
+    }
+    catch (e: Throwable) {
+        RuntimeException("Getting Git tag failed", e).printStackTrace()
+        return null
+    }
+}
+
+fun getCurrentGitCommitHash(): String? {
+    try {
+        return cmd("git", "rev-parse", "HEAD").ifBlank { null }
+    }
+    catch (e: Throwable) {
+        RuntimeException("Getting Git commit hash failed", e).printStackTrace()
+        return null
+    }
+}

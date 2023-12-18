@@ -1,6 +1,7 @@
 package spms.server
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 import spms.localisation.Language
 
 typealias SpMsClientID = Int
@@ -18,6 +19,14 @@ data class SpMsClientHandshake(
     fun getLanguage(): Language =
         Language.fromCode(language) ?: Language.default
 }
+
+@Serializable
+data class SpMsServerHandshake(
+    val name: String,
+    val device_name: String,
+    val spms_commit_hash: String,
+    val server_state: JsonElement
+)
 
 @Serializable
 data class SpMsClientInfo(

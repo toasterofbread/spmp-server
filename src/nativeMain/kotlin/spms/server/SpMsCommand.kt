@@ -135,8 +135,4 @@ class SpMsCommand: Command(
             }
         }
     }
-
-    companion object {
-        const val application_name: String = "spmp-server"
-    }
 }

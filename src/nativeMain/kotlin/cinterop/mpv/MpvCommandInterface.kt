@@ -18,7 +18,7 @@ data class ServerStatusData(
     val volume: Double
 )
 
-fun Player.getCurrentStatusJson(): JsonElement =
+fun Player.getCurrentStateJson(): JsonElement =
     Json.encodeToJsonElement(
         ServerStatusData(
             (0 until item_count).map { getItem(it) ?: "" },

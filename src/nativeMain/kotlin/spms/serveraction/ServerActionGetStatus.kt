@@ -1,6 +1,6 @@
 package spms.serveraction
 
-import cinterop.mpv.getCurrentStatusJson
+import cinterop.mpv.getCurrentStateJson
 import com.github.ajalt.clikt.core.Context
 import io.ktor.client.HttpClient
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -23,7 +23,6 @@ import platform.posix.getenv
 import spms.localisation.loc
 import spms.player.Player
 import spms.server.SpMs
-import spms.server.SpMsCommand
 
 @Suppress("OPT_IN_USAGE")
 @OptIn(ExperimentalForeignApi::class)
@@ -31,7 +30,7 @@ fun getCacheDir(): Path =
     when (Platform.osFamily) {
         OsFamily.LINUX -> "/home/${getenv("USER")!!.toKString()}/.cache/".toPath()
         else -> throw NotImplementedError(Platform.osFamily.name)
-    }.resolve(SpMsCommand.application_name)
+    }.resolve(SpMs.application_name)
 
 class ServerActionGetStatus: ServerAction(
     identifier = "status",
@@ -40,7 +39,7 @@ class ServerActionGetStatus: ServerAction(
     parameters = emptyList()
 ) {
     override fun execute(server: SpMs, context: ActionContext): JsonElement {
-        return server.player.getCurrentStatusJson()
+        return server.player.getCurrentStateJson()
     }
 
     private val cache_files: MutableMap<String, JsonElement> = mutableMapOf()

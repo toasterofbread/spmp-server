@@ -1,10 +1,10 @@
 package spms.server
 
+import GIT_COMMIT_HASH
 import cinterop.mpv.MpvClientImpl
-import cinterop.mpv.getCurrentStatusJson
+import cinterop.mpv.getCurrentStateJson
 import cinterop.zmq.ZmqRouter
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.MemScope
+import kotlinx.cinterop.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -13,12 +13,13 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import libzmq.ZMQ_NOBLOCK
+import platform.posix.gethostname
 import spms.player.HeadlessPlayer
 import spms.player.Player
 import spms.player.PlayerEvent
 import spms.player.StreamProviderServer
 import spms.serveraction.ServerAction
+import kotlin.experimental.ExperimentalNativeApi
 import kotlin.system.getTimeMillis
 
 const val SERVER_EXPECT_REPLY_CHAR: Char = '!'
@@ -295,9 +296,9 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, headless: Boolean = fal
             return
         }
 
-        val handshake: SpMsClientHandshake
+        val client_handshake: SpMsClientHandshake
         try {
-            handshake = handshake_message.parts.firstOrNull()?.let { Json.decodeFromString(it) } ?: return
+            client_handshake = handshake_message.parts.firstOrNull()?.let { Json.decodeFromString(it) } ?: return
         }
         catch (e: SerializationException) {
             println("Ignoring SerializationException in onClientMessage")
@@ -307,19 +308,27 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, headless: Boolean = fal
         val client: SpMsClient = SpMsClient(
             handshake_message.client_id,
             SpMsClientInfo(
-                getNewClientName(handshake.name),
-                handshake.type,
-                handshake.getLanguage()
+                getNewClientName(client_handshake.name),
+                client_handshake.type,
+                client_handshake.getLanguage()
             ),
             player_event_inc
         )
 
         clients.add(client)
 
+        val server_handshake: SpMsServerHandshake =
+            SpMsServerHandshake(
+                SpMs.application_name,
+                getDeviceName(),
+                GIT_COMMIT_HASH,
+                player.getCurrentStateJson()
+            )
+
         sendMultipart(
             Message(
                 client.id_bytes,
-                listOf(Json.encodeToString(player.getCurrentStatusJson()))
+                listOf(Json.encodeToString(server_handshake))
             )
         )
 
@@ -360,4 +369,40 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, headless: Boolean = fal
 
     override fun toString(): String =
         "SpMs(player=$player)"
+
+    companion object {
+        const val application_name: String = "spmp-server"
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class, ExperimentalNativeApi::class)
+fun getDeviceName(): String {
+    val hostname: String = memScoped {
+        val str: CPointer<ByteVarOf<Byte>> = allocArray(1024)
+        gethostname(str, 1023U)
+        return@memScoped str.toKString()
+    }
+
+    val os: String =
+        when (Platform.osFamily) {
+            OsFamily.MACOSX -> "OSX"
+            OsFamily.IOS -> "iOS"
+            OsFamily.LINUX -> "Linux"
+            OsFamily.WINDOWS -> "Windows"
+            OsFamily.ANDROID -> "Android"
+            OsFamily.WASM -> "Wasm"
+            OsFamily.TVOS -> "TV"
+            OsFamily.WATCHOS -> "WatchOS"
+            OsFamily.UNKNOWN -> "Unknown"
+        }
+
+    val architecture: String =
+        when (Platform.cpuArchitecture) {
+            CpuArchitecture.X86 -> "x86"
+            CpuArchitecture.X64 -> "x86-64"
+            CpuArchitecture.UNKNOWN -> "Unknown"
+            else -> Platform.cpuArchitecture.name
+        }
+
+    return "$hostname ($os $architecture)"
 }
