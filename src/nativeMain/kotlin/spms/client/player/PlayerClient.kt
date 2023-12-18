@@ -25,9 +25,7 @@ import spms.localisation.loc
 import spms.player.Player
 import spms.player.PlayerEvent
 import spms.player.StreamProviderServer
-import spms.server.PlayerOptions
-import spms.server.SpMsClientHandshake
-import spms.server.SpMsClientType
+import spms.server.*
 import kotlin.system.getTimeMillis
 
 private const val SERVER_REPLY_TIMEOUT_MS: Long = 10000
@@ -36,18 +34,6 @@ private const val POLL_INTERVAL: Long = 100
 
 private fun getClientName(): String =
     "SpMs Player Client"
-
-@Serializable
-private data class ServerState(
-    val queue: List<String>,
-    val state: Player.State,
-    val is_playing: Boolean,
-    val current_item_index: Int,
-    val current_position_ms: Int,
-    val duration_ms: Int,
-    val repeat_mode: Player.RepeatMode,
-    val volume: Float
-)
 
 private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headless) {
     override fun onEvent(event: PlayerEvent, clientless: Boolean) {
@@ -58,7 +44,7 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
 
     abstract fun onReadyToPlay()
 
-    fun applyServerState(state: ServerState) {
+    fun applyServerState(state: SpMsServerState) {
         clearQueue()
         for (item in state.queue) {
             addItem(item, -1)
@@ -188,14 +174,14 @@ class PlayerClient private constructor(): Command(
             override fun idToUrl(item_id: String): String = stream_url + item_id
         }
 
-        val state: ServerState = Json.decodeFromString(reply.first())
-        player.applyServerState(state)
+        val server_handshake: SpMsServerHandshake = Json.decodeFromString(reply.first())
+        player.applyServerState(server_handshake.server_state)
 
         if (player_options.mute_on_start) {
             player.setVolume(0.0)
         }
 
-        log("Initial state: $state")
+        log("Initial state: ${server_handshake.server_state}")
 
         runBlocking {
             val message: MutableList<String> = mutableListOf()

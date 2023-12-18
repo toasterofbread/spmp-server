@@ -10,12 +10,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -39,14 +34,14 @@ class ServerActionGetStatus: ServerAction(
     parameters = emptyList()
 ) {
     override fun execute(server: SpMs, context: ActionContext): JsonElement {
-        return server.player.getCurrentStateJson()
+        return Json.encodeToJsonElement(server.player.getCurrentStateJson())
     }
 
     private val cache_files: MutableMap<String, JsonElement> = mutableMapOf()
 
     private fun loadCacheFiles() {
         cache_files.clear()
-        val files = FileSystem.SYSTEM.listOrNull(getCacheDir()) ?: return
+        val files: List<Path> = FileSystem.SYSTEM.listOrNull(getCacheDir()) ?: return
         for (file in files) {
             val content: String = FileSystem.SYSTEM.read(file) { readUtf8() }
             cache_files[file.name.removeSuffix(".json")] = Json.parseToJsonElement(content)
