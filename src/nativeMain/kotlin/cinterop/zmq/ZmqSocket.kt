@@ -40,12 +40,12 @@ import libzmq.zmq_poller_add
 import libzmq.zmq_poller_event_t
 import libzmq.zmq_poller_new
 import libzmq.zmq_poller_remove
-import libzmq.zmq_poller_wait
 import libzmq.zmq_recv
 import libzmq.zmq_setsockopt
 import libzmq.zmq_socket
 import libzmq.zmq_unbind
 import platform.posix.memcpy
+import spms.zmqPollerWait
 
 const val MESSAGE_MAX_SIZE: Int = 1024
 
@@ -131,7 +131,7 @@ class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
 
     fun recvMultipart(timeout_ms: Long?): List<ByteArray>? = memScoped {
         val event: zmq_poller_event_t = alloc()
-        zmq_poller_wait(poller, event.ptr, timeout_ms ?: ZMQ_NOBLOCK.toLong())
+        zmqPollerWait(poller, event.ptr, timeout_ms ?: ZMQ_NOBLOCK.toLong())
 
         if (event.events.toInt() != ZMQ_POLLIN) {
             return null

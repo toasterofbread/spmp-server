@@ -23,9 +23,10 @@ import spms.server.SpMs
 @OptIn(ExperimentalForeignApi::class)
 fun getCacheDir(): Path =
     when (Platform.osFamily) {
-        OsFamily.LINUX -> "/home/${getenv("USER")!!.toKString()}/.cache/".toPath()
+        OsFamily.LINUX -> "/home/${getenv("USER")!!.toKString()}/.cache/".toPath().resolve(SpMs.application_name)
+        OsFamily.WINDOWS -> "${getenv("USERPROFILE")!!.toKString()}/AppData/Local/${SpMs.application_name}/cache".toPath()
         else -> throw NotImplementedError(Platform.osFamily.name)
-    }.resolve(SpMs.application_name)
+    }
 
 class ServerActionGetStatus: ServerAction(
     identifier = "status",

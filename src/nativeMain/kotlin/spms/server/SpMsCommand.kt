@@ -1,6 +1,7 @@
 package spms.server
 
 import ICON_BYTES
+import cinterop.indicator.createTrayIndicator
 import cinterop.indicator.TrayIndicator
 import com.github.ajalt.clikt.parameters.groups.OptionGroup
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
@@ -11,21 +12,21 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.memScoped
-import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import libappindicator.*
 import okio.ByteString.Companion.toByteString
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
-import spms.Command
 import spms.localisation.SpMsLocalisation
 import spms.localisation.loc
 import kotlin.system.exitProcess
+import platform.posix.getenv
+import kotlinx.cinterop.toKString
+import spms.*
 
 const val PROJECT_URL: String = "https://github.com/toasterofbread/spmp-server"
 const val BUG_REPORT_URL: String = PROJECT_URL + "/issues"
@@ -41,22 +42,26 @@ fun createIndicator(coroutine_scope: CoroutineScope, loc: SpMsLocalisation, port
     val icon_path: Path =
         when (Platform.osFamily) {
             OsFamily.LINUX -> "/tmp/ic_spmp.png".toPath()
+            OsFamily.WINDOWS -> "${getenv("USERPROFILE")!!.toKString()}/AppData/Local/Temp/ic_spmp.png".toPath()
             else -> throw NotImplementedError(Platform.osFamily.name)
         }
 
     if (!FileSystem.SYSTEM.exists(icon_path)) {
+        FileSystem.SYSTEM.createDirectories(icon_path.parent!!, true)
         FileSystem.SYSTEM.write(icon_path) {
             write(ICON_BYTES.toByteString())
         }
     }
 
-    val indicator: TrayIndicator? = TrayIndicator.create("SpMs (port $port)", icon_path.segments)
+    val indicator: TrayIndicator? = createTrayIndicator("SpMs (port $port)", icon_path.segments)
     indicator?.apply {
         addButton("Running on port $port", null)
 
-        addButton(loc.server.indicator_button_open_client) {
-            coroutine_scope.launch(Dispatchers.Default) {
-                popen("spmp", "r")
+        if (canOpenProcess()) {
+            addButton(loc.server.indicator_button_open_client) {
+                coroutine_scope.launch(Dispatchers.Default) {
+                    openProcess("spmp", "r")
+                }
             }
         }
 
@@ -126,7 +131,10 @@ class SpMsCommand: Command(
 
                     server.release()
                     indicator?.release()
-                    kill(0, SIGTERM)
+
+                    if (canEndProcess()) {
+                        endProcess()
+                    }
                 }
                 catch (e: Throwable) {
                     e.printStackTrace()

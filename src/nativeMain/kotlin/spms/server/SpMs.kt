@@ -13,7 +13,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import platform.posix.gethostname
+import spms.getHostname
 import spms.player.HeadlessPlayer
 import spms.player.Player
 import spms.player.PlayerEvent
@@ -54,8 +54,8 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, headless: Boolean = fal
             object : MpvClientImpl(!enable_gui) {
                 val stream_provider_server = StreamProviderServer(secondary_port)
 
-                override fun urlToId(url: String): String = url.drop(stream_provider_server.getStreamUrl().length)
-                override fun idToUrl(item_id: String): String = stream_provider_server.getStreamUrl() + item_id
+                override fun urlToId(url: String): String = stream_provider_server.urlToId(url)
+                override fun idToUrl(item_id: String): String = stream_provider_server.idToUrl(item_id)
 
                 override fun onEvent(event: PlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
                 override fun onShutdown() {
@@ -379,7 +379,7 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, headless: Boolean = fal
 fun getDeviceName(): String {
     val hostname: String = memScoped {
         val str: CPointer<ByteVarOf<Byte>> = allocArray(1024)
-        gethostname(str, 1023U)
+        getHostname(str, 1023)
         return@memScoped str.toKString()
     }
 

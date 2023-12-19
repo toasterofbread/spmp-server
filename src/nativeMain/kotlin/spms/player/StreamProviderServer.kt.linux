@@ -67,6 +67,9 @@ class StreamProviderServer(val port: Int) {
         server.stop()
     }
 
-    fun getStreamUrl(): String =
+    fun idToUrl(id: String): String = getStreamUrl() + id
+    fun urlToId(url: String): String = url.drop(getStreamUrl().length)
+
+    private fun getStreamUrl(): String =
         "http://localhost:$port/stream/"
 }

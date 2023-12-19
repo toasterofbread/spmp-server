@@ -13,12 +13,4 @@ interface TrayIndicator {
     fun addClickCallback(onClick: ClickCallback)
     fun addButton(label: String, onClick: ButtonCallback?)
     fun addScrollCallback(onScroll: ScrollCallback)
-
-    companion object {
-        fun create(name: String, icon_path: List<String>): TrayIndicator? =
-            when (Platform.osFamily) {
-                OsFamily.LINUX -> LibAppIndicator(name, icon_path)
-                else -> null
-            }
-    }
 }

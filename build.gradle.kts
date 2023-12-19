@@ -4,6 +4,8 @@ import org.jetbrains.kotlin.gradle.internal.ensureParentDirsCreated
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetWithHostTests
 import java.io.PrintWriter
 import java.io.ByteArrayOutputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 val GENERATED_FILE_PREFIX = "// Generated on build in build.gradle.kts\n"
 
@@ -17,37 +19,66 @@ repositories {
     gradlePluginPortal()
 }
 
-val cinterop_libs: List<CInteropDefinition> = listOf(
+val platform_specific_files: List<String> = listOf(
+    "cinterop/indicator/TrayIndicatorImpl.kt",
+    "spms/player/StreamProviderServer.kt",
+    "spms/Platform.kt"
+)
+
+val cinterop_definitions: List<CInteropDefinition> = listOf(
     CInteropDefinition(
         "libmpv",
-        "mpv",
-        listOf("mpv/client.h")
+        when (OS.target) {
+            OS.WINDOWS -> "libmpv.dll.a"
+            else -> "mpv"
+        },
+        listOf("mpv/client.h"),
+        bin_dependencies = when (OS.target) {
+            OS.WINDOWS -> listOf("libmpv-2.dll")
+            else -> emptyList()
+        }
     ),
     CInteropDefinition(
         "libzmq",
-        "libzmq",
+        when (OS.target) {
+            OS.WINDOWS -> "libzmq-mt-4_3_5.lib"
+            else -> "libzmq"
+        },
         listOf("zmq.h", "zmq_utils.h"),
-        compiler_opts = listOf("-DZMQ_BUILD_DRAFT_API=1")
+        compiler_opts = listOf("-DZMQ_BUILD_DRAFT_API=1"),
+        linker_opts = when (OS.target) {
+            OS.WINDOWS -> listOf("-lssp")
+            else -> emptyList()
+        },
+        bin_dependencies = when (OS.target) {
+            OS.WINDOWS -> listOf("libzmq-mt-4_3_5.dll")
+            else -> emptyList()
+        }
     ),
     CInteropDefinition(
         "libappindicator",
         "appindicator3-0.1",
-        listOf("libappindicator3-0.1/libappindicator/app-indicator.h")
+        listOf("libappindicator3-0.1/libappindicator/app-indicator.h"),
+        platforms = listOf(OS.LINUX)
     )
 )
 
 kotlin {
-    val native_target: KotlinNativeTargetWithHostTests = when (OS.current) {
-        OS.LINUX -> linuxX64("native")
-        OS.WINDOWS -> mingwX64("native")
-        OS.OSX_X86 -> macosX64("native")
-        OS.OSX_ARM -> macosArm64("native")
-    }
+    val native_target: KotlinNativeTargetWithHostTests =
+        when (OS.target) {
+            OS.LINUX -> linuxX64("native")
+            OS.WINDOWS -> mingwX64("native")
+            OS.OSX_X86 -> macosX64("native")
+            OS.OSX_ARM -> macosArm64("native")
+        }
 
     native_target.apply {
         compilations.getByName("main") {
             cinterops {
-                for (lib in cinterop_libs) {
+                for (lib in cinterop_definitions) {
+                    if (!lib.platforms.contains(OS.target)) {
+                        continue
+                    }
                     create(lib.name)
                 }
             }
@@ -71,8 +102,11 @@ kotlin {
                 val ktor_version: String = "2.3.6"
                 implementation("io.ktor:ktor-client-core:$ktor_version")
                 implementation("io.ktor:ktor-client-curl:$ktor_version")
-                implementation("io.ktor:ktor-server-core:$ktor_version")
-                implementation("io.ktor:ktor-server-cio:$ktor_version")
+
+                if (OS.target != OS.WINDOWS) {
+                    implementation("io.ktor:ktor-server-core:$ktor_version")
+                    implementation("io.ktor:ktor-server-cio:$ktor_version")
+                }
             }
         }
     }
@@ -119,6 +153,7 @@ tasks.register("bundleIcon") {
 tasks.register("bundleGitCommitHash") {
     val out_file: File = project.file("src/nativeMain/kotlin/GitCommitHash.gen.kt")
     outputs.file(out_file)
+    outputs.upToDateWhen { false }
 
     doLast {
         val git_commit_hash: String = getCurrentGitCommitHash()!!
@@ -126,48 +161,158 @@ tasks.register("bundleGitCommitHash") {
     }
 }
 
+tasks.register("configurePlatformSpecificFiles") {
+    fun String.getFile(suffix: String? = null): File =
+        project.file("src/nativeMain/kotlin/" + if (suffix == null) this.replace(".kt", ".gen.kt") else (this + suffix))
+
+    for (path in platform_specific_files) {
+        outputs.file(path.getFile())
+
+        val input_files: List<File> =
+            OS.values().map { path.getFile('.' + it.name.toLowerCase()) } + listOf(path.getFile(".other"))
+        for (file in input_files) {
+            if (file.isFile) {
+                inputs.file(file)
+            }
+        }
+    }
+
+    doLast {
+        for (path in platform_specific_files) {
+            val out_file: File = path.getFile()
+
+            var platform_file: File = path.getFile('.' + OS.target.name.toLowerCase())
+            if (!platform_file.isFile) {
+                platform_file = path.getFile(".other")
+            }
+
+            if (platform_file.isFile) {
+                out_file.writer().use { writer ->
+                    writer.write(GENERATED_FILE_PREFIX)
+
+                    platform_file.reader().use { reader ->
+                        reader.transferTo(writer)
+                    }
+                }
+            }
+        }
+    }
+}
+
 tasks.getByName("compileKotlinNative") {
     dependsOn("bundleIcon")
     dependsOn("bundleGitCommitHash")
+    dependsOn("configurePlatformSpecificFiles")
 }
 
 tasks.register("generateCInteropDefinitions") {
-    doLast {
-        val cinterop_directory: File = rootProject.file("src/nativeInterop/cinterop")
+    outputs.upToDateWhen { false }
 
-        for (lib in cinterop_libs) {
+    doLast {
+        val cinterop_directory: File = project.file("src/nativeInterop/cinterop")
+        val bin_directory: File = project.file("src/nativeInterop/bin")
+
+        for (lib in cinterop_definitions) {
             val file: File = cinterop_directory.resolve(lib.name + ".def")
+
+            if (!lib.platforms.contains(OS.target)) {
+                file.delete()
+                continue
+            }
+
+            for (bin in lib.bin_dependencies) {
+                val bin_file: File = bin_directory.resolve(bin)
+                if (!bin_file.isFile) {
+                    println("WARNING: File ${bin_file.path} is required by library ${lib.name}, but was not found. Compiled executable may not work correctly.")
+                }
+            }
+
             file.ensureParentDirsCreated()
             file.createNewFile()
 
             file.printWriter().use { writer ->
-                writer.println("# Automatically generated by build.gradle.kts")
+                writer.print(GENERATED_FILE_PREFIX.replace("//", "#"))
                 lib.writeTo(writer)
             }
         }
     }
 }
 
-for (lib in cinterop_libs) {
+for (lib in cinterop_definitions) {
+    if (!lib.platforms.contains(OS.target)) {
+        continue
+    }
+
     val libname: String = lib.name.first().toUpperCase() + lib.name.drop(1)
     tasks.getByName("cinterop${libname}Native") {
         dependsOn("generateCInteropDefinitions")
     }
 }
 
+open class FinaliseBuild: DefaultTask() {
+    @get:InputDirectory
+    val binary_output_directory: DirectoryProperty = project.objects.directoryProperty()
+
+    @get:Input
+    val _cinterop_definitions: ListProperty<CInteropDefinition> = project.objects.listProperty()
+
+    @TaskAction
+    fun execute() {
+        val bin_directory: File = project.file("src/nativeInterop/bin")
+        val target_directory: File = binary_output_directory.get().asFile
+
+        for (lib in _cinterop_definitions.get()) {
+            for (bin in lib.bin_dependencies) {
+                val file: File = bin_directory.resolve(bin)
+                if (!file.isFile)  {
+                    continue
+                }
+
+                Files.copy(file.toPath(), target_directory.resolve(bin).toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        }
+    }
+}
+
+tasks.register("finaliseBuildDebug", FinaliseBuild::class.java) {
+    val task = tasks.getByName("linkDebugExecutableNative")
+    binary_output_directory.set(task.outputs.getFiles().single())
+
+    _cinterop_definitions.set(cinterop_definitions)
+}
+
+tasks.register("finaliseBuildRelease", FinaliseBuild::class.java) {
+    val task = tasks.getByName("linkReleaseExecutableNative")
+    binary_output_directory.set(task.outputs.getFiles().single())
+
+    _cinterop_definitions.set(cinterop_definitions)
+}
+
+tasks.getByName("linkDebugExecutableNative") {
+    finalizedBy("finaliseBuildDebug")
+}
+
+tasks.getByName("linkReleaseExecutableNative") {
+    finalizedBy("finaliseBuildRelease")
+}
+
 enum class OS {
     LINUX, WINDOWS, OSX_X86, OSX_ARM;
 
     companion object {
-        val current: OS get() {
-            val host_os = System.getProperty("os.name")
-            val arch: String = System.getProperty("os.arch")
+        val target: OS get() {
+            val target_os: String = System.getenv("SPMS_OS") ?: System.getProperty("os.name")
+            val target_arch: String = System.getenv("SPMS_ARCH") ?: System.getProperty("os.arch")
+
+            val os: String = target_os.toLowerCase()
+            val arch: String = target_arch.toLowerCase()
+
             return when {
-                host_os == "Linux" -> LINUX
-                host_os.startsWith("Windows") -> WINDOWS
-                host_os == "Mac OS X" && arch == "x86_64" -> OSX_X86
-                host_os == "Mac OS X" && arch == "aarch64" -> OSX_ARM
-                else -> throw GradleException("Host OS '$host_os' ($arch) is not supported by Kotlin/Native")
+                os == "linux" -> LINUX
+                os.startsWith("windows") -> WINDOWS
+                os == "mac os x" && arch == "x86_64" -> OSX_X86
+                os == "mac os x" && arch == "aarch64" -> OSX_ARM
+                else -> throw GradleException("Host OS '$target_os' ($target_arch) is not supported by Kotlin/Native")
             }
         }
     }
@@ -175,11 +320,43 @@ enum class OS {
 
 data class CInteropDefinition(
     val name: String,
-    val pkg: String,
+    val lib: String,
     val headers: List<String>,
     val compiler_opts: List<String> = emptyList(),
-    val linker_opts: List<String> = emptyList()
+    val linker_opts: List<String> = emptyList(),
+    val bin_dependencies: List<String> = emptyList(),
+    val platforms: List<OS> = OS.values().toList()
 ) {
+    fun writeTo(writer: PrintWriter) {
+        writer.writeList("headers", headers.map { formatPlatformInclude(it) })
+
+        writer.writeList("compilerOpts", getBaseCompilerOpts() + pkgConfig(formatPlatformLib(lib), cflags = true) + compiler_opts)
+        writer.writeList("linkerOpts", getBaseLinkerOpts() + pkgConfig(formatPlatformLib(lib), libs = true) + linker_opts)
+    }
+
+    private fun formatPlatformInclude(path: String): String =
+        when (OS.target) {
+            else -> path
+        }
+
+    private fun formatPlatformLib(path: String): String =
+        when (OS.target) {
+            OS.WINDOWS -> project.file("src/nativeInterop/lib").absolutePath.replace('\\', '/') + '/' + path
+            else -> path
+        }
+
+    private fun getBaseCompilerOpts(): List<String> =
+        when (OS.target) {
+            OS.LINUX -> listOf("-I/usr/include", "-I/usr/include/x86_64-linux-gnu")
+            else -> emptyList()
+        } + listOf("-I" + project.file("src/nativeInterop/include").absolutePath.replace('\\', '/'))
+
+    private fun getBaseLinkerOpts(): List<String> =
+        when (OS.target) {
+            OS.LINUX -> listOf("-L/usr/lib", "-L/usr/lib/x86_64-linux-gnu")
+            else -> emptyList()
+        }
+
     private fun PrintWriter.writeList(property: String, items: List<String>) {
         if (items.isNotEmpty()) {
             print("$property =")
@@ -190,17 +367,6 @@ data class CInteropDefinition(
             print('\n')
         }
     }
-
-    fun writeTo(writer: PrintWriter) {
-        writer.writeList("headers", headers)
-        writer.writeList("compilerOpts.linux", default_compileropts_linux + compiler_opts + pkgConfig(pkg, cflags = true))
-        writer.writeList("linkerOpts.linux", default_linkeropts_linux + linker_opts + pkgConfig(pkg, libs = true))
-    }
-
-    companion object {
-        private val default_compileropts_linux = listOf("-I/usr/include", "-I/usr/include/x86_64-linux-gnu")
-        private val default_linkeropts_linux = listOf("-L/usr/lib", "-L/usr/lib/x86_64-linux-gnu")
-    }
 }
 
 // https://gist.github.com/micolous/c00b14b2dc321fdb0eab8ad796d71b80
@@ -209,6 +375,16 @@ fun pkgConfig(
     cflags: Boolean = false,
     libs: Boolean = false
 ): List<String> {
+    if (OS.target != OS.LINUX) {
+        if (libs) {
+            return package_names.map {
+                if (it.startsWith("lib")) "-l" + it.drop(3)
+                else it
+            }
+        }
+        return emptyList()
+    }
+
     require(cflags || libs)
 
     val process_builder: ProcessBuilder = ProcessBuilder(

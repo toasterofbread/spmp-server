@@ -17,8 +17,11 @@ import libappindicator.*
 import platform.posix.LC_NUMERIC
 import platform.posix.setlocale
 
+fun createTrayIndicator(name: String, icon_path: List<String>): TrayIndicator? = 
+    TrayIndicatorImpl(name, icon_path)
+
 @OptIn(ExperimentalForeignApi::class)
-class LibAppIndicator(name: String, icon_path: List<String>): TrayIndicator {
+class TrayIndicatorImpl(name: String, icon_path: List<String>): TrayIndicator {
     private val mem_scope = MemScope()
     private val indicator: CPointer<AppIndicator>
     private val menu: CPointer<GtkWidget>

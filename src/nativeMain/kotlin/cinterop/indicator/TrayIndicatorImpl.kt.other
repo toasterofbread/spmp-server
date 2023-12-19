@@ -1,0 +1,17 @@
+package cinterop.indicator
+
+fun createTrayIndicator(name: String, icon_path: List<String>): TrayIndicator? = null
+
+class TrayIndicatorImpl(name: String, icon_path: List<String>): TrayIndicator {
+    override fun show() = TODO()
+
+    override fun hide() = TODO()
+
+    override fun release() = TODO()
+    
+    override fun addClickCallback(onClick: ClickCallback) = TODO()
+
+    override fun addButton(label: String, onClick: ButtonCallback?) = TODO()
+
+    override fun addScrollCallback(onScroll: (delta: Int, direction: Int) -> Unit) = TODO()
+}

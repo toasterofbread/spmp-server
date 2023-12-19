@@ -1,0 +1,21 @@
+package spms
+
+import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.CValuesRef
+import libzmq.zmq_poller_wait
+import platform.posix.*
+
+fun canOpenProcess(): Boolean = false
+fun openProcess(command: String, modes: String) { TODO() }
+
+fun canEndProcess(): Boolean = false
+fun endProcess() { TODO() }
+
+@OptIn(ExperimentalForeignApi::class)
+fun zmqPollerWait(poller: CValuesRef<*>?, event: CValuesRef<libzmq.zmq_poller_event_t>?, timeout: Long): Int =
+    zmq_poller_wait(poller, event, timeout.toInt())
+
+@OptIn(ExperimentalForeignApi::class)
+fun getHostname(name: CValuesRef<ByteVar>?, len: Int): Int =
+    gethostname(name, len)

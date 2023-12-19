@@ -1,0 +1,10 @@
+package spms.player
+
+class StreamProviderServer(val port: Int) {
+    fun stop() {}
+    fun idToUrl(id: String): String = getStreamUrl() + id
+    fun urlToId(url: String): String = url.drop(getStreamUrl().length)
+
+    private fun getStreamUrl(): String =
+        "https://www.youtube.com/watch?v="
+}

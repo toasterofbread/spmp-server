@@ -4,4 +4,4 @@ build/
 .fleet/
 .gradle/
 *.gen.kt
-src/nativeInterop/cinterop
+src/nativeInterop
