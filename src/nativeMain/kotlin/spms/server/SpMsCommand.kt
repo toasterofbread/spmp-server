@@ -47,7 +47,11 @@ fun createIndicator(coroutine_scope: CoroutineScope, loc: SpMsLocalisation, port
         }
 
     if (!FileSystem.SYSTEM.exists(icon_path)) {
-        FileSystem.SYSTEM.createDirectories(icon_path.parent!!, true)
+        val parent: Path = icon_path.parent!!
+        if (!FileSystem.SYSTEM.exists(parent)) {
+            FileSystem.SYSTEM.createDirectories(parent, true)
+        }
+
         FileSystem.SYSTEM.write(icon_path) {
             write(ICON_BYTES.toByteString())
         }
