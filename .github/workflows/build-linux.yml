@@ -42,6 +42,9 @@ jobs:
     - name: Build native binaries
       run: ./gradlew nativeBinaries -PlinkStatic
 
+    - name: Strip release binary
+      run: strip build/bin/native/releaseExecutable/spmp-server.kexe
+
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
       with:
