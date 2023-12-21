@@ -1,0 +1,56 @@
+name: Build [Linux]
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Download libzmq
+      run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz
+
+    - name: Extract libzmq
+      run: tar -xf ./zeromq-4.3.5.tar.gz
+
+    - name: Configure libzmq
+      working-directory: zeromq-4.3.5
+      run: ./configure --enable-drafts --enable-static --disable-shared --disable-libbsd --prefix=${{ github.workspace }}/src/nativeInterop/
+
+    - name: Compile libzmq
+      working-directory: zeromq-4.3.5
+      run: make -j$(nproc) && make install
+
+    - name: Install dependencies
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: libmpv-dev libappindicator3-dev libcurl4-openssl-dev
+        version: 1.0
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradle
+
+    - name: Build native binaries
+      run: ./gradlew nativeBinaries -PlinkStatic
+
+    - name: Upload debug binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-linux-debug.kexe
+        path: build/bin/native/debugExecutable/spmp-server.kexe
+
+    - name: Upload release binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-linux-release.kexe
+        path: build/bin/native/releaseExecutable/spmp-server.kexe
+

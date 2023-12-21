@@ -7,7 +7,9 @@ import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
-val GENERATED_FILE_PREFIX = "// Generated on build in build.gradle.kts\n"
+val FLAG_LINK_STATIC: String = "linkStatic"
+
+val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
 
 plugins {
     kotlin("multiplatform") version "1.9.10"
@@ -45,6 +47,7 @@ val cinterop_definitions: List<CInteropDefinition> = listOf(
             else -> "libzmq"
         },
         listOf("zmq.h", "zmq_utils.h"),
+        static_lib = "libzmq.a",
         compiler_opts = listOf("-DZMQ_BUILD_DRAFT_API=1"),
         linker_opts = when (OS.target) {
             OS.WINDOWS -> listOf("-lssp")
@@ -209,6 +212,8 @@ tasks.register("generateCInteropDefinitions") {
     outputs.upToDateWhen { false }
 
     doLast {
+        val static: Boolean = project.hasProperty(FLAG_LINK_STATIC)
+
         val cinterop_directory: File = project.file("src/nativeInterop/cinterop")
         val bin_directory: File = project.file("src/nativeInterop/bin")
 
@@ -232,7 +237,7 @@ tasks.register("generateCInteropDefinitions") {
 
             file.printWriter().use { writer ->
                 writer.print(GENERATED_FILE_PREFIX.replace("//", "#"))
-                lib.writeTo(writer)
+                lib.writeTo(writer, static)
             }
         }
     }
@@ -322,16 +327,29 @@ data class CInteropDefinition(
     val name: String,
     val lib: String,
     val headers: List<String>,
+    val static_lib: String? = null,
     val compiler_opts: List<String> = emptyList(),
     val linker_opts: List<String> = emptyList(),
     val bin_dependencies: List<String> = emptyList(),
     val platforms: List<OS> = OS.values().toList()
 ) {
-    fun writeTo(writer: PrintWriter) {
+    fun writeTo(writer: PrintWriter, static: Boolean) {
         writer.writeList("headers", headers.map { formatPlatformInclude(it) })
 
-        writer.writeList("compilerOpts", getBaseCompilerOpts() + pkgConfig(formatPlatformLib(lib), cflags = true) + compiler_opts)
-        writer.writeList("linkerOpts", getBaseLinkerOpts() + pkgConfig(formatPlatformLib(lib), libs = true) + linker_opts)
+        var copts: List<String> = getBaseCompilerOpts() + compiler_opts
+        var lopts: List<String> = getBaseLinkerOpts() + linker_opts
+        
+        if (static && static_lib != null) {
+            writer.writeList("libraryPaths", listOf("src/nativeInterop/lib"))
+            writer.writeList("staticLibraries", listOf(static_lib))
+        }
+        else {
+            copts += pkgConfig(formatPlatformLib(lib), cflags = true)
+            lopts += pkgConfig(formatPlatformLib(lib), libs = true)
+        }
+
+        writer.writeList("compilerOpts", copts)
+        writer.writeList("linkerOpts", lopts)
     }
 
     private fun formatPlatformInclude(path: String): String =
