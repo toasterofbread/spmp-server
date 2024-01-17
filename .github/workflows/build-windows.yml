@@ -1,0 +1,67 @@
+name: Build [Windows]
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Download libzmq from vcpkg
+      uses: johnwason/vcpkg-action@v5
+      with:
+        pkgs: zeromq[draft]
+        triplet: x64-windows
+        token: ${{ github.token }}
+
+    - name: Move needed libzmq files
+      run: move "${{ github.workspace }}\vcpkg\packages\zeromq_x64-windows\*" "${{ github.workspace }}\src\nativeInterop"
+
+    - name: Download 7-Zip
+      run: curl https://www.7-zip.org/a/7z2301-x64.exe --output 7z-installer.exe
+
+    - name: Extract 7-Zip
+      run: .\7z-installer.exe /S /D="${{ github.workspace }}\7zip"
+
+    - name: Download mpv
+      run: curl https://kumisystems.dl.sourceforge.net/project/mpv-player-windows/libmpv/mpv-dev-x86_64-20240114-git-bd35dc8.7z --output mpv.7z
+
+    - name: Extract mpv
+      run: 7zip\7z.exe x mpv.7z -osrc\nativeInterop
+
+    - name: Create lib directory
+      run: md src\nativeInterop\lib 2> nul
+      continue-on-error: true
+
+    - name: Move libmpv.dll.a
+      run: move src\nativeInterop\libmpv.dll.a src\nativeInterop\lib\libmpv.dll.a
+
+    - name: Build native binaries
+      run: .\gradlew.bat nativeBinaries
+
+    - name: Upload debug binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-windows-debug.exe
+        path: build\bin\native\debugExecutable\spmp-server.exe
+
+    - name: Upload release binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-windows-release.exe
+        path: build\bin\native\releaseExecutable\spmp-server.exe
