@@ -8,37 +8,64 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-zmq:
     runs-on: ubuntu-20.04
+    steps:
+      - name: Download libzmq
+        run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz
+  
+      - name: Extract libzmq
+        run: tar -xf ./zeromq-4.3.5.tar.gz
+  
+      - name: Configure libzmq
+        working-directory: zeromq-4.3.5
+        run: ./configure --enable-drafts --enable-static --disable-shared --disable-libbsd --prefix=$GITHUB_WORKSPACE/libzmq
+  
+      - name: Compile libzmq
+        working-directory: zeromq-4.3.5
+        run: make -j$(nproc) && make install
+
+      - name: Upload libzmq artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libzmq
+          path: libzmq
+          retention-days: 1
+
+  build-spms:
+    runs-on: ubuntu-22.04
+    container: archlinux
+    needs: build-zmq
+  
+    env:
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk/
 
     steps:
+    - name: Install build tools
+      run: pacman --noconfirm -Syu git gcc make jre17-openjdk wget pkgconf
+
+    - name: Resolve dubious repository ownership
+      run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+    - name: Test Java
+      run: $JAVA_HOME/bin/java --version
+    
     - uses: actions/checkout@v3
       with:
         submodules: recursive
 
-    - name: Download libzmq
-      run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz
+    - name: Download libzmq artifact
+      uses: actions/download-artifact@v4
 
-    - name: Extract libzmq
-      run: tar -xf ./zeromq-4.3.5.tar.gz
-
-    - name: Configure libzmq
-      working-directory: zeromq-4.3.5
-      run: ./configure --enable-drafts --enable-static --disable-shared --disable-libbsd --prefix=${{ github.workspace }}/src/nativeInterop/
-
-    - name: Compile libzmq
-      working-directory: zeromq-4.3.5
-      run: make -j$(nproc) && make install
+    - name: Move libzmq into src/nativeInterop
+      run: mkdir src/nativeInterop && mv libzmq/* src/nativeInterop
 
     - name: Install dependencies
-      uses: awalsh128/cache-apt-pkgs-action@latest
-      with:
-        packages: libmpv-dev libappindicator3-dev libcurl4-openssl-dev
-        version: 1.0
+      run: pacman --noconfirm -Sy mpv libappindicator-gtk3
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradle
-
+      
     - name: Build native binaries
       run: ./gradlew nativeBinaries -PlinkStatic
 
@@ -56,4 +83,3 @@ jobs:
       with:
         name: spms-linux-release.kexe
         path: build/bin/native/releaseExecutable/spmp-server.kexe
-
