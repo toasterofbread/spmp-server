@@ -7,24 +7,15 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.MemScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.double
-import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
+import kotlinx.serialization.json.*
 import libzmq.ZMQ_DEALER
 import libzmq.ZMQ_NOBLOCK
 import spms.Command
 import spms.client.ClientOptions
 import spms.client.cli.SpMsCommandLineClientError
 import spms.localisation.loc
-import spms.player.Player
 import spms.player.PlayerEvent
-import spms.player.StreamProviderServer
 import spms.server.*
 import kotlin.system.getTimeMillis
 
@@ -35,7 +26,7 @@ private const val POLL_INTERVAL: Long = 100
 private fun getClientName(): String =
     "SpMs Player Client"
 
-private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headless) {
+private abstract class PlayerImpl(server_port: Int, headless: Boolean = true): MpvClientImpl(server_port, headless) {
     override fun onEvent(event: PlayerEvent, clientless: Boolean) {
         if (event.type == PlayerEvent.Type.READY_TO_PLAY) {
             onReadyToPlay()
@@ -143,10 +134,14 @@ class PlayerClient private constructor(): Command(
 
         log(currentContext.loc.cli.sending_handshake)
 
+        val player_port: Int = client_options.port + 1
+
         val handshake: SpMsClientHandshake = SpMsClientHandshake(
             name = getClientName(),
             type = SpMsClientType.PLAYER,
-            language = currentContext.loc.language.name
+            machine_id = SpMs.getMachineId(),
+            language = currentContext.loc.language.name,
+            player_port = player_port
         )
         socket.sendStringMultipart(listOf(json.encodeToString(handshake)))
 
@@ -158,20 +153,16 @@ class PlayerClient private constructor(): Command(
 
         var shutdown: Boolean = false
         val queued_messages: MutableList<Pair<String, List<JsonPrimitive>>> = mutableListOf()
-        val stream_provider_server: StreamProviderServer = StreamProviderServer(client_options.port + 1)
 
-        val player: PlayerImpl = object : PlayerImpl(headless = !player_options.enable_gui) {
+        val player: PlayerImpl = object : PlayerImpl(player_port, headless = !player_options.enable_gui) {
             override fun onShutdown() {
+                super.onShutdown()
                 shutdown = true
             }
 
             override fun onReadyToPlay() {
                 queued_messages.add("readyToPlay" to listOf(JsonPrimitive(current_item_index), JsonPrimitive(getItem()), JsonPrimitive(duration_ms)))
             }
-
-            val stream_url: String get() = "https://www.youtube.com/watch?v="//stream_provider_server.getStreamUrl()
-            override fun urlToId(url: String): String = url.drop(stream_url.length)
-            override fun idToUrl(item_id: String): String = stream_url + item_id
         }
 
         val server_handshake: SpMsServerHandshake = Json.decodeFromString(reply.first())
@@ -212,8 +203,6 @@ class PlayerClient private constructor(): Command(
                 message.clear()
             }
         }
-
-        stream_provider_server.stop()
     }
 
     private fun ZmqSocket.pollEvents(): List<PlayerEvent> {

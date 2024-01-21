@@ -10,6 +10,7 @@ import spms.LocalisedMessageProvider
 import spms.client.ClientOptions
 import spms.client.cli.modes.Interactive
 import spms.localisation.loc
+import spms.server.SpMs
 import spms.server.SpMsClientHandshake
 import spms.server.SpMsClientType
 
@@ -40,6 +41,7 @@ abstract class CommandLineClientMode(
             val handshake: SpMsClientHandshake = SpMsClientHandshake(
                 name = context.client_name,
                 type = SpMsClientType.COMMAND_LINE,
+                machine_id = SpMs.getMachineId(),
                 language = currentContext.loc.language.name
             )
             context.socket.sendStringMultipart(listOf(Json.encodeToString(handshake)))

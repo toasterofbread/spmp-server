@@ -1,26 +1,24 @@
 package cinterop.mpv
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import kotlinx.serialization.json.JsonPrimitive
-import libmpv.MPV_EVENT_END_FILE
-import libmpv.MPV_EVENT_FILE_LOADED
-import libmpv.MPV_EVENT_PLAYBACK_RESTART
-import libmpv.MPV_EVENT_SHUTDOWN
-import libmpv.MPV_EVENT_START_FILE
-import libmpv.mpv_event_id
+import libmpv.*
 import spms.player.Player
 import spms.player.PlayerEvent
+import spms.player.StreamProviderServer
 import kotlin.math.roundToInt
 
-abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
+abstract class MpvClientImpl(server_port: Int, headless: Boolean = true): LibMpvClient(headless) {
     private val coroutine_scope = CoroutineScope(Dispatchers.IO)
+    private val stream_provider_server = StreamProviderServer(server_port)
 
-    abstract fun urlToId(url: String): String
-    abstract fun idToUrl(item_id: String): String
+    private fun urlToId(url: String): String = stream_provider_server.urlToId(url)
+    private fun idToUrl(item_id: String): String = stream_provider_server.idToUrl(item_id)
+
+    override fun onShutdown() {
+        super.onShutdown()
+        stream_provider_server.stop()
+    }
 
     init {
         coroutine_scope.launch {
@@ -41,11 +39,11 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
                         onEvent(PlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
                         onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)), clientless = true)
                     }
-                    MPV_EVENT_SHUTDOWN -> {
-                        onShutdown()
-                    }
                     MPV_EVENT_FILE_LOADED -> {
                         onEvent(PlayerEvent.ReadyToPlay(), clientless = true)
+                    }
+                    MPV_EVENT_SHUTDOWN -> {
+                        onShutdown()
                     }
                 }
             }

@@ -13,11 +13,15 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import okio.FileSystem
+import okio.Path
+import okio.Path.Companion.toPath
+import platform.posix.getenv
 import spms.getHostname
+import spms.localisation.Language
 import spms.player.HeadlessPlayer
 import spms.player.Player
 import spms.player.PlayerEvent
-import spms.player.StreamProviderServer
 import spms.serveraction.ServerAction
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.system.getTimeMillis
@@ -26,7 +30,7 @@ const val SERVER_EXPECT_REPLY_CHAR: Char = '!'
 const val SEND_EVENTS_TO_INSTIGATING_CLIENT: Boolean = true
 
 @OptIn(ExperimentalForeignApi::class)
-class SpMs(mem_scope: MemScope, val secondary_port: Int, headless: Boolean = false, enable_gui: Boolean = false): ZmqRouter(mem_scope) {
+class SpMs(mem_scope: MemScope, val secondary_port: Int, val headless: Boolean = false, enable_gui: Boolean = false): ZmqRouter(mem_scope) {
     @Serializable
     data class ActionReply(val success: Boolean, val error: String? = null, val error_cause: String? = null, val result: JsonElement? = null)
 
@@ -51,17 +55,8 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, headless: Boolean = fal
                 override fun onShutdown() = onPlayerShutdown()
             }
         else
-            object : MpvClientImpl(!enable_gui) {
-                val stream_provider_server = StreamProviderServer(secondary_port)
-
-                override fun urlToId(url: String): String = stream_provider_server.urlToId(url)
-                override fun idToUrl(item_id: String): String = stream_provider_server.idToUrl(item_id)
-
+            object : MpvClientImpl(secondary_port, headless = !enable_gui) {
                 override fun onEvent(event: PlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
-                override fun onShutdown() {
-                    stream_provider_server.stop()
-                    onPlayerShutdown()
-                }
             }
 
     private var executing_client_id: Int? = null
@@ -72,7 +67,15 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, headless: Boolean = fal
     private var playback_waiting_for_clients: Boolean = false
 
     fun getClients(caller: SpMsClientID? = null): List<SpMsClientInfo> =
-        clients.map { it.info.copy(is_caller = it.id == caller) }
+        listOf(
+            SpMsClientInfo(
+                application_name,
+                SpMsClientType.SERVER,
+                Language.EN,
+                getMachineId(),
+                player_port = if (headless) null else secondary_port
+            )
+        ) + clients.map { it.info.copy(is_caller = it.id == caller) }
 
     fun poll(client_reply_timeout_ms: Long): Boolean {
 
@@ -310,7 +313,9 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, headless: Boolean = fal
             SpMsClientInfo(
                 getNewClientName(client_handshake.name),
                 client_handshake.type,
-                client_handshake.getLanguage()
+                client_handshake.getLanguage(),
+                client_handshake.machine_id,
+                player_port = client_handshake.player_port
             ),
             player_event_inc
         )
@@ -372,6 +377,37 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, headless: Boolean = fal
 
     companion object {
         const val application_name: String = "spmp-server"
+
+        fun getMachineId(): String {
+            val id_path: Path =
+                when (Platform.osFamily) {
+                    OsFamily.LINUX -> "/tmp/".toPath()
+                    OsFamily.WINDOWS -> "${getenv("USERPROFILE")!!.toKString()}/AppData/Local/Temp/".toPath()
+                    else -> throw NotImplementedError(Platform.osFamily.name)
+                }.resolve("spmp_machine_id.txt")
+
+            if (FileSystem.SYSTEM.exists(id_path)) {
+                return FileSystem.SYSTEM.read(id_path) {
+                    readUtf8()
+                }
+            }
+
+            val parent: Path = id_path.parent!!
+            if (!FileSystem.SYSTEM.exists(parent)) {
+                FileSystem.SYSTEM.createDirectories(parent, true)
+            }
+
+            val id_length: Int = 8
+            val allowed_chars: List<Char> = ('A'..'Z') + ('a'..'z') + ('0'..'9')
+
+            val new_id: String = (1..id_length).map { allowed_chars.random() }.joinToString("")
+
+            FileSystem.SYSTEM.write(id_path) {
+                writeUtf8(new_id)
+            }
+
+            return new_id
+        }
     }
 }
 

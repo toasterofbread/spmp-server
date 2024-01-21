@@ -165,6 +165,8 @@ tasks.register("bundleGitCommitHash") {
 }
 
 tasks.register("configurePlatformSpecificFiles") {
+    outputs.upToDateWhen { false }
+
     fun String.getFile(suffix: String? = null): File =
         project.file("src/nativeMain/kotlin/" + if (suffix == null) this.replace(".kt", ".gen.kt") else (this + suffix))
 

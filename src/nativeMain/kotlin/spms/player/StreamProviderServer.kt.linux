@@ -6,11 +6,9 @@ import io.ktor.server.application.call
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
-import io.ktor.server.response.respond
-import io.ktor.server.response.respondRedirect
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.get
-import io.ktor.server.routing.routing
+import io.ktor.server.routing.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
 import io.ktor.server.util.getOrFail
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.staticCFunction
@@ -19,10 +17,44 @@ import platform.posix.setenv
 import platform.posix.signal
 import spms.server.PROJECT_URL
 import kotlin.system.exitProcess
+import kotlinx.serialization.json.*
+import okio.FileSystem
+import okio.Path.Companion.toPath
+
+private enum class ValueType { CHANNEL, HEADER }
+
+typealias YtAccountData = Pair<String, List<Pair<String, String>>>
+
+fun unpackSetData(set: Set<String>): YtAccountData {
+    var channel_id: String? = null
+    val headers: MutableList<Pair<String, String>> = mutableListOf()
+
+    for (item in set) {
+        val value = item.substring(1)
+        when (ValueType.entries[item.take(1).toInt()]) {
+            ValueType.CHANNEL -> {
+                channel_id = value
+            }
+            ValueType.HEADER -> {
+                val split: List<String> = value.split('=', limit = 2)
+                headers.add(Pair(split[0], split[1]))
+            }
+        }
+    }
+
+    if (channel_id == null) {
+        throw RuntimeException("Channel was not provided")
+    }
+
+    return YtAccountData(channel_id, headers)
+}
 
 @OptIn(ExperimentalForeignApi::class)
 class StreamProviderServer(val port: Int) {
     private val server: ApplicationEngine
+
+    private val local_files: MutableMap<String, String> = mutableMapOf()
+    private var yt_account: YtAccountData? = null
 
     init {
         setenv("KTOR_LOG_LEVEL", "WARN", 1)
@@ -43,16 +75,62 @@ class StreamProviderServer(val port: Int) {
                 get("/stream/{video_id}") {
                     val video_id: String = call.parameters.getOrFail("video_id")
 
+                    val local_file: String? = local_files[video_id]
+                    if (local_file != null) {
+                        call.respondBytesWriter {
+                            FileSystem.SYSTEM.read(local_file.toPath()) {
+                                val bytes: ByteArray = readByteArray()
+                                writeFully(bytes, 0, bytes.size)
+                            }
+                        }
+                        return@get
+                    }
+
                     val stream_url: String
                     try {
-                        stream_url = VideoInfoProvider.getVideoStreamUrl(video_id)
+                        stream_url = VideoInfoProvider.getVideoStreamUrl(video_id, yt_account?.second ?: emptyList())
                     }
                     catch (e: Throwable) {
-                        call.respond(HttpStatusCode.InternalServerError, e.stackTraceToString())
+                        call.respond(HttpStatusCode.BadRequest, e.stackTraceToString())
                         return@get
                     }
 
                     call.respondRedirect(stream_url)
+                }
+
+                post("/local_song/add/{video_id}") {
+                    val video_id: String = call.parameters.getOrFail("video_id")
+                    val file_path: String = call.receiveText().trim()
+
+                    if (!addLocalFile(video_id, file_path)) {
+                        call.respond(HttpStatusCode.NotFound)
+                    }
+
+                    call.respond(200)
+                }
+
+                post("/local_song/add_batch") {
+                    val files: Map<String, String> = Json.decodeFromString(call.receiveText())
+                    for (file in files) {
+                        addLocalFile(file.key, file.value)
+                    }
+                    call.respond(200)
+                }
+
+                post("/local_song/remove/{video_id}") {
+                    val video_id: String = call.parameters.getOrFail("video_id")
+                    local_files.remove(video_id)
+                    call.respond(200)
+                }
+
+                post("/yt_account/set") {
+                    yt_account = unpackSetData(Json.decodeFromString(call.receiveText()))
+                    call.respond(200)
+                }
+
+                post("/yt_account/remove") {
+                    yt_account = null
+                    call.respond(200)
                 }
             }
         }.start(false)
@@ -72,4 +150,14 @@ class StreamProviderServer(val port: Int) {
 
     private fun getStreamUrl(): String =
         "http://localhost:$port/stream/"
+
+    private fun addLocalFile(video_id: String, file_path: String): Boolean {
+        if (!FileSystem.SYSTEM.exists(file_path.toPath())) {
+            return false
+        }
+
+        local_files[video_id] = file_path
+
+        return true
+    }
 }

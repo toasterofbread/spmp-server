@@ -7,14 +7,16 @@ import spms.player.Player
 typealias SpMsClientID = Int
 
 enum class SpMsClientType {
-    SPMP_PLAYER, SPMP_STANDALONE, PLAYER, COMMAND_LINE
+    SPMP_PLAYER, SPMP_STANDALONE, PLAYER, COMMAND_LINE, SERVER
 }
 
 @Serializable
 data class SpMsClientHandshake(
     val name: String,
     val type: SpMsClientType,
-    val language: String? = null
+    val machine_id: String,
+    val language: String? = null,
+    val player_port: Int? = null
 ) {
     fun getLanguage(): Language =
         Language.fromCode(language) ?: Language.default
@@ -45,7 +47,9 @@ data class SpMsClientInfo(
     val name: String,
     val type: SpMsClientType,
     val language: Language,
-    val is_caller: Boolean = false
+    val machine_id: String,
+    val is_caller: Boolean = false,
+    val player_port: Int? = null
 )
 
 internal class SpMsClient(
