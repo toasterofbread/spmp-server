@@ -54,6 +54,10 @@ object VideoInfoProvider {
         val response: HttpResponse = http_client.post {
             url("https://music.youtube.com/youtubei/v1/player?key=AIzaSyAOghZGza2MQSZkY_zfZ370N-PUdXEo8AI")
 
+            for (header in account_headers ?: emptyList()) {
+                header(header.first, header.second)
+            }
+
             headers {
                 set("accept", "*/*")
                 set("content-type", "application/json")
@@ -63,10 +67,6 @@ object VideoInfoProvider {
                 set("x-origin", "https://music.youtube.com")
                 set("origin", "https://music.youtube.com")
                 set("user-agent", "Mozilla/5.0 (X11; Linux x86_64; rv:105.0) Gecko/20100101 Firefox/105.0")
-            }
-
-            for (header in account_headers ?: emptyList()) {
-                header(header.first, header.second)
             }
 
             setBody(
@@ -89,10 +89,16 @@ object VideoInfoProvider {
             )
         }
 
-        val formats: YoutubeFormatsResponse = json.decodeFromString(response.bodyAsText())!!
-        val best_format: YoutubeVideoFormat = formats.streamingData.adaptiveFormats.filter { it.audio_only }.maxBy { it.bitrate }
+        val body: String = response.bodyAsText()
+        try {
+            val formats: YoutubeFormatsResponse = json.decodeFromString(response.bodyAsText())!!
+            val best_format: YoutubeVideoFormat = formats.streamingData.adaptiveFormats.filter { it.audio_only }.maxBy { it.bitrate }
 
-        return best_format.url!!
+            return best_format.url!!
+        }
+        catch (e: Throwable) {
+            throw RuntimeException(body, e)
+        }
     }
 
     private suspend fun getPipedVideoStreamUrl(video_id: String): String {
