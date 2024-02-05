@@ -24,13 +24,14 @@ import spms.player.Player
 import spms.player.PlayerEvent
 import spms.serveraction.ServerAction
 import kotlin.experimental.ExperimentalNativeApi
+import kotlin.system.exitProcess
 import kotlin.system.getTimeMillis
 
 const val SERVER_EXPECT_REPLY_CHAR: Char = '!'
 const val SEND_EVENTS_TO_INSTIGATING_CLIENT: Boolean = true
 
 @OptIn(ExperimentalForeignApi::class)
-class SpMs(mem_scope: MemScope, val secondary_port: Int, val headless: Boolean = false, enable_gui: Boolean = false): ZmqRouter(mem_scope) {
+class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boolean = false): ZmqRouter(mem_scope) {
     @Serializable
     data class ActionReply(val success: Boolean, val error: String? = null, val error_cause: String? = null, val result: JsonElement? = null)
 
@@ -55,13 +56,13 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, val headless: Boolean =
                 override fun onShutdown() = onPlayerShutdown()
             }
         else
-            object : MpvClientImpl(secondary_port, headless = !enable_gui) {
+            object : MpvClientImpl(headless = !enable_gui) {
                 override fun onEvent(event: PlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
+                override fun onShutdown() = onPlayerShutdown()
             }
 
     private var executing_client_id: Int? = null
     private var player_event_inc: Int = 0
-    private var player_shut_down: Boolean = false
     private val player_events: MutableList<PlayerEvent> = mutableListOf()
     private val clients: MutableList<SpMsClient> = mutableListOf()
     private var playback_waiting_for_clients: Boolean = false
@@ -73,11 +74,11 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, val headless: Boolean =
                 SpMsClientType.SERVER,
                 Language.EN,
                 getMachineId(),
-                player_port = if (headless) null else secondary_port
+                player_port = if (headless) null else bound_port
             )
         ) + clients.map { it.info.copy(is_caller = it.id == caller) }
 
-    fun poll(client_reply_timeout_ms: Long): Boolean {
+    fun poll(client_reply_timeout_ms: Long) {
 
         // Process stray messages (hopefully client handshakes)
         while (true) {
@@ -209,8 +210,6 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, val headless: Boolean =
 
             executing_client_id = null
         }
-
-        return !player_shut_down
     }
 
     fun onClientReadyToPlay(client_id: SpMsClientID, item_index: Int, item_id: String, item_duration_ms: Long) {
@@ -277,7 +276,7 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, val headless: Boolean =
     }
 
     private fun onPlayerShutdown() {
-        player_shut_down = true
+        exitProcess(0)
     }
 
     private fun getNewClientName(requested_name: String): String {
@@ -377,6 +376,13 @@ class SpMs(mem_scope: MemScope, val secondary_port: Int, val headless: Boolean =
 
     companion object {
         const val application_name: String = "spmp-server"
+
+        var logging_enabled: Boolean = true
+        fun log(msg: Any?) {
+            if (logging_enabled) {
+                println(msg)
+            }
+        }
 
         fun getMachineId(): String {
             val id_path: Path =

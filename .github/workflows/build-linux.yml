@@ -11,17 +11,28 @@ jobs:
   build-zmq:
     runs-on: ubuntu-20.04
     steps:
+      - name: Get cached libzmq
+        id: cache-libzmq
+        uses: actions/cache@v4
+        with:
+         path: libzmq
+         key: ${{ runner.os }}-libzmq
+
       - name: Download libzmq
+        if: steps.cache-libzmq.outputs.cache-hit != 'true'
         run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz
   
       - name: Extract libzmq
+        if: steps.cache-libzmq.outputs.cache-hit != 'true'
         run: tar -xf ./zeromq-4.3.5.tar.gz
   
       - name: Configure libzmq
+        if: steps.cache-libzmq.outputs.cache-hit != 'true'
         working-directory: zeromq-4.3.5
         run: ./configure --enable-drafts --enable-static --disable-shared --disable-libbsd --prefix=$GITHUB_WORKSPACE/libzmq
   
       - name: Compile libzmq
+        if: steps.cache-libzmq.outputs.cache-hit != 'true'
         working-directory: zeromq-4.3.5
         run: make -j$(nproc) && make install
 

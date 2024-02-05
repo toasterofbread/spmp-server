@@ -6,8 +6,8 @@ data class PlayerStreamInfo(
 )
 
 interface Player {
+    fun onShutdown()
     fun onEvent(event: PlayerEvent, clientless: Boolean = false) {}
-    fun onShutdown() {}
 
     fun release()
 

@@ -1,40 +1,12 @@
 package cinterop.mpv
 
-import kotlinx.cinterop.BooleanVar
-import kotlinx.cinterop.ByteVarOf
-import kotlinx.cinterop.CPointer
-import kotlinx.cinterop.CPrimitiveVar
-import kotlinx.cinterop.DoubleVar
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.IntVar
-import kotlinx.cinterop.MemScope
-import kotlinx.cinterop.alloc
-import kotlinx.cinterop.cstr
-import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.pointed
-import kotlinx.cinterop.ptr
-import kotlinx.cinterop.toCValues
-import kotlinx.cinterop.toKString
-import kotlinx.cinterop.value
-import libmpv.MPV_FORMAT_DOUBLE
-import libmpv.MPV_FORMAT_FLAG
-import libmpv.MPV_FORMAT_INT64
-import libmpv.mpv_command
-import libmpv.mpv_create_client
-import libmpv.mpv_event_id
-import libmpv.mpv_get_property
-import libmpv.mpv_get_property_string
-import libmpv.mpv_initialize
-import libmpv.mpv_set_option
-import libmpv.mpv_set_option_string
-import libmpv.mpv_set_property
-import libmpv.mpv_terminate_destroy
-import libmpv.mpv_wait_event
+import kotlinx.cinterop.*
+import libmpv.*
 import spms.player.Player
 import spms.player.toInt
+import kotlin.reflect.KClass
 import cnames.structs.mpv_handle as MpvHandle
 import libmpv.mpv_format as MpvFormat
-
 
 @OptIn(ExperimentalForeignApi::class)
 abstract class LibMpvClient(val headless: Boolean = true): Player {
@@ -58,7 +30,8 @@ abstract class LibMpvClient(val headless: Boolean = true): Player {
             }
         }
 
-        check(mpv_initialize(ctx) == 0) { "Initialising MPV client failed" }
+        val init_result: Int = mpv_initialize(ctx)
+        check(init_result == 0) { "Initialising MPV client failed ($init_result)" }
     }
 
     override fun release() {
@@ -120,9 +93,19 @@ abstract class LibMpvClient(val headless: Boolean = true): Player {
         }
 
     protected inline fun <reified T: Any> setProperty(name: String, value: T) = memScoped {
+        if (value is String) {
+            mpv_set_property_string(ctx, name, value)
+            return@memScoped
+        }
+
         val pointer: CPrimitiveVar = getPointerOf(value)
-        val format: MpvFormat = getFormatOf(value)
+        val format: MpvFormat = getFormatOf(T::class)
         mpv_set_property(ctx, name, format, pointer.ptr)
+    }
+
+    protected inline fun <reified T: Any> observeProperty(name: String) {
+        val format: MpvFormat = getFormatOf(T::class)
+        mpv_observe_property(ctx, 0UL, name, format)
     }
 
     protected inline fun <reified T> MemScope.getPointerOf(v: T? = null): CPrimitiveVar =
@@ -133,14 +116,26 @@ abstract class LibMpvClient(val headless: Boolean = true): Player {
             else -> throw NotImplementedError(T::class.toString())
         }
 
-    protected fun getFormatOf(v: Any): MpvFormat =
-        when (v) {
-            is Boolean -> MPV_FORMAT_FLAG
-            is Int -> MPV_FORMAT_INT64
-            is Double -> MPV_FORMAT_DOUBLE
-            else -> throw NotImplementedError(v::class.toString())
+    protected fun getFormatOf(cls: KClass<*>): MpvFormat =
+        when (cls) {
+            Boolean::class -> MPV_FORMAT_FLAG
+            Int::class -> MPV_FORMAT_INT64
+            Double::class -> MPV_FORMAT_DOUBLE
+            else -> throw NotImplementedError(cls.toString())
         }
 
-    protected fun waitForEvent(): mpv_event_id? =
-        mpv_wait_event(ctx, -1.0)?.pointed?.event_id
+    protected fun waitForEvent(): mpv_event? =
+        mpv_wait_event(ctx, -1.0)?.pointed
+
+    protected fun requestLogMessages() {
+        mpv_request_log_messages(ctx, "stats")
+    }
+
+    protected fun addHook(name: String, priority: Int = 0) {
+        mpv_hook_add(ctx, 0UL, name, priority)
+    }
+
+    protected fun continueHook(id: ULong) {
+        mpv_hook_continue(ctx, id)
+    }
 }

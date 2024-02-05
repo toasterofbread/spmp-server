@@ -1,53 +1,30 @@
 package cinterop.mpv
 
+import kotlinx.cinterop.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.JsonPrimitive
 import libmpv.*
 import spms.player.Player
 import spms.player.PlayerEvent
-import spms.player.StreamProviderServer
+import spms.player.VideoInfoProvider
+import spms.server.SpMs
 import kotlin.math.roundToInt
 
-abstract class MpvClientImpl(server_port: Int, headless: Boolean = true): LibMpvClient(headless) {
-    private val coroutine_scope = CoroutineScope(Dispatchers.IO)
-    private val stream_provider_server = StreamProviderServer(server_port)
+private const val URL_PREFIX: String = "spmp://"
 
-    private fun urlToId(url: String): String = stream_provider_server.urlToId(url)
-    private fun idToUrl(item_id: String): String = stream_provider_server.idToUrl(item_id)
+@OptIn(ExperimentalForeignApi::class)
+inline fun <reified T: CPointed> CPointer<*>?.pointedAs(): T =
+    this!!.reinterpret<T>().pointed
 
-    override fun onShutdown() {
-        super.onShutdown()
-        stream_provider_server.stop()
-    }
+@OptIn(ExperimentalForeignApi::class)
+abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
+    private val coroutine_scope = CoroutineScope(Job())
+
+    private fun urlToId(url: String): String? = if (url.startsWith(URL_PREFIX)) url.drop(URL_PREFIX.length) else null
+    private fun idToUrl(item_id: String): String = URL_PREFIX + item_id
 
     init {
-        coroutine_scope.launch {
-            while (true) {
-                val event: mpv_event_id? = waitForEvent()
-                when (event) {
-                    MPV_EVENT_START_FILE -> {
-                        onEvent(PlayerEvent.ItemTransition(current_item_index), clientless = true)
-                        setProperty("pause", true)
-                        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(false)))
-                    }
-                    MPV_EVENT_PLAYBACK_RESTART -> {
-                        onEvent(PlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
-                        onEvent(PlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration_ms)), clientless = true)
-                        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)), clientless = true)
-                    }
-                    MPV_EVENT_END_FILE -> {
-                        onEvent(PlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
-                        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)), clientless = true)
-                    }
-                    MPV_EVENT_FILE_LOADED -> {
-                        onEvent(PlayerEvent.ReadyToPlay(), clientless = true)
-                    }
-                    MPV_EVENT_SHUTDOWN -> {
-                        onShutdown()
-                    }
-                }
-            }
-        }
+        initialise()
     }
 
     override fun release() {
@@ -75,6 +52,9 @@ abstract class MpvClientImpl(server_port: Int, headless: Boolean = true): LibMpv
         get() = Player.RepeatMode.NONE // TODO
     override val volume: Double
         get() = getProperty("volume")
+
+    private val current_item_playlist_id: Int
+        get() = getProperty("playlist/${current_item_index}/id")
 
     override fun play() {
         setProperty("pause", false)
@@ -199,4 +179,96 @@ abstract class MpvClientImpl(server_port: Int, headless: Boolean = true): LibMpv
     }
 
     override fun toString(): String = "MpvClientImpl(headless=$headless)"
+
+    private fun initialise() {
+        //        requestLogMessages()
+
+        addHook("on_load")
+        observeProperty<Boolean>("core-idle")
+
+        coroutine_scope.launch {
+            eventLoop()
+        }
+    }
+
+    private suspend fun eventLoop() = withContext(Dispatchers.IO) {
+        while (true) {
+            val event: mpv_event? = waitForEvent()
+
+            when (event?.event_id) {
+                MPV_EVENT_START_FILE -> {
+                    val data: mpv_event_start_file = event.data.pointedAs()
+                    if (data.playlist_entry_id.toInt() != current_item_playlist_id) {
+                        continue
+                    }
+
+                    onEvent(PlayerEvent.ItemTransition(current_item_index), clientless = true)
+                }
+                MPV_EVENT_PLAYBACK_RESTART -> {
+                    onEvent(PlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
+                    onEvent(PlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration_ms)), clientless = true)
+                }
+                MPV_EVENT_END_FILE -> {
+                    onEvent(PlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
+                }
+                MPV_EVENT_FILE_LOADED -> {
+                    onEvent(PlayerEvent.ReadyToPlay(), clientless = true)
+                }
+                MPV_EVENT_SHUTDOWN -> {
+                    onShutdown()
+                }
+                MPV_EVENT_PROPERTY_CHANGE -> {
+                    val data: mpv_event_property = event.data.pointedAs()
+
+                    when (data.name?.toKString()) {
+                        "core-idle" -> {
+                            val playing: Boolean = !data.data.pointedAs<BooleanVar>().value
+                            onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(playing)), clientless = true)
+                        }
+                    }
+                }
+
+                MPV_EVENT_HOOK -> {
+                    val data: mpv_event_hook = event.data.pointedAs()
+                    launch {
+                        onMpvHook(data.name?.toKString(), data.id)
+                    }
+                }
+
+                MPV_EVENT_LOG_MESSAGE -> {
+                    if (SpMs.logging_enabled) {
+                        val message: mpv_event_log_message = event.data.pointedAs()
+                        SpMs.log("From mpv (${message.prefix?.toKString()}): ${message.text?.toKString()}")
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun onMpvHook(hook_name: String?, hook_id: ULong) {
+        try {
+            when (hook_name) {
+                "on_load" -> {
+                    val video_id: String = urlToId(getProperty<String>("stream-open-filename")) ?: return
+                    val stream_url: String =
+                        try {
+                            VideoInfoProvider.getVideoStreamUrl(video_id, emptyList()) // TODO
+                        }
+                        catch (e: Throwable) {
+                            RuntimeException("Getting video stream url for $video_id failed", e).printStackTrace()
+                            return
+                        }
+
+                    setProperty("stream-open-filename", stream_url)
+                }
+                else -> throw NotImplementedError("Unknown mpv hook name '$hook_name'")
+            }
+        }
+        catch (e: Throwable) {
+            RuntimeException("Processing mpv hook $hook_name failed", e).printStackTrace()
+        }
+        finally {
+            continueHook(hook_id)
+        }
+    }
 }

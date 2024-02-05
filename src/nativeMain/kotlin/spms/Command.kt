@@ -10,6 +10,7 @@ import com.github.ajalt.clikt.parameters.options.option
 import spms.localisation.Language
 import spms.localisation.SpMsLocalisation
 import spms.localisation.loc
+import spms.server.SpMs
 
 typealias LocalisedMessageProvider = SpMsLocalisation.() -> String
 
@@ -28,17 +29,15 @@ abstract class Command(
     protected val halt: Boolean by option("--halt", hidden = true, envvar = "SPMS_HALT").flag().help { context.loc.cli.option_help_halt }
 
     protected fun log(message: Any?) {
-        if (silent) {
-            return
-        }
-
-        println(message)
+        SpMs.log(message)
     }
 
     override fun commandHelpEpilog(context: Context): String = context.loc.cli.bug_report_notice
     override fun commandHelp(context: Context): String = help(context.loc)
 
     override fun run() {
+        SpMs.logging_enabled = !silent
+
         val lang: Language? = Language.fromCode(language)
         if (lang != null && lang != localisation.language) {
             localisation = SpMsLocalisation.get(lang)

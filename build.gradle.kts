@@ -23,7 +23,6 @@ repositories {
 
 val platform_specific_files: List<String> = listOf(
     "cinterop/indicator/TrayIndicatorImpl.kt",
-    "spms/player/StreamProviderServer.kt",
     "spms/Platform.kt"
 )
 

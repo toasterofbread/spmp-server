@@ -106,7 +106,7 @@ class SpMsCommand: Command(
         var stop: Boolean = false
 
         memScoped {
-            val server: SpMs = SpMs(this, port + 1, headless, player_options.enable_gui)
+            val server: SpMs = SpMs(this, headless, player_options.enable_gui)
             server.bind(port)
 
             println(localisation.server.serverBoundToPort(server.toString(), port))
@@ -128,7 +128,8 @@ class SpMsCommand: Command(
                     }
 
                     println("--- ${localisation.server.polling_started} ---")
-                    while (server.poll(CLIENT_REPLY_TIMEOUT_MS) && !stop) {
+                    while (!stop) {
+                        server.poll(CLIENT_REPLY_TIMEOUT_MS)
                         delay(POLL_INTERVAL_MS)
                     }
                     println("--- ${localisation.server.polling_ended} ---")

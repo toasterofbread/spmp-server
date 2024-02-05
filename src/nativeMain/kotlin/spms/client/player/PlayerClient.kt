@@ -26,7 +26,7 @@ private const val POLL_INTERVAL: Long = 100
 private fun getClientName(): String =
     "SpMs Player Client"
 
-private abstract class PlayerImpl(server_port: Int, headless: Boolean = true): MpvClientImpl(server_port, headless) {
+private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headless) {
     override fun onEvent(event: PlayerEvent, clientless: Boolean) {
         if (event.type == PlayerEvent.Type.READY_TO_PLAY) {
             onReadyToPlay()
@@ -134,6 +134,7 @@ class PlayerClient private constructor(): Command(
 
         log(currentContext.loc.cli.sending_handshake)
 
+        // TODO zmq server for receiving auth headers from clients
         val player_port: Int = client_options.port + 1
 
         val handshake: SpMsClientHandshake = SpMsClientHandshake(
@@ -146,7 +147,6 @@ class PlayerClient private constructor(): Command(
         socket.sendStringMultipart(listOf(json.encodeToString(handshake)))
 
         val reply: List<String>? = socket.recvStringMultipart(SERVER_REPLY_TIMEOUT_MS)
-
         if (reply == null) {
             throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotRespond(SERVER_REPLY_TIMEOUT_MS))
         }
@@ -154,9 +154,8 @@ class PlayerClient private constructor(): Command(
         var shutdown: Boolean = false
         val queued_messages: MutableList<Pair<String, List<JsonPrimitive>>> = mutableListOf()
 
-        val player: PlayerImpl = object : PlayerImpl(player_port, headless = !player_options.enable_gui) {
+        val player: PlayerImpl = object : PlayerImpl(headless = !player_options.enable_gui) {
             override fun onShutdown() {
-                super.onShutdown()
                 shutdown = true
             }
 
