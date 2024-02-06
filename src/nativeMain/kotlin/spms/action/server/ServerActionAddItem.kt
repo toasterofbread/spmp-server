@@ -1,4 +1,4 @@
-package spms.serveraction
+package spms.action.server
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
@@ -23,11 +23,11 @@ class ServerActionAddItem: ServerAction(
         )
     )
 ) {
-    override fun execute(server: SpMs, context: ActionContext): JsonElement? {
+    override fun execute(base: SpMs, context: ActionContext): JsonElement? {
         val item_id: String = context.getParameterValue("item_id")!!.content
         val index: Int = context.getParameterValue("index")?.int ?: -1
 
-        server.player.addItem(item_id, index)
+        base.player.addItem(item_id, index)
         return null
     }
 }

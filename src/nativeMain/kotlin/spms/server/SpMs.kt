@@ -22,7 +22,7 @@ import spms.localisation.Language
 import spms.player.HeadlessPlayer
 import spms.player.Player
 import spms.player.PlayerEvent
-import spms.serveraction.ServerAction
+import spms.action.server.ServerAction
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.system.exitProcess
 import kotlin.system.getTimeMillis

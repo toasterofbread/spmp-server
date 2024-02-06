@@ -1,4 +1,4 @@
-package spms.serveraction
+package spms.action.server
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.long
@@ -17,9 +17,9 @@ class ServerActionSeekToTime: ServerAction(
         )
     )
 ) {
-    override fun execute(server: SpMs, context: ActionContext): JsonElement? {
+    override fun execute(base: SpMs, context: ActionContext): JsonElement? {
         val position_ms: Long = context.getParameterValue("position_ms")!!.long
-        server.player.seekToTime(position_ms)
+        base.player.seekToTime(position_ms)
         return null
     }
 }

@@ -1,4 +1,4 @@
-package spms.serveraction
+package spms.action.server
 
 import cinterop.mpv.getCurrentStateJson
 import com.github.ajalt.clikt.core.Context
@@ -34,8 +34,8 @@ class ServerActionGetStatus: ServerAction(
     help = { server_actions.status_help },
     parameters = emptyList()
 ) {
-    override fun execute(server: SpMs, context: ActionContext): JsonElement {
-        return Json.encodeToJsonElement(server.player.getCurrentStateJson())
+    override fun execute(base: SpMs, context: ActionContext): JsonElement {
+        return Json.encodeToJsonElement(base.player.getCurrentStateJson())
     }
 
     private val cache_files: MutableMap<String, JsonElement> = mutableMapOf()

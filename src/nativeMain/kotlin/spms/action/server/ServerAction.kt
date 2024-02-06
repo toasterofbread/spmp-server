@@ -1,4 +1,4 @@
-package spms.serveraction
+package spms.action.server
 
 import cinterop.zmq.ZmqSocket
 import com.github.ajalt.clikt.core.Context
@@ -15,42 +15,13 @@ import spms.server.SpMsClientID
 import kotlin.system.getTimeMillis
 
 sealed class ServerAction(
-    val identifier: String,
-    val name: LocalisedMessageProvider,
-    val help: LocalisedMessageProvider,
-    val parameters: List<Parameter>,
-    val hidden: Boolean = false
-) {
-    data class Parameter(
-        val type: Type,
-        val required: Boolean,
-        val identifier: String,
-        val help: LocalisedMessageProvider
-    ) {
-        enum class Type {
-            String, Int, Float
-        }
-    }
-    protected inner class ActionContext(val client: SpMsClientID, private val parameter_values: List<JsonPrimitive>) {
-        fun getParameterValue(identifier: String): JsonPrimitive? {
-            val index: Int = parameters.indexOfFirst { it.identifier == identifier }
-            val parameter: Parameter = parameters[index]
-
-            val value: JsonPrimitive? = parameter_values.getOrNull(index)
-            if (value == null && parameter.required) {
-                throw InvalidParameterException(parameter, value)
-            }
-
-            return value
-        }
-    }
-    class InvalidParameterException(val parameter: Parameter, val value: JsonPrimitive?): RuntimeException()
-
-    open fun formatResult(result: JsonElement, context: Context) = result.toString()
-    protected abstract fun execute(server: SpMs, context: ActionContext): JsonElement?
-
-    fun execute(server: SpMs, client: SpMsClientID, parameter_values: List<JsonPrimitive>): JsonElement? =
-        execute(server, ActionContext(client, parameter_values))
+    override val identifier: String,
+    override val name: LocalisedMessageProvider,
+    override val help: LocalisedMessageProvider,
+    override val parameters: List<Parameter>,
+    override val hidden: Boolean = false
+): Action<SpMs> {
+    override val type: Type = type.SERVER
 
     fun executeOnRemoteServer(
         socket: ZmqSocket,

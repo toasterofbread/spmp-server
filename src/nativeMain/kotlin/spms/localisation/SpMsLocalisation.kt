@@ -7,6 +7,7 @@ import spms.localisation.strings.CliLocalisation
 import spms.localisation.strings.LocalisationEn
 import spms.localisation.strings.LocalisationJa
 import spms.localisation.strings.ServerActionLocalisation
+import spms.localisation.strings.PlayerActionLocalisation
 import spms.localisation.strings.ServerLocalisation
 
 val Context.loc: SpMsLocalisation get() = Command.localisation
@@ -16,6 +17,7 @@ interface SpMsLocalisation: Localization {
 
     val server: ServerLocalisation
     val server_actions: ServerActionLocalisation
+    val player_actions: PlayerActionLocalisation
     val cli: CliLocalisation
     
     companion object {
