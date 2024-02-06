@@ -1,4 +1,4 @@
-package spms.serveraction
+package spms.action.server
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
@@ -23,11 +23,11 @@ class ServerActionMoveItem: ServerAction(
         )
     )
 ) {
-    override fun execute(server: SpMs, context: ActionContext): JsonElement? {
+    override fun execute(base: SpMs, context: ActionContext): JsonElement? {
         val from: Int = context.getParameterValue("from")!!.int
         val to: Int = context.getParameterValue("to")!!.int
 
-        server.player.moveItem(from, to)
+        bsae.player.moveItem(from, to)
         return null
     }
 }

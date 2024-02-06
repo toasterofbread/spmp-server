@@ -18,7 +18,7 @@ import spms.client.cli.CommandLineClientMode
 import spms.client.cli.SERVER_REPLY_TIMEOUT_MS
 import spms.localisation.loc
 import spms.server.SpMs
-import spms.serveraction.ServerAction
+import spms.action.server.ServerAction
 import toRed
 
 private fun CommandLineClientMode.jsonModeOption() =

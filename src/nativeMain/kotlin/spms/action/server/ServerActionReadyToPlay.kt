@@ -1,4 +1,4 @@
-package spms.serveraction
+package spms.action.server
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
@@ -31,8 +31,8 @@ class ServerActionReadyToPlay: ServerAction(
         )
     )
 ) {
-    override fun execute(server: SpMs, context: ActionContext): JsonElement? {
-        server.onClientReadyToPlay(
+    override fun execute(base: SpMs, context: ActionContext): JsonElement? {
+        base.onClientReadyToPlay(
             context.client,
             context.getParameterValue("item_index")!!.int,
             context.getParameterValue("item_id")!!.content,

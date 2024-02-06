@@ -1,4 +1,4 @@
-package spms.serveraction
+package spms.action.server
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -10,8 +10,8 @@ class ServerActionPlay: ServerAction(
     help = { server_actions.play_help },
     parameters = emptyList()
 ) {
-    override fun execute(server: SpMs, context: ActionContext): JsonElement? {
-        server.player.play()
+    override fun execute(base: SpMs, context: ActionContext): JsonElement? {
+        base.player.play()
         return null
     }
 }

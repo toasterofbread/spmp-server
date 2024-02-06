@@ -1,4 +1,4 @@
-package spms.serveraction
+package spms.action.server
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -11,7 +11,7 @@ class ServerActionGetClients: ServerAction(
     help = { server_actions.clients_help },
     parameters = emptyList()
 ) {
-    override fun execute(server: SpMs, context: ActionContext): JsonElement {
-        return Json.encodeToJsonElement(server.getClients(context.client))
+    override fun execute(base: SpMs, context: ActionContext): JsonElement {
+        return Json.encodeToJsonElement(base.getClients(context.client))
     }
 }

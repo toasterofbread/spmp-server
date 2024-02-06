@@ -8,6 +8,7 @@ class LocalisationJa: SpMsLocalisation {
 
     override val server: ServerLocalisation = ServerLocalisationJa()
     override val server_actions: ServerActionLocalisation = ServerActionLocalisationJa()
+    override val player_actions: PlayerActionLocalisation = PlayerActionLocalisationJa()
     override val cli: CliLocalisation = CliLocalisationJa()
 
     override fun usageError(): String =
