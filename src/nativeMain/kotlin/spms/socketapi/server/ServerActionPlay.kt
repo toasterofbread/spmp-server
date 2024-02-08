@@ -1,8 +1,8 @@
-package spms.action.server
+package spms.socketapi.server
 
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonPrimitive
 import spms.server.SpMs
+import spms.server.SpMsClientID
 
 class ServerActionPlay: ServerAction(
     identifier = "play",
@@ -10,8 +10,8 @@ class ServerActionPlay: ServerAction(
     help = { server_actions.play_help },
     parameters = emptyList()
 ) {
-    override fun execute(base: SpMs, context: ActionContext): JsonElement? {
-        base.player.play()
+    override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement? {
+        server.player.play()
         return null
     }
 }

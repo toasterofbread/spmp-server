@@ -16,13 +16,15 @@ typealias LocalisedMessageProvider = SpMsLocalisation.() -> String
 
 abstract class Command(
     name: String,
-    private val help: LocalisedMessageProvider,
+    private val help: LocalisedMessageProvider?,
     is_default: Boolean = false,
-    hidden: Boolean = false
+    hidden: Boolean = false,
+    help_tags: Map<String, String> = emptyMap()
 ): CliktCommand(
     name = name,
     invokeWithoutSubcommand = is_default,
-    hidden = hidden
+    hidden = hidden,
+    helpTags = help_tags
 ) {
     protected val silent: Boolean by option("-s", "--silent").flag().help { context.loc.cli.option_help_silent }
     protected val language: String by option("-l", "--lang").default("").help { context.loc.cli.option_help_language }
@@ -33,7 +35,7 @@ abstract class Command(
     }
 
     override fun commandHelpEpilog(context: Context): String = context.loc.cli.bug_report_notice
-    override fun commandHelp(context: Context): String = help(context.loc)
+    override fun commandHelp(context: Context): String = help?.invoke(context.loc).orEmpty()
 
     override fun run() {
         SpMs.logging_enabled = !silent

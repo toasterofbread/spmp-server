@@ -1,8 +1,10 @@
-package spms.action.server
+package spms.socketapi.server
 
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import spms.server.SpMs
+import spms.server.SpMsClientID
 
 class ServerActionSeekToTime: ServerAction(
     identifier = "seekToTime",
@@ -17,9 +19,9 @@ class ServerActionSeekToTime: ServerAction(
         )
     )
 ) {
-    override fun execute(base: SpMs, context: ActionContext): JsonElement? {
-        val position_ms: Long = context.getParameterValue("position_ms")!!.long
-        base.player.seekToTime(position_ms)
+    override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement? {
+        val position_ms: Long = context.getParameterValue("position_ms")!!.jsonPrimitive.long
+        server.player.seekToTime(position_ms)
         return null
     }
 }

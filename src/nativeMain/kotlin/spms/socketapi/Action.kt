@@ -1,6 +1,11 @@
-package spms.action
+package spms.socketapi
 
-abstract class Action<ExecutorBase>
+import com.github.ajalt.clikt.core.Context
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import spms.LocalisedMessageProvider
+
+abstract class Action {
     abstract val type: Type
     abstract val identifier: String
     abstract val name: LocalisedMessageProvider
@@ -24,12 +29,12 @@ abstract class Action<ExecutorBase>
     }
     class InvalidParameterException(val parameter: Parameter, val value: JsonPrimitive?): RuntimeException()
 
-    protected inner class ActionContext(val client: SpMsClientID, private val parameter_values: List<JsonPrimitive>) {
-        fun getParameterValue(identifier: String): JsonPrimitive? {
+    protected inner class ActionContext(private val parameter_values: List<JsonElement>) {
+        fun getParameterValue(identifier: String): JsonElement? {
             val index: Int = parameters.indexOfFirst { it.identifier == identifier }
             val parameter: Parameter = parameters[index]
 
-            val value: JsonPrimitive? = parameter_values.getOrNull(index)
+            val value: JsonElement? = parameter_values.getOrNull(index)
             if (value == null && parameter.required) {
                 throw InvalidParameterException(parameter, value)
             }
@@ -39,8 +44,4 @@ abstract class Action<ExecutorBase>
     }
 
     open fun formatResult(result: JsonElement, context: Context) = result.toString()
-    
-    protected abstract fun execute(base: ExecutorBase, context: ActionContext): JsonElement?
-    fun execute(base: ExecutorBase, client: SpMsClientID, parameter_values: List<JsonPrimitive>): JsonElement? =
-        execute(base, ActionContext(client, parameter_values))
 }

@@ -33,7 +33,7 @@ class LocalisationEn: SpMsLocalisation {
         "missing argument $paramName"
 
     override fun noSuchSubcommand(name: String, possibilities: List<String>): String =
-        "no such subcommand $name" + when (possibilities.size) {
+        "No such subcommand '$name'" + when (possibilities.size) {
             0 -> ""
             1 -> ". Did you mean ${possibilities[0]}?"
             else -> possibilities.joinToString(prefix = ". (Possible subcommands: ", postfix = ")")

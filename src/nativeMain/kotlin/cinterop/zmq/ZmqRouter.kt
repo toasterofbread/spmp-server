@@ -4,7 +4,6 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.MemScope
 import kotlinx.cinterop.cstr
 import kotlinx.cinterop.toCValues
-import kotlinx.cinterop.value
 import libzmq.*
 
 @OptIn(ExperimentalForeignApi::class)
@@ -41,18 +40,31 @@ abstract class ZmqRouter(mem_scope: MemScope) {
 
         var client_id: ByteArray? = null
         val message_parts: MutableList<String> = mutableListOf()
+        var current_part: StringBuilder = StringBuilder()
 
         for (part in parts) {
             if (client_id == null) {
                 client_id = part
+                continue
+            }
+
+            val decoded_part: String = part.decodeToString()
+            if (decoded_part.lastOrNull() == '\u0000') {
+                current_part.appendRange(decoded_part, 0, decoded_part.length - 1)
+                message_parts.add(current_part.toString())
+                current_part.clear()
             }
             else {
-                message_parts.add(part.decodeToString().removeSuffix("\u0000"))
+                current_part.append(decoded_part)
             }
         }
 
         if (client_id == null) {
             return null
+        }
+
+        if (current_part.isNotEmpty()) {
+            message_parts.add(current_part.toString())
         }
 
         return Message(client_id, message_parts)
