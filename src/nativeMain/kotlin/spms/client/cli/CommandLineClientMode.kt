@@ -16,9 +16,10 @@ import spms.server.SpMsClientType
 
 abstract class CommandLineClientMode(
     name: String,
-    help: LocalisedMessageProvider,
-    hidden: Boolean = false
-): Command(name, help = help, hidden = hidden) {
+    help: LocalisedMessageProvider?,
+    hidden: Boolean = false,
+    help_tags: Map<String, String> = emptyMap()
+): Command(name, help = help, hidden = hidden, help_tags = help_tags) {
     private val client_options by ClientOptions()
 
     protected val context: CommandLineModeContext by requireObject()

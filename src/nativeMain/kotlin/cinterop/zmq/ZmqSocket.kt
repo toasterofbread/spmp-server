@@ -1,49 +1,7 @@
 package cinterop.zmq
 
-import kotlinx.cinterop.ByteVar
-import kotlinx.cinterop.ByteVarOf
-import kotlinx.cinterop.CPointer
-import kotlinx.cinterop.CValues
-import kotlinx.cinterop.CValuesRef
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.IntVar
-import kotlinx.cinterop.MemScope
-import kotlinx.cinterop.ULongVar
-import kotlinx.cinterop.ULongVarOf
-import kotlinx.cinterop.alloc
-import kotlinx.cinterop.allocArray
-import kotlinx.cinterop.cstr
-import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.pointed
-import kotlinx.cinterop.ptr
-import kotlinx.cinterop.readBytes
-import kotlinx.cinterop.sizeOf
-import kotlinx.cinterop.value
-import libzmq.ZMQ_LINGER
-import libzmq.ZMQ_NOBLOCK
-import libzmq.ZMQ_POLLIN
-import libzmq.ZMQ_RCVMORE
-import libzmq.ZMQ_SNDMORE
-import libzmq.zmq_bind
-import libzmq.zmq_close
-import libzmq.zmq_connect
-import libzmq.zmq_ctx_destroy
-import libzmq.zmq_ctx_new
-import libzmq.zmq_disconnect
-import libzmq.zmq_getsockopt
-import libzmq.zmq_msg_close
-import libzmq.zmq_msg_data
-import libzmq.zmq_msg_init_size
-import libzmq.zmq_msg_send
-import libzmq.zmq_msg_t
-import libzmq.zmq_poller_add
-import libzmq.zmq_poller_event_t
-import libzmq.zmq_poller_new
-import libzmq.zmq_poller_remove
-import libzmq.zmq_recv
-import libzmq.zmq_setsockopt
-import libzmq.zmq_socket
-import libzmq.zmq_unbind
+import kotlinx.cinterop.*
+import libzmq.*
 import platform.posix.memcpy
 import spms.zmqPollerWait
 
@@ -65,9 +23,7 @@ class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
 
     init {
         with (mem_scope) {
-            val linger: IntVar = alloc()
-            linger.value = 0
-            zmq_setsockopt(socket, ZMQ_LINGER, linger.ptr, sizeOf<IntVar>().toULong())
+            setSocketOption(ZMQ_LINGER, 0)
 
             message_buffer = allocArray(MESSAGE_MAX_SIZE)
             message_buffer_size = (sizeOf<ByteVar>() * MESSAGE_MAX_SIZE).toULong()
@@ -79,19 +35,27 @@ class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
 
     fun isConnected(): Boolean = current_address != null
 
+    fun setSocketOption(option: Int, value: Int) {
+        memScoped {
+            val val_ptr: IntVar = alloc()
+            val_ptr.value = value
+            zmq_setsockopt(socket, option, val_ptr.ptr, sizeOf<IntVar>().toULong())
+        }
+    }
+
     fun connect(address: String) {
         check(current_address == null) {
             if (is_binder) "Already bound to address $current_address"
             else "Already connected to address $current_address"
         }
 
-        val rc: Int =
+        val result: Int =
             if (is_binder) zmq_bind(socket, address)
             else zmq_connect(socket, address)
 
-        check(rc == 0) {
-            if (is_binder) "Binding to $address failed ($rc)"
-            else "Connecting to $address failed ($rc)"
+        check(result == 0) {
+            if (is_binder) "Binding to $address failed ($result)"
+            else "Connecting to $address failed ($result)"
         }
 
         zmq_poller_add(poller, socket, null, ZMQ_POLLIN.toShort())
@@ -124,10 +88,31 @@ class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
         zmq_ctx_destroy(context)
     }
 
-    fun recvStringMultipart(timeout_ms: Long?): List<String>? =
-        recvMultipart(timeout_ms)?.mapNotNull { part ->
-            part.decodeToString().removeSuffix("\u0000").takeIf { it.isNotEmpty() }
+    fun recvStringMultipart(timeout_ms: Long?): List<String>? {
+        val message: List<ByteArray> = recvMultipart(timeout_ms) ?: return null
+
+        val parts: MutableList<String> = mutableListOf()
+        val current_part: StringBuilder = StringBuilder()
+
+        for (part in message) {
+            val decoded_part: String = part.decodeToString()
+
+            if (decoded_part.lastOrNull() == '\u0000') {
+                current_part.appendRange(decoded_part, 0, decoded_part.length - 1)
+                parts.add(current_part.toString())
+                current_part.clear()
+            }
+            else {
+                current_part.append(decoded_part)
+            }
         }
+
+        if (current_part.isNotEmpty()) {
+            parts.add(current_part.toString())
+        }
+
+        return parts
+    }
 
     fun recvMultipart(timeout_ms: Long?): List<ByteArray>? = memScoped {
         val event: zmq_poller_event_t = alloc()
@@ -140,13 +125,13 @@ class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
         val parts: MutableList<ByteArray> = mutableListOf()
 
         do {
-            val size = zmq_recv(socket, message_buffer, message_buffer_size, 0)
-            check(size >= 0)
+            val size: Int = zmq_recv(socket, message_buffer, message_buffer_size, 0)
+            check(size >= 0) { "Size is $size" }
 
             parts.add(message_buffer.pointed.ptr.readBytes(size))
 
-            val rc = zmq_getsockopt(socket, ZMQ_RCVMORE, has_more.ptr, has_more_size.ptr)
-            check(rc == 0)
+            val result: Int = zmq_getsockopt(socket, ZMQ_RCVMORE, has_more.ptr, has_more_size.ptr)
+            check(result == 0) { "zmq_getsockopt failed ($result)" }
         }
         while (has_more.value == 1)
 

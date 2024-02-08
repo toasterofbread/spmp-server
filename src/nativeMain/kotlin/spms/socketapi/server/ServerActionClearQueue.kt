@@ -1,7 +1,8 @@
-package spms.action.server
+package spms.socketapi.server
 
 import kotlinx.serialization.json.JsonElement
 import spms.server.SpMs
+import spms.server.SpMsClientID
 
 class ServerActionClearQueue: ServerAction(
     identifier = "clearQueue",
@@ -9,8 +10,8 @@ class ServerActionClearQueue: ServerAction(
     help = { server_actions.clear_queue_help },
     parameters = emptyList()
 ) {
-    override fun execute(base: SpMs, context: ActionContext): JsonElement? {
-        base.player.clearQueue()
+    override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement? {
+        server.player.clearQueue()
         return null
     }
 }

@@ -1,4 +1,4 @@
-package spms.action.server
+package spms.socketapi.server
 
 import cinterop.mpv.getCurrentStateJson
 import com.github.ajalt.clikt.core.Context
@@ -18,6 +18,7 @@ import platform.posix.getenv
 import spms.localisation.loc
 import spms.player.Player
 import spms.server.SpMs
+import spms.server.SpMsClientID
 
 @Suppress("OPT_IN_USAGE")
 @OptIn(ExperimentalForeignApi::class)
@@ -34,8 +35,8 @@ class ServerActionGetStatus: ServerAction(
     help = { server_actions.status_help },
     parameters = emptyList()
 ) {
-    override fun execute(base: SpMs, context: ActionContext): JsonElement {
-        return Json.encodeToJsonElement(base.player.getCurrentStateJson())
+    override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement {
+        return Json.encodeToJsonElement(server.player.getCurrentStateJson())
     }
 
     private val cache_files: MutableMap<String, JsonElement> = mutableMapOf()

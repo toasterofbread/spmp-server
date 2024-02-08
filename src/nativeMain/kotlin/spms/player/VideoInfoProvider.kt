@@ -50,12 +50,12 @@ object VideoInfoProvider {
     private val http_client: HttpClient = HttpClient()
     private val json: Json = Json { ignoreUnknownKeys = true }
 
-    suspend fun getVideoStreamUrl(video_id: String, account_headers: List<Pair<String, String>>? = null): String {
+    suspend fun getVideoStreamUrl(video_id: String, account_headers: Map<String, String>? = null): String {
         val response: HttpResponse = http_client.post {
             url("https://music.youtube.com/youtubei/v1/player?key=AIzaSyAOghZGza2MQSZkY_zfZ370N-PUdXEo8AI")
 
-            for (header in account_headers ?: emptyList()) {
-                header(header.first, header.second)
+            for (header in account_headers ?: emptyMap()) {
+                header(header.key, header.value)
             }
 
             headers {

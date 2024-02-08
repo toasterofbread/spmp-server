@@ -1,7 +1,8 @@
-package spms.action.server
+package spms.socketapi.server
 
 import kotlinx.serialization.json.JsonElement
 import spms.server.SpMs
+import spms.server.SpMsClientID
 
 class ServerActionSeekToPrevious: ServerAction(
     identifier = "seekToPrevious",
@@ -9,8 +10,8 @@ class ServerActionSeekToPrevious: ServerAction(
     help = { server_actions.seek_to_previous_help },
     parameters = emptyList()
 ) {
-    override fun execute(base: SpMs, context: ActionContext): JsonElement? {
-        base.player.seekToPrevious()
+    override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement? {
+        server.player.seekToPrevious()
         return null
     }
 }

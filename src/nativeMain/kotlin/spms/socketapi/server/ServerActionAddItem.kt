@@ -1,8 +1,10 @@
-package spms.action.server
+package spms.socketapi.server
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonPrimitive
 import spms.server.SpMs
+import spms.server.SpMsClientID
 
 class ServerActionAddItem: ServerAction(
     identifier = "addItem",
@@ -23,11 +25,11 @@ class ServerActionAddItem: ServerAction(
         )
     )
 ) {
-    override fun execute(base: SpMs, context: ActionContext): JsonElement? {
-        val item_id: String = context.getParameterValue("item_id")!!.content
-        val index: Int = context.getParameterValue("index")?.int ?: -1
+    override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement? {
+        val item_id: String = context.getParameterValue("item_id")!!.jsonPrimitive.content
+        val index: Int = context.getParameterValue("index")?.jsonPrimitive?.int ?: -1
 
-        base.player.addItem(item_id, index)
+        server.player.addItem(item_id, index)
         return null
     }
 }

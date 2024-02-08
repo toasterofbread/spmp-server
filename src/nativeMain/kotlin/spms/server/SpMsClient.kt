@@ -27,7 +27,8 @@ data class SpMsServerHandshake(
     val name: String,
     val device_name: String,
     val spms_commit_hash: String,
-    val server_state: SpMsServerState
+    val server_state: SpMsServerState,
+    val machine_id: String
 )
 
 @Serializable

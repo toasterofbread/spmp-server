@@ -1,7 +1,8 @@
-package spms.action.server
+package spms.socketapi.server
 
 import kotlinx.serialization.json.JsonElement
 import spms.server.SpMs
+import spms.server.SpMsClientID
 
 class ServerActionGetProperty: ServerAction(
     identifier = "getProperty",
@@ -12,7 +13,7 @@ class ServerActionGetProperty: ServerAction(
         // TODO
     )
 ) {
-    override fun execute(base: SpMs, context: ActionContext): JsonElement? {
+    override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement? {
         TODO("Not yet implemented")
     }
 }

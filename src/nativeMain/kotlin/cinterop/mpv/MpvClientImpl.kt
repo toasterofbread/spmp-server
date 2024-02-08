@@ -4,6 +4,8 @@ import kotlinx.cinterop.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.JsonPrimitive
 import libmpv.*
+import okio.FileSystem
+import okio.Path.Companion.toPath
 import spms.player.Player
 import spms.player.PlayerEvent
 import spms.player.VideoInfoProvider
@@ -19,6 +21,8 @@ inline fun <reified T: CPointed> CPointer<*>?.pointedAs(): T =
 @OptIn(ExperimentalForeignApi::class)
 abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
     private val coroutine_scope = CoroutineScope(Job())
+    private var auth_headers: Map<String, String>? = null
+    private val local_files: MutableMap<String, String> = mutableMapOf()
 
     private fun urlToId(url: String): String? = if (url.startsWith(URL_PREFIX)) url.drop(URL_PREFIX.length) else null
     private fun idToUrl(item_id: String): String = URL_PREFIX + item_id
@@ -178,6 +182,22 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         setProperty("volume", (value * 100).roundToInt())
     }
 
+    fun setAuthHeaders(headers: Map<String, String>?) {
+        auth_headers = headers
+    }
+
+    fun clearLocalFiles() {
+        local_files.clear()
+    }
+
+    fun addLocalFile(item_id: String, file_path: String) {
+        local_files[item_id] = file_path
+    }
+
+    fun removeLocalFile(file_id: String) {
+        local_files.remove(file_id)
+    }
+
     override fun toString(): String = "MpvClientImpl(headless=$headless)"
 
     private fun initialise() {
@@ -250,14 +270,22 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
             when (hook_name) {
                 "on_load" -> {
                     val video_id: String = urlToId(getProperty<String>("stream-open-filename")) ?: return
-                    val stream_url: String =
-                        try {
-                            VideoInfoProvider.getVideoStreamUrl(video_id, emptyList()) // TODO
-                        }
-                        catch (e: Throwable) {
-                            RuntimeException("Getting video stream url for $video_id failed", e).printStackTrace()
-                            return
-                        }
+                    val stream_url: String
+
+                    val local_file_path: String? = local_files[video_id]
+                    if (local_file_path != null && FileSystem.SYSTEM.exists(local_file_path.toPath())) {
+                        stream_url = "file://" + local_file_path
+                    }
+                    else {
+                        stream_url =
+                            try {
+                                VideoInfoProvider.getVideoStreamUrl(video_id, auth_headers.orEmpty())
+                            }
+                            catch (e: Throwable) {
+                                RuntimeException("Getting video stream url for $video_id failed", e).printStackTrace()
+                                return
+                            }
+                    }
 
                     setProperty("stream-open-filename", stream_url)
                 }

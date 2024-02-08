@@ -6,13 +6,9 @@ import cinterop.mpv.getCurrentStateJson
 import cinterop.zmq.ZmqRouter
 import kotlinx.cinterop.*
 import kotlinx.coroutines.channels.Channel
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -22,19 +18,18 @@ import spms.localisation.Language
 import spms.player.HeadlessPlayer
 import spms.player.Player
 import spms.player.PlayerEvent
-import spms.action.server.ServerAction
+import spms.socketapi.ActionReply
+import spms.socketapi.parseSocketMessage
+import spms.socketapi.player.PlayerAction
+import spms.socketapi.server.ServerAction
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.system.exitProcess
 import kotlin.system.getTimeMillis
 
-const val SERVER_EXPECT_REPLY_CHAR: Char = '!'
 const val SEND_EVENTS_TO_INSTIGATING_CLIENT: Boolean = true
 
 @OptIn(ExperimentalForeignApi::class)
 class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boolean = false): ZmqRouter(mem_scope) {
-    @Serializable
-    data class ActionReply(val success: Boolean, val error: String? = null, val error_cause: String? = null, val result: JsonElement? = null)
-
     private var item_durations: MutableMap<String, Long> = mutableMapOf()
     private val item_durations_channel: Channel<Unit> = Channel()
 
@@ -146,66 +141,38 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
                 continue
             }
 
-            // Empty response
-            if (client_reply.parts.size < 2) {
-                continue
-            }
-
-            if (client_reply.parts.size % 2 != 0) {
-                println("$client reply size (${client_reply.parts.size}) is invalid")
-                continue
-            }
-
-            println("Got reply from $client: $client_reply")
-
             check(executing_client_id == null)
             executing_client_id = client.id
 
-            val reply: MutableList<ActionReply> = mutableListOf()
+            try {
+                val reply: List<ActionReply> =
+                    parseSocketMessage(
+                        client_reply.parts,
+                        {
+                            RuntimeException("Parse exception while processing reply from $client", it).printStackTrace()
+                        }
+                    ) { action_name, action_params ->
+                        val server_action: ServerAction? = ServerAction.getByName(action_name)
+                        if (server_action != null) {
+                            return@parseSocketMessage server_action.execute(this, client.id, action_params)
+                        }
 
-            var i: Int = 0
-            while (i < client_reply.parts.size) {
-                val first: String = client_reply.parts[i++]
-                val expects_reply: Boolean = first.first() == SERVER_EXPECT_REPLY_CHAR
+                        if (!headless && player is MpvClientImpl) {
+                            val player_action: PlayerAction? = PlayerAction.getByName(action_name)
+                            if (player_action != null) {
+                                return@parseSocketMessage player_action.execute(player, action_params)
+                            }
+                        }
 
-                val action_name: String = if (expects_reply) first.substring(1) else first
-                val action_params: List<JsonPrimitive> = Json.decodeFromString(client_reply.parts[i++])
-
-                val result: JsonElement?
-                try {
-                    result = ServerAction.executeByName(this@SpMs, client.id, action_name, action_params)
-                }
-                catch (e: Throwable) {
-                    val message: String = "Action $action_name(${action_params.map { it.contentOrNull }}) from $client failed"
-
-                    if (expects_reply) {
-                        reply.add(
-                            ActionReply(
-                                success = false,
-                                error = message,
-                                error_cause = e.message
-                            )
-                        )
+                        throw NotImplementedError("Unknown action '$action_name'")
                     }
 
-                    RuntimeException(message, e).printStackTrace()
-
-                    continue
-                }
-
-                if (expects_reply) {
-                    reply.add(
-                        ActionReply(
-                            success = true,
-                            result = result
-                        )
-                    )
+                if (reply.isNotEmpty()) {
+                    sendMultipart(client.createMessage(listOf(Json.encodeToString(reply))))
                 }
             }
-
-            if (reply.isNotEmpty()) {
-                sendMultipart(client.createMessage(listOf(Json.encodeToString(reply))))
-                println("Sent reply to $client: $reply")
+            catch (e: Throwable) {
+                RuntimeException("Exception while processing reply from $client", e).printStackTrace()
             }
 
             executing_client_id = null
@@ -303,17 +270,17 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
             client_handshake = handshake_message.parts.firstOrNull()?.let { Json.decodeFromString(it) } ?: return
         }
         catch (e: SerializationException) {
-            println("Ignoring SerializationException in onClientMessage")
+            RuntimeException("Exception while parsing the following handshake message: ${handshake_message.parts}", e).printStackTrace()
             return
         }
 
         val client: SpMsClient = SpMsClient(
             handshake_message.client_id,
             SpMsClientInfo(
-                getNewClientName(client_handshake.name),
-                client_handshake.type,
-                client_handshake.getLanguage(),
-                client_handshake.machine_id,
+                name = getNewClientName(client_handshake.name),
+                type = client_handshake.type,
+                language = client_handshake.getLanguage(),
+                machine_id = client_handshake.machine_id,
                 player_port = client_handshake.player_port
             ),
             player_event_inc
@@ -323,10 +290,11 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
 
         val server_handshake: SpMsServerHandshake =
             SpMsServerHandshake(
-                SpMs.application_name,
-                getDeviceName(),
-                GIT_COMMIT_HASH,
-                player.getCurrentStateJson()
+                name = SpMs.application_name,
+                device_name = getDeviceName(),
+                spms_commit_hash = GIT_COMMIT_HASH,
+                server_state = player.getCurrentStateJson(),
+                machine_id = SpMs.getMachineId()
             )
 
         sendMultipart(
@@ -335,6 +303,7 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
                 listOf(Json.encodeToString(server_handshake))
             )
         )
+        println("Sent connection reply to $client: $server_handshake")
 
         onClientConnected(client)
     }

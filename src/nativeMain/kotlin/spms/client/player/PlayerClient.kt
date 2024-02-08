@@ -1,27 +1,36 @@
 package spms.client.player
 
+import GIT_COMMIT_HASH
 import cinterop.mpv.MpvClientImpl
+import cinterop.mpv.getCurrentStateJson
 import cinterop.zmq.ZmqSocket
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.MemScope
+import kotlinx.cinterop.memScoped
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
-import libzmq.ZMQ_DEALER
-import libzmq.ZMQ_NOBLOCK
+import libzmq.*
 import spms.Command
 import spms.client.ClientOptions
 import spms.client.cli.SpMsCommandLineClientError
 import spms.localisation.loc
 import spms.player.PlayerEvent
 import spms.server.*
+import spms.socketapi.ActionReply
+import spms.socketapi.parseSocketMessage
+import spms.socketapi.player.PlayerAction
 import kotlin.system.getTimeMillis
 
 private const val SERVER_REPLY_TIMEOUT_MS: Long = 10000
 private const val SERVER_EVENT_TIMEOUT_MS: Long = 10000
-private const val POLL_INTERVAL: Long = 100
+private const val POLL_INTERVAL_MS: Long = 100
+private const val CLIENT_REPLY_TIMEOUT_MS: Long = 1000
 
 private fun getClientName(): String =
     "SpMs Player Client"
@@ -121,11 +130,88 @@ class PlayerClient private constructor(): Command(
     private val player_options by PlayerOptions()
 
     private val json: Json = Json { ignoreUnknownKeys = true }
+    private var shutdown: Boolean = false
+    private val queued_messages: MutableList<Pair<String, List<JsonPrimitive>>> = mutableListOf()
+
+    private lateinit var player: PlayerImpl
 
     override fun run() {
         super.run()
 
-        val mem_scope: MemScope = MemScope()
+        val player_port: Int = client_options.port + 1
+
+        player = object : PlayerImpl(headless = !player_options.enable_gui) {
+            override fun onShutdown() {
+                shutdown = true
+            }
+
+            override fun onReadyToPlay() {
+                queued_messages.add("readyToPlay" to listOf(JsonPrimitive(current_item_index), JsonPrimitive(getItem()), JsonPrimitive(duration_ms)))
+            }
+        }
+
+        runBlocking {
+            memScoped {
+                coroutineScope {
+                    launch(Dispatchers.Default) {
+                        runPlayer(this@memScoped, player_port)
+                    }
+                    launch(Dispatchers.Default) {
+                        runServer(this@memScoped, player_port)
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun runServer(mem_scope: MemScope, player_port: Int) {
+        val address: String = "tcp://127.0.0.1:$player_port"
+        log("Starting server socket on $address")
+
+        val socket: ZmqSocket = ZmqSocket(mem_scope, ZMQ_REP, true)
+        socket.connect(address)
+        delay(1000)
+
+        while (!shutdown) {
+
+            try {
+                delay(POLL_INTERVAL_MS)
+
+                val handshake_message: List<String> =
+                    socket.recvStringMultipart(CLIENT_REPLY_TIMEOUT_MS) ?: continue
+
+                val handshake_reply: SpMsServerHandshake =
+                    SpMsServerHandshake(
+                        name = getClientName(),
+                        device_name = getDeviceName(),
+                        spms_commit_hash = GIT_COMMIT_HASH,
+                        server_state = player.getCurrentStateJson(),
+                        machine_id = SpMs.getMachineId()
+                    )
+
+                socket.sendStringMultipart(
+                    listOf(Json.encodeToString(handshake_reply))
+                )
+
+                val message: List<String> =
+                    socket.recvStringMultipart(CLIENT_REPLY_TIMEOUT_MS)!!
+
+                val reply: List<ActionReply> =
+                    parseSocketMessage(message) { action_name, action_params ->
+                        PlayerAction.executeByName(player, action_name, action_params)
+                    }
+
+                socket.sendStringMultipart(listOf(Json.encodeToString(reply)))
+            }
+            catch (e: Throwable) {
+                e.printStackTrace()
+            }
+        }
+
+        socket.release()
+    }
+
+    private suspend fun runPlayer(mem_scope: MemScope, player_port: Int) {
         val socket: ZmqSocket = ZmqSocket(mem_scope, ZMQ_DEALER, is_binder = false)
 
         val socket_address: String = client_options.getAddress("tcp")
@@ -133,9 +219,6 @@ class PlayerClient private constructor(): Command(
         socket.connect(socket_address)
 
         log(currentContext.loc.cli.sending_handshake)
-
-        // TODO zmq server for receiving auth headers from clients
-        val player_port: Int = client_options.port + 1
 
         val handshake: SpMsClientHandshake = SpMsClientHandshake(
             name = getClientName(),
@@ -151,19 +234,6 @@ class PlayerClient private constructor(): Command(
             throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotRespond(SERVER_REPLY_TIMEOUT_MS))
         }
 
-        var shutdown: Boolean = false
-        val queued_messages: MutableList<Pair<String, List<JsonPrimitive>>> = mutableListOf()
-
-        val player: PlayerImpl = object : PlayerImpl(headless = !player_options.enable_gui) {
-            override fun onShutdown() {
-                shutdown = true
-            }
-
-            override fun onReadyToPlay() {
-                queued_messages.add("readyToPlay" to listOf(JsonPrimitive(current_item_index), JsonPrimitive(getItem()), JsonPrimitive(duration_ms)))
-            }
-        }
-
         val server_handshake: SpMsServerHandshake = Json.decodeFromString(reply.first())
         player.applyServerState(server_handshake.server_state)
 
@@ -173,34 +243,32 @@ class PlayerClient private constructor(): Command(
 
         log("Initial state: ${server_handshake.server_state}")
 
-        runBlocking {
-            val message: MutableList<String> = mutableListOf()
+        val message: MutableList<String> = mutableListOf()
 
-            while (!shutdown) {
-                delay(POLL_INTERVAL)
+        while (!shutdown) {
+//            delay(POLL_INTERVAL_MS)
 
-                val events: List<PlayerEvent> = socket.pollEvents()
-                for (event in events) {
-                    println("Processing event $event")
-                    player.processServerEvent(event)
-                }
-
-                if (queued_messages.isNotEmpty()) {
-                    for (queued in queued_messages) {
-                        message.add(queued.first)
-                        message.add(Json.encodeToString(queued.second))
-                    }
-                    queued_messages.clear()
-
-                    log("Sending messages: $message")
-                }
-                else {
-                    message.add("")
-                }
-
-                socket.sendStringMultipart(message)
-                message.clear()
+            val events: List<PlayerEvent> = socket.pollEvents()
+            for (event in events) {
+                println("Processing event $event")
+                player.processServerEvent(event)
             }
+
+            if (queued_messages.isNotEmpty()) {
+                for (queued in queued_messages) {
+                    message.add(queued.first)
+                    message.add(Json.encodeToString(queued.second))
+                }
+                queued_messages.clear()
+
+                log("Sending messages: $message")
+            }
+            else {
+                message.add("")
+            }
+
+            socket.sendStringMultipart(message)
+            message.clear()
         }
     }
 
