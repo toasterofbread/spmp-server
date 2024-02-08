@@ -18,7 +18,7 @@ import platform.posix.getenv
 import spms.localisation.loc
 import spms.player.Player
 import spms.server.SpMs
-import spms.server.SpMsClientID
+import spms.socketapi.shared.SpMsClientID
 
 @Suppress("OPT_IN_USAGE")
 @OptIn(ExperimentalForeignApi::class)

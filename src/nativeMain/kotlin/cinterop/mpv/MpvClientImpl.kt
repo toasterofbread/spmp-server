@@ -7,7 +7,7 @@ import libmpv.*
 import okio.FileSystem
 import okio.Path.Companion.toPath
 import spms.player.Player
-import spms.player.PlayerEvent
+import spms.socketapi.shared.SpMsPlayerEvent
 import spms.player.VideoInfoProvider
 import spms.server.SpMs
 import kotlin.math.roundToInt
@@ -62,11 +62,11 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
 
     override fun play() {
         setProperty("pause", false)
-        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
+        onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
     }
     override fun pause() {
         setProperty("pause", true)
-        onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
+        onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
     }
     override fun playPause() {
         if (is_playing) {
@@ -90,19 +90,19 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         val hours: String = (current / 60).toString().padStart(2, '0')
 
         runCommand("seek", "$hours:$minutes:$seconds.$milliseconds", "absolute", "exact", check_result = false)
-        onEvent(PlayerEvent.SeekedToTime(position_ms))
+        onEvent(SpMsPlayerEvent.SeekedToTime(position_ms))
     }
 
     override fun seekToItem(index: Int) {
         val max: Int = item_count - 1
         val target_index: Int = if (index < 0) max else index.coerceAtMost(max)
         runCommand("playlist-play-index", target_index.toString())
-        onEvent(PlayerEvent.ItemTransition(target_index))
+        onEvent(SpMsPlayerEvent.ItemTransition(target_index))
     }
 
     override fun seekToNext(): Boolean {
         if (runCommand("playlist-next", check_result = false) == 0) {
-            onEvent(PlayerEvent.ItemTransition(current_item_index))
+            onEvent(SpMsPlayerEvent.ItemTransition(current_item_index))
             return true
         }
         return false
@@ -110,7 +110,7 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
 
     override fun seekToPrevious(): Boolean {
         if (runCommand("playlist-prev", check_result = false) == 0) {
-            onEvent(PlayerEvent.ItemTransition(current_item_index))
+            onEvent(SpMsPlayerEvent.ItemTransition(current_item_index))
             return true
         }
         return false
@@ -138,12 +138,12 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         runCommand("loadfile", filename, if (sc == 0) "replace" else "append")
 
         if (index < 0 || index >= sc) {
-            onEvent(PlayerEvent.ItemAdded(item_id, sc))
+            onEvent(SpMsPlayerEvent.ItemAdded(item_id, sc))
             return sc
         }
 
         runCommand("playlist-move", sc, index)
-        onEvent(PlayerEvent.ItemAdded(item_id, index))
+        onEvent(SpMsPlayerEvent.ItemAdded(item_id, index))
 
         return index
     }
@@ -164,18 +164,18 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
             runCommand("playlist-move", from, to)
         }
 
-        onEvent(PlayerEvent.ItemMoved(from, to))
+        onEvent(SpMsPlayerEvent.ItemMoved(from, to))
     }
 
     override fun removeItem(index: Int) {
         require(index >= 0)
         runCommand("playlist-remove", index)
-        onEvent(PlayerEvent.ItemRemoved(index))
+        onEvent(SpMsPlayerEvent.ItemRemoved(index))
     }
 
     override fun clearQueue() {
         runCommand("playlist-clear")
-        onEvent(PlayerEvent.QueueCleared())
+        onEvent(SpMsPlayerEvent.QueueCleared())
     }
 
     override fun setVolume(value: Double) {
@@ -222,17 +222,17 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
                         continue
                     }
 
-                    onEvent(PlayerEvent.ItemTransition(current_item_index), clientless = true)
+                    onEvent(SpMsPlayerEvent.ItemTransition(current_item_index), clientless = true)
                 }
                 MPV_EVENT_PLAYBACK_RESTART -> {
-                    onEvent(PlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
-                    onEvent(PlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration_ms)), clientless = true)
+                    onEvent(SpMsPlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
+                    onEvent(SpMsPlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration_ms)), clientless = true)
                 }
                 MPV_EVENT_END_FILE -> {
-                    onEvent(PlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
+                    onEvent(SpMsPlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
                 }
                 MPV_EVENT_FILE_LOADED -> {
-                    onEvent(PlayerEvent.ReadyToPlay(), clientless = true)
+                    onEvent(SpMsPlayerEvent.ReadyToPlay(), clientless = true)
                 }
                 MPV_EVENT_SHUTDOWN -> {
                     onShutdown()
@@ -243,7 +243,7 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
                     when (data.name?.toKString()) {
                         "core-idle" -> {
                             val playing: Boolean = !data.data.pointedAs<BooleanVar>().value
-                            onEvent(PlayerEvent.PropertyChanged("is_playing", JsonPrimitive(playing)), clientless = true)
+                            onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(playing)), clientless = true)
                         }
                     }
                 }

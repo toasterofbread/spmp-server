@@ -17,11 +17,10 @@ import spms.getHostname
 import spms.localisation.Language
 import spms.player.HeadlessPlayer
 import spms.player.Player
-import spms.player.PlayerEvent
-import spms.socketapi.ActionReply
 import spms.socketapi.parseSocketMessage
 import spms.socketapi.player.PlayerAction
 import spms.socketapi.server.ServerAction
+import spms.socketapi.shared.*
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.system.exitProcess
 import kotlin.system.getTimeMillis
@@ -47,18 +46,18 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
                     return cached
                 }
 
-                override fun onEvent(event: PlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
+                override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
                 override fun onShutdown() = onPlayerShutdown()
             }
         else
             object : MpvClientImpl(headless = !enable_gui) {
-                override fun onEvent(event: PlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
+                override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
                 override fun onShutdown() = onPlayerShutdown()
             }
 
     private var executing_client_id: Int? = null
     private var player_event_inc: Int = 0
-    private val player_events: MutableList<PlayerEvent> = mutableListOf()
+    private val player_events: MutableList<SpMsPlayerEvent> = mutableListOf()
     private val clients: MutableList<SpMsClient> = mutableListOf()
     private var playback_waiting_for_clients: Boolean = false
 
@@ -89,7 +88,7 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
 
             val message_parts: MutableList<String> = mutableListOf()
 
-            val events: List<PlayerEvent> = getEventsForClient(client)
+            val events: List<SpMsPlayerEvent> = getEventsForClient(client)
             if (events.isEmpty()) {
                 message_parts.add("null")
             }
@@ -145,7 +144,7 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
             executing_client_id = client.id
 
             try {
-                val reply: List<ActionReply> =
+                val reply: List<SpMsActionReply> =
                     parseSocketMessage(
                         client_reply.parts,
                         {
@@ -210,8 +209,8 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
         }
     }
 
-    private fun onPlayerEvent(event: PlayerEvent, clientless: Boolean) {
-        if (event.type == PlayerEvent.Type.READY_TO_PLAY) {
+    private fun onPlayerEvent(event: SpMsPlayerEvent, clientless: Boolean) {
+        if (event.type == SpMsPlayerEvent.Type.READY_TO_PLAY) {
             if (!playback_waiting_for_clients) {
                 player.play()
             }
@@ -224,7 +223,7 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
             return
         }
 
-        if (event.type == PlayerEvent.Type.ITEM_TRANSITION) {
+        if (event.type == SpMsPlayerEvent.Type.ITEM_TRANSITION) {
             for (client in clients) {
                 client.ready_to_play = false
 
@@ -332,7 +331,7 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
         }
     }
 
-    private fun getEventsForClient(client: SpMsClient): List<PlayerEvent> =
+    private fun getEventsForClient(client: SpMsClient): List<SpMsPlayerEvent> =
         player_events.filter { event ->
             event.event_id >= client.event_head && (SEND_EVENTS_TO_INSTIGATING_CLIENT || event.client_id != client.id)
         }

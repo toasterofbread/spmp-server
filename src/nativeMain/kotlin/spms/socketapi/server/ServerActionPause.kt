@@ -2,7 +2,7 @@ package spms.socketapi.server
 
 import kotlinx.serialization.json.JsonElement
 import spms.server.SpMs
-import spms.server.SpMsClientID
+import spms.socketapi.shared.SpMsClientID
 
 class ServerActionPause: ServerAction(
     name = { server_actions.pause_name },

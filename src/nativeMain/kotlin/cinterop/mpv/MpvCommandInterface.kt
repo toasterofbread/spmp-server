@@ -1,7 +1,7 @@
 package cinterop.mpv
 
 import spms.player.Player
-import spms.server.SpMsServerState
+import spms.socketapi.shared.SpMsServerState
 
 fun Player.getCurrentStateJson(): SpMsServerState =
     SpMsServerState(

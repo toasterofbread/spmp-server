@@ -4,7 +4,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import spms.server.SpMs
-import spms.server.SpMsClientID
+import spms.socketapi.shared.SpMsClientID
 
 class ServerActionSeekToItem: ServerAction(
     identifier = "seekToItem",

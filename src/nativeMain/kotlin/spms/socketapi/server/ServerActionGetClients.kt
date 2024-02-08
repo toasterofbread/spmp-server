@@ -4,7 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import spms.server.SpMs
-import spms.server.SpMsClientID
+import spms.socketapi.shared.SpMsClientID
 
 class ServerActionGetClients: ServerAction(
     identifier = "clients",

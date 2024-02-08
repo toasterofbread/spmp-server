@@ -8,23 +8,22 @@ import com.github.ajalt.clikt.parameters.groups.provideDelegate
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.MemScope
 import kotlinx.cinterop.memScoped
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
-import libzmq.*
+import libzmq.ZMQ_DEALER
+import libzmq.ZMQ_NOBLOCK
+import libzmq.ZMQ_REP
 import spms.Command
 import spms.client.ClientOptions
 import spms.client.cli.SpMsCommandLineClientError
 import spms.localisation.loc
-import spms.player.PlayerEvent
-import spms.server.*
-import spms.socketapi.ActionReply
+import spms.server.PlayerOptions
+import spms.server.SpMs
+import spms.server.getDeviceName
 import spms.socketapi.parseSocketMessage
 import spms.socketapi.player.PlayerAction
+import spms.socketapi.shared.*
 import kotlin.system.getTimeMillis
 
 private const val SERVER_REPLY_TIMEOUT_MS: Long = 10000
@@ -36,8 +35,8 @@ private fun getClientName(): String =
     "SpMs Player Client"
 
 private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headless) {
-    override fun onEvent(event: PlayerEvent, clientless: Boolean) {
-        if (event.type == PlayerEvent.Type.READY_TO_PLAY) {
+    override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) {
+        if (event.type == SpMsPlayerEvent.Type.READY_TO_PLAY) {
             onReadyToPlay()
         }
     }
@@ -62,13 +61,13 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
         }
     }
 
-    fun processServerEvent(event: PlayerEvent) {
+    fun processServerEvent(event: SpMsPlayerEvent) {
         try {
             when (event.type) {
-                PlayerEvent.Type.ITEM_TRANSITION -> {
+                SpMsPlayerEvent.Type.ITEM_TRANSITION -> {
                     seekToItem(event.properties["index"]!!.int)
                 }
-                PlayerEvent.Type.PROPERTY_CHANGED -> {
+                SpMsPlayerEvent.Type.PROPERTY_CHANGED -> {
                     val value: JsonPrimitive? = event.properties["value"]?.jsonPrimitive
                     val key: String = event.properties["key"]!!.content
                     when (key) {
@@ -92,26 +91,26 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
                         else -> throw NotImplementedError("${event.properties} ($key)")
                     }
                 }
-                PlayerEvent.Type.SEEKED -> {
+                SpMsPlayerEvent.Type.SEEKED -> {
                     seekToTime(event.properties["position_ms"]!!.long)
                 }
-                PlayerEvent.Type.ITEM_ADDED -> {
+                SpMsPlayerEvent.Type.ITEM_ADDED -> {
                     val item_id: String = event.properties["item_id"]!!.content
                     val index: Int = event.properties["index"]!!.int
                     addItem(item_id, index)
                 }
-                PlayerEvent.Type.ITEM_REMOVED -> {
+                SpMsPlayerEvent.Type.ITEM_REMOVED -> {
                     removeItem(event.properties["index"]!!.int)
                 }
-                PlayerEvent.Type.ITEM_MOVED -> {
+                SpMsPlayerEvent.Type.ITEM_MOVED -> {
                     val to: Int = event.properties["to"]!!.int
                     val from: Int = event.properties["from"]!!.int
                     moveItem(from, to)
                 }
-                PlayerEvent.Type.CLEARED -> {
+                SpMsPlayerEvent.Type.CLEARED -> {
                     clearQueue()
                 }
-                PlayerEvent.Type.READY_TO_PLAY -> {}
+                SpMsPlayerEvent.Type.READY_TO_PLAY -> {}
             }
         }
         catch (e: Throwable) {
@@ -196,7 +195,7 @@ class PlayerClient private constructor(): Command(
                 val message: List<String> =
                     socket.recvStringMultipart(CLIENT_REPLY_TIMEOUT_MS)!!
 
-                val reply: List<ActionReply> =
+                val reply: List<SpMsActionReply> =
                     parseSocketMessage(message) { action_name, action_params ->
                         PlayerAction.executeByName(player, action_name, action_params)
                     }
@@ -248,7 +247,7 @@ class PlayerClient private constructor(): Command(
         while (!shutdown) {
 //            delay(POLL_INTERVAL_MS)
 
-            val events: List<PlayerEvent> = socket.pollEvents()
+            val events: List<SpMsPlayerEvent> = socket.pollEvents()
             for (event in events) {
                 println("Processing event $event")
                 player.processServerEvent(event)
@@ -272,9 +271,9 @@ class PlayerClient private constructor(): Command(
         }
     }
 
-    private fun ZmqSocket.pollEvents(): List<PlayerEvent> {
+    private fun ZmqSocket.pollEvents(): List<SpMsPlayerEvent> {
         val wait_end: Long = getTimeMillis() + SERVER_EVENT_TIMEOUT_MS
-        var events: List<PlayerEvent>? = null
+        var events: List<SpMsPlayerEvent>? = null
 
         while (events == null && getTimeMillis() < wait_end) {
             events =

@@ -23,8 +23,8 @@ import spms.socketapi.Action
 import spms.client.cli.CommandLineClientMode
 import spms.client.cli.SERVER_REPLY_TIMEOUT_MS
 import spms.localisation.loc
-import spms.socketapi.ActionReply
-import spms.socketapi.SERVER_EXPECT_REPLY_CHAR
+import spms.socketapi.shared.SpMsActionReply
+import spms.socketapi.shared.SPMS_EXPECT_REPLY_CHAR
 import spms.socketapi.player.PlayerAction
 import spms.socketapi.server.ServerAction
 import toRed
@@ -115,7 +115,7 @@ class ActionCommandLineClientMode(
 
         connectSocket()
 
-        val reply: ActionReply? = action.executeOnSocket(socket, parameter_values, SERVER_REPLY_TIMEOUT_MS, currentContext, silent = silent)
+        val reply: SpMsActionReply? = action.executeOnSocket(socket, parameter_values, SERVER_REPLY_TIMEOUT_MS, currentContext, silent = silent)
         if (reply == null) {
             throw CliktError(currentContext.loc.server_actions.replyNotReceived(SERVER_REPLY_TIMEOUT_MS).toRed())
         }
@@ -147,7 +147,7 @@ private fun Action.executeOnSocket(
     reply_timeout_ms: Long?,
     context: Context,
     silent: Boolean = false
-): ActionReply? {
+): SpMsActionReply? {
     socket.recvMultipart(reply_timeout_ms) ?: return null
 
     if (!silent) {
@@ -155,7 +155,7 @@ private fun Action.executeOnSocket(
     }
 
     socket.sendStringMultipart(
-        listOf(SERVER_EXPECT_REPLY_CHAR + identifier, Json.encodeToString(parameter_values))
+        listOf(SPMS_EXPECT_REPLY_CHAR + identifier, Json.encodeToString(parameter_values))
     )
 
     if (!silent) {
@@ -172,7 +172,7 @@ private fun Action.executeOnSocket(
 
             // Hacky workaround, but if it works who cares?
             val joined: String = reply.joinToString().replace("\u0000, ", "")
-            return Json.decodeFromString<List<ActionReply>>(joined).first()
+            return Json.decodeFromString<List<SpMsActionReply>>(joined).first()
         }
         else if (!silent) {
             println(context.loc.server_actions.receivedEmptyReplyFromServer(identifier))

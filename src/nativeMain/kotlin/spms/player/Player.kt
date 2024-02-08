@@ -1,5 +1,7 @@
 package spms.player
 
+import spms.socketapi.shared.SpMsPlayerEvent
+
 data class PlayerStreamInfo(
     val url: String,
     val duration: Long
@@ -7,7 +9,7 @@ data class PlayerStreamInfo(
 
 interface Player {
     fun onShutdown()
-    fun onEvent(event: PlayerEvent, clientless: Boolean = false) {}
+    fun onEvent(event: SpMsPlayerEvent, clientless: Boolean = false) {}
 
     fun release()
 

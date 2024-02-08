@@ -3,7 +3,7 @@ package spms.socketapi.server
 import kotlinx.serialization.json.JsonElement
 import spms.LocalisedMessageProvider
 import spms.server.SpMs
-import spms.server.SpMsClientID
+import spms.socketapi.shared.SpMsClientID
 import spms.socketapi.Action
 
 sealed class ServerAction(

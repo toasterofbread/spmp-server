@@ -11,8 +11,8 @@ import spms.client.ClientOptions
 import spms.client.cli.modes.Interactive
 import spms.localisation.loc
 import spms.server.SpMs
-import spms.server.SpMsClientHandshake
-import spms.server.SpMsClientType
+import spms.socketapi.shared.SpMsClientHandshake
+import spms.socketapi.shared.SpMsClientType
 
 abstract class CommandLineClientMode(
     name: String,
