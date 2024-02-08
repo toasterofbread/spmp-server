@@ -6,10 +6,11 @@ import kotlinx.serialization.json.JsonPrimitive
 import libmpv.*
 import okio.FileSystem
 import okio.Path.Companion.toPath
-import spms.player.Player
 import spms.socketapi.shared.SpMsPlayerEvent
 import spms.player.VideoInfoProvider
 import spms.server.SpMs
+import spms.socketapi.shared.SpMsPlayerRepeatMode
+import spms.socketapi.shared.SpMsPlayerState
 import kotlin.math.roundToInt
 
 private const val URL_PREFIX: String = "spmp://"
@@ -36,12 +37,12 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         super.release()
     }
 
-    override val state: Player.State
+    override val state: SpMsPlayerState
         get() =
-            if (getProperty("eof-reached")) Player.State.ENDED
-            else if (getProperty("idle-active")) Player.State.IDLE
-            else if (getProperty("paused-for-cache")) Player.State.BUFFERING
-            else Player.State.READY
+            if (getProperty("eof-reached")) SpMsPlayerState.ENDED
+            else if (getProperty("idle-active")) SpMsPlayerState.IDLE
+            else if (getProperty("paused-for-cache")) SpMsPlayerState.BUFFERING
+            else SpMsPlayerState.READY
     override val is_playing: Boolean
         get() = !getProperty<Boolean>("core-idle")
     override val item_count: Int
@@ -52,8 +53,8 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         get() = (getProperty<Double>("playback-time") * 1000).toLong().coerceAtLeast(0)
     override val duration_ms: Long
         get() = (getProperty<Double>("duration") * 1000).toLong().coerceAtLeast(0)
-    override val repeat_mode: Player.RepeatMode
-        get() = Player.RepeatMode.NONE // TODO
+    override val repeat_mode: SpMsPlayerRepeatMode
+        get() = SpMsPlayerRepeatMode.NONE // TODO
     override val volume: Double
         get() = getProperty("volume")
 

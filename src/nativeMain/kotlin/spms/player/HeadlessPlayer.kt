@@ -9,6 +9,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonPrimitive
 import spms.socketapi.shared.SpMsPlayerEvent
+import spms.socketapi.shared.SpMsPlayerRepeatMode
+import spms.socketapi.shared.SpMsPlayerState
 import kotlin.system.getTimeNanos
 
 abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Player {
@@ -22,8 +24,8 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
 
     override fun release() {}
 
-    private var _state: Player.State = Player.State.IDLE
-    final override var state: Player.State
+    private var _state: SpMsPlayerState = SpMsPlayerState.IDLE
+    final override var state: SpMsPlayerState
         get() = _state
         private set(value) {
             log("Setting state to $value")
@@ -43,7 +45,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
             if (is_playing) (getTimeNanos() - playback_mark) / 1000000
             else playback_mark
     final override val duration_ms: Long get() = queue.getOrNull(current_item_index)?.let { getCachedItemDuration(it) } ?: 0
-    final override var repeat_mode: Player.RepeatMode = Player.RepeatMode.NONE
+    final override var repeat_mode: SpMsPlayerRepeatMode = SpMsPlayerRepeatMode.NONE
         private set
     final override var volume: Double = 1.0
         private set
@@ -56,7 +58,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
     private val playback_lock: ReentrantLock = ReentrantLock()
     private inline fun <T> withLock(block: () -> T): T = playback_lock.withLock(block)
 
-    private val player_running: Boolean get() = is_playing || state == Player.State.BUFFERING
+    private val player_running: Boolean get() = is_playing || state == SpMsPlayerState.BUFFERING
 
     private fun log(message: Any?) {
         if (enable_logging) {
@@ -68,7 +70,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
         log("Item playback ended")
 
         if (current_item_index + 1 == queue.size) {
-            state = Player.State.ENDED
+            state = SpMsPlayerState.ENDED
         }
         else {
             current_item_index++
@@ -114,10 +116,10 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                 var duration: Long? = getCachedItemDuration(item_id)
 
                 if (duration == null) {
-                    state = Player.State.BUFFERING
+                    state = SpMsPlayerState.BUFFERING
                 }
                 else {
-                    state = Player.State.READY
+                    state = SpMsPlayerState.READY
                     is_playing = true
                     onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(true)))
                 }
@@ -131,7 +133,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                         duration = loadItemDuration(item_id)
 
                         if (duration == null) {
-                            state = Player.State.IDLE
+                            state = SpMsPlayerState.IDLE
                             is_playing = false
                             playback_mark = 0
                             println("play(): Duration is null, cannot play")
@@ -139,7 +141,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                         }
 
                         withLock {
-                            state = Player.State.READY
+                            state = SpMsPlayerState.READY
                             is_playing = true
                             onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(true)))
                         }
@@ -154,7 +156,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
 
                     withLock {
                         is_playing = false
-                        state = Player.State.IDLE
+                        state = SpMsPlayerState.IDLE
                         playback_mark = duration!!
                         onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(false)))
                         onItemPlaybackEnded()
@@ -168,7 +170,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
         withLock {
             log("pause()")
             if (player_running) {
-                if (state == Player.State.READY) {
+                if (state == SpMsPlayerState.READY) {
                     onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(false)))
                 }
 
@@ -176,7 +178,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                 stop()
             }
             else {
-                state = Player.State.IDLE
+                state = SpMsPlayerState.IDLE
             }
         }
     }
@@ -196,7 +198,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
     private fun stop() {
         playback_scope.coroutineContext.cancelChildren()
         is_playing = false
-        state = Player.State.IDLE
+        state = SpMsPlayerState.IDLE
     }
 
     private inline fun modifyPlayback(resume: Boolean = true, action: () -> Unit) {

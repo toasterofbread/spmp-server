@@ -16,9 +16,10 @@ import okio.Path
 import okio.Path.Companion.toPath
 import platform.posix.getenv
 import spms.localisation.loc
-import spms.player.Player
 import spms.server.SpMs
 import spms.socketapi.shared.SpMsClientID
+import spms.socketapi.shared.SpMsPlayerRepeatMode
+import spms.socketapi.shared.SpMsPlayerState
 
 @Suppress("OPT_IN_USAGE")
 @OptIn(ExperimentalForeignApi::class)
@@ -115,8 +116,8 @@ class ServerActionGetStatus: ServerAction(
                         }
                     }
                 }
-            "state" -> value.jsonPrimitive.intOrNull?.let { Player.State.values().getOrNull(it)?.name } ?: value.jsonPrimitive.toString()
-            "repeat_mode" -> value.jsonPrimitive.intOrNull?.let { Player.RepeatMode.values().getOrNull(it)?.name } ?: value.jsonPrimitive.toString()
+            "state" -> value.jsonPrimitive.intOrNull?.let { SpMsPlayerState.values().getOrNull(it)?.name } ?: value.jsonPrimitive.toString()
+            "repeat_mode" -> value.jsonPrimitive.intOrNull?.let { SpMsPlayerRepeatMode.values().getOrNull(it)?.name } ?: value.jsonPrimitive.toString()
             else -> value.toString()
         }
 

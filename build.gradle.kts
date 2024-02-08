@@ -8,7 +8,6 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
 val FLAG_LINK_STATIC: String = "linkStatic"
-
 val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
 
 plugins {

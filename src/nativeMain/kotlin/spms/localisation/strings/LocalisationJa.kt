@@ -1,10 +1,10 @@
 package spms.localisation.strings
 
-import spms.localisation.Language
+import spms.socketapi.shared.SpMsLanguage
 import spms.localisation.SpMsLocalisation
 
 class LocalisationJa: SpMsLocalisation {
-    override val language: Language = Language.JA
+    override val language: SpMsLanguage = SpMsLanguage.JA
 
     override val server: ServerLocalisation = ServerLocalisationJa()
     override val server_actions: ServerActionLocalisation = ServerActionLocalisationJa()

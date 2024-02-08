@@ -14,7 +14,6 @@ class ServerActionGetClients: ServerAction(
 ) {
     override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement {
         val clients = server.getClients(client)
-        println("CLIENTS: $clients")
         return Json.encodeToJsonElement(clients)
     }
 }

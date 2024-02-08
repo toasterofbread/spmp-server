@@ -14,7 +14,6 @@ import okio.Path
 import okio.Path.Companion.toPath
 import platform.posix.getenv
 import spms.getHostname
-import spms.localisation.Language
 import spms.player.HeadlessPlayer
 import spms.player.Player
 import spms.socketapi.parseSocketMessage
@@ -66,7 +65,7 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
             SpMsClientInfo(
                 application_name,
                 SpMsClientType.SERVER,
-                Language.EN,
+                SpMsLanguage.EN,
                 getMachineId(),
                 player_port = if (headless) null else bound_port
             )
@@ -311,7 +310,7 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
         println("Client connected: $client")
 
         if (client.type == SpMsClientType.PLAYER) {
-            if (!playback_waiting_for_clients && player.state == Player.State.BUFFERING) {
+            if (!playback_waiting_for_clients && player.state == SpMsPlayerState.BUFFERING) {
                 playback_waiting_for_clients = true
             }
         }

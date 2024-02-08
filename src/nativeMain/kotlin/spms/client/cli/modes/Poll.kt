@@ -9,6 +9,7 @@ import spms.client.cli.CommandLineClientMode
 import spms.client.cli.SpMsCommandLineClientError
 import spms.localisation.loc
 import kotlin.system.getTimeMillis
+import spms.socketapi.shared.SpMsSocketApi
 
 private const val SERVER_EVENT_TIMEOUT_MS: Long = 10000
 private const val POLL_INTERVAL: Long = 100
@@ -29,16 +30,16 @@ class Poll: CommandLineClientMode("poll", { "TODO" }) {
                 var events: List<JsonElement>? = null
 
                 while (events == null && getTimeMillis() < wait_end) {
-                    events = socket
-                        .recvStringMultipart(
+                    val message: List<String>? =
+                        socket.recvStringMultipart(
                             (wait_end - getTimeMillis()).coerceAtLeast(ZMQ_NOBLOCK.toLong())
-                        )
-                        ?.mapNotNull { event ->
-                            val string: String = event.removeSuffix("\u0000").takeIf { it.isNotEmpty() }
-                                ?: return@mapNotNull null
-
-                            return@mapNotNull Json.decodeFromString(string)
+                        )?.let {
+                            SpMsSocketApi.decode(it)
                         }
+
+                    events = message?.map {
+                        Json.decodeFromString(it)
+                    }
                 }
 
                 if (events == null) {

@@ -9,11 +9,12 @@ import spms.localisation.strings.LocalisationJa
 import spms.localisation.strings.ServerActionLocalisation
 import spms.localisation.strings.PlayerActionLocalisation
 import spms.localisation.strings.ServerLocalisation
+import spms.socketapi.shared.SpMsLanguage
 
 val Context.loc: SpMsLocalisation get() = Command.localisation
 
 interface SpMsLocalisation: Localization {
-    val language: Language
+    val language: SpMsLanguage
 
     val server: ServerLocalisation
     val server_actions: ServerActionLocalisation
@@ -21,10 +22,10 @@ interface SpMsLocalisation: Localization {
     val cli: CliLocalisation
     
     companion object {
-        fun get(language: Language = Language.current): SpMsLocalisation {
+        fun get(language: SpMsLanguage = SpMsLanguage.current): SpMsLocalisation {
             return when (language) {
-                Language.EN -> LocalisationEn()
-                Language.JA -> LocalisationJa()
+                SpMsLanguage.EN -> LocalisationEn()
+                SpMsLanguage.JA -> LocalisationJa()
             }
         }
     }

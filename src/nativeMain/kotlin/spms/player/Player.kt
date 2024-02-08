@@ -1,6 +1,8 @@
 package spms.player
 
 import spms.socketapi.shared.SpMsPlayerEvent
+import spms.socketapi.shared.SpMsPlayerRepeatMode
+import spms.socketapi.shared.SpMsPlayerState
 
 data class PlayerStreamInfo(
     val url: String,
@@ -13,13 +15,13 @@ interface Player {
 
     fun release()
 
-    val state: State
+    val state: SpMsPlayerState
     val is_playing: Boolean
     val item_count: Int
     val current_item_index: Int
     val current_position_ms: Long
     val duration_ms: Long
-    val repeat_mode: RepeatMode
+    val repeat_mode: SpMsPlayerRepeatMode
     val volume: Double
 
     fun play()
@@ -40,19 +42,6 @@ interface Player {
     fun clearQueue()
 
     fun setVolume(value: Double)
-
-    enum class State {
-        IDLE,
-        BUFFERING,
-        READY,
-        ENDED
-    }
-
-    enum class RepeatMode {
-        NONE,
-        ONE,
-        ALL
-    }
 }
 
 fun Boolean.toInt(): Int =

@@ -4,8 +4,8 @@ import kotlinx.cinterop.*
 import libzmq.*
 import platform.posix.memcpy
 import spms.zmqPollerWait
-
-const val MESSAGE_MAX_SIZE: Int = 1024
+import spms.socketapi.shared.SpMsSocketApi
+import spms.socketapi.shared.SPMS_MESSAGE_MAX_SIZE
 
 @OptIn(ExperimentalForeignApi::class)
 class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
@@ -25,8 +25,8 @@ class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
         with (mem_scope) {
             setSocketOption(ZMQ_LINGER, 0)
 
-            message_buffer = allocArray(MESSAGE_MAX_SIZE)
-            message_buffer_size = (sizeOf<ByteVar>() * MESSAGE_MAX_SIZE).toULong()
+            message_buffer = allocArray(SPMS_MESSAGE_MAX_SIZE)
+            message_buffer_size = (sizeOf<ByteVar>() * SPMS_MESSAGE_MAX_SIZE).toULong()
 
             has_more = alloc()
             has_more_size = alloc<ULongVar>().apply { value = sizeOf<IntVar>().toULong() }
@@ -90,28 +90,7 @@ class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
 
     fun recvStringMultipart(timeout_ms: Long?): List<String>? {
         val message: List<ByteArray> = recvMultipart(timeout_ms) ?: return null
-
-        val parts: MutableList<String> = mutableListOf()
-        val current_part: StringBuilder = StringBuilder()
-
-        for (part in message) {
-            val decoded_part: String = part.decodeToString()
-
-            if (decoded_part.lastOrNull() == '\u0000') {
-                current_part.appendRange(decoded_part, 0, decoded_part.length - 1)
-                parts.add(current_part.toString())
-                current_part.clear()
-            }
-            else {
-                current_part.append(decoded_part)
-            }
-        }
-
-        if (current_part.isNotEmpty()) {
-            parts.add(current_part.toString())
-        }
-
-        return parts
+        return SpMsSocketApi.decode(message.map { it.decodeToString() })
     }
 
     fun recvMultipart(timeout_ms: Long?): List<ByteArray>? = memScoped {

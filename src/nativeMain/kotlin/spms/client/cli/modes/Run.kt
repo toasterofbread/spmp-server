@@ -20,6 +20,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import libzmq.ZMQ_NOBLOCK
 import spms.socketapi.Action
+import spms.socketapi.shared.SpMsSocketApi
 import spms.client.cli.CommandLineClientMode
 import spms.client.cli.SERVER_REPLY_TIMEOUT_MS
 import spms.localisation.loc
@@ -170,9 +171,8 @@ private fun Action.executeOnSocket(
                 println(context.loc.server_actions.receivedReplyFromServer(identifier))
             }
 
-            // Hacky workaround, but if it works who cares?
-            val joined: String = reply.joinToString().replace("\u0000, ", "")
-            return Json.decodeFromString<List<SpMsActionReply>>(joined).first()
+            val decoded: String = SpMsSocketApi.decode(reply).first()
+            return Json.decodeFromString<SpMsActionReply>(decoded)
         }
         else if (!silent) {
             println(context.loc.server_actions.receivedEmptyReplyFromServer(identifier))

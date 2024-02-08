@@ -176,8 +176,9 @@ class PlayerClient private constructor(): Command(
             try {
                 delay(POLL_INTERVAL_MS)
 
-                val handshake_message: List<String> =
-                    socket.recvStringMultipart(CLIENT_REPLY_TIMEOUT_MS) ?: continue
+                // We don't actually care about the client handshake, it's just for consistency with the main server api
+//                val handshake_message: List<String> =
+                socket.recvStringMultipart(CLIENT_REPLY_TIMEOUT_MS) ?: continue
 
                 val handshake_reply: SpMsServerHandshake =
                     SpMsServerHandshake(
@@ -276,15 +277,16 @@ class PlayerClient private constructor(): Command(
         var events: List<SpMsPlayerEvent>? = null
 
         while (events == null && getTimeMillis() < wait_end) {
-            events =
+            val message: List<String>? =
                 recvStringMultipart(
                     (wait_end - getTimeMillis()).coerceAtLeast(ZMQ_NOBLOCK.toLong())
-                )
-                ?.mapNotNull { event ->
-                    val string: String = event.removeSuffix("\u0000").takeIf { it.isNotEmpty() }
-                        ?: return@mapNotNull null
-                    return@mapNotNull json.decodeFromString(string)
+                )?.let {
+                    SpMsSocketApi.decode(it)
                 }
+
+            events = message?.map {
+                Json.decodeFromString(it)
+            }
         }
 
         if (events == null) {

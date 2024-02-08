@@ -1,13 +1,39 @@
 package spms.socketapi.shared
 
 import kotlinx.serialization.Serializable
-import spms.localisation.Language
-import spms.player.Player
 
 typealias SpMsClientID = Int
 
 enum class SpMsClientType {
     SPMP_PLAYER, SPMP_STANDALONE, PLAYER, COMMAND_LINE, SERVER
+}
+
+enum class SpMsPlayerState {
+    IDLE,
+    BUFFERING,
+    READY,
+    ENDED
+}
+
+enum class SpMsPlayerRepeatMode {
+    NONE,
+    ONE,
+    ALL
+}
+
+enum class SpMsLanguage {
+    EN, JA;
+    
+    companion object {
+        val default: SpMsLanguage = EN
+        
+        fun fromCode(code: String?): SpMsLanguage? =
+            when (code?.split('_', limit = 2)?.firstOrNull()?.uppercase()) {
+                "EN" -> EN
+                "JA" -> JA
+                else -> null
+            }
+    }
 }
 
 @Serializable
@@ -18,8 +44,8 @@ data class SpMsClientHandshake(
     val language: String? = null,
     val player_port: Int? = null
 ) {
-    fun getLanguage(): Language =
-        Language.fromCode(language) ?: Language.default
+    fun getLanguage(): SpMsLanguage =
+        SpMsLanguage.fromCode(language) ?: SpMsLanguage.default
 }
 
 @Serializable
@@ -34,12 +60,12 @@ data class SpMsServerHandshake(
 @Serializable
 data class SpMsServerState(
     val queue: List<String>,
-    val state: Player.State,
+    val state: SpMsPlayerState,
     val is_playing: Boolean,
     val current_item_index: Int,
     val current_position_ms: Int,
     val duration_ms: Int,
-    val repeat_mode: Player.RepeatMode,
+    val repeat_mode: SpMsPlayerRepeatMode,
     val volume: Float
 )
 
@@ -47,7 +73,7 @@ data class SpMsServerState(
 data class SpMsClientInfo(
     val name: String,
     val type: SpMsClientType,
-    val language: Language,
+    val language: SpMsLanguage,
     val machine_id: String,
     val is_caller: Boolean = false,
     val player_port: Int? = null

@@ -1,9 +1,9 @@
 package spms.server
 
-import spms.localisation.Language
 import spms.socketapi.shared.SpMsClientID
 import spms.socketapi.shared.SpMsClientInfo
 import spms.socketapi.shared.SpMsClientType
+import spms.socketapi.shared.SpMsLanguage
 
 internal class SpMsClient(
     val id_bytes: ByteArray,
@@ -12,7 +12,7 @@ internal class SpMsClient(
 ) {
     val name: String get() = info.name
     val type: SpMsClientType get() = info.type
-    val language: Language get() = info.language
+    val language: SpMsLanguage get() = info.language
 
     val id: SpMsClientID = id_bytes.contentHashCode()
     var ready_to_play: Boolean = false

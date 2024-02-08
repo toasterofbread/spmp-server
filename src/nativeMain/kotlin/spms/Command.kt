@@ -7,10 +7,10 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
-import spms.localisation.Language
 import spms.localisation.SpMsLocalisation
 import spms.localisation.loc
 import spms.server.SpMs
+import spms.socketapi.shared.SpMsLanguage
 
 typealias LocalisedMessageProvider = SpMsLocalisation.() -> String
 
@@ -40,7 +40,7 @@ abstract class Command(
     override fun run() {
         SpMs.logging_enabled = !silent
 
-        val lang: Language? = Language.fromCode(language)
+        val lang: SpMsLanguage? = SpMsLanguage.fromCode(language)
         if (lang != null && lang != localisation.language) {
             localisation = SpMsLocalisation.get(lang)
         }
