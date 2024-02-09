@@ -14,7 +14,7 @@ import spms.client.cli.modes.Poll
 import spms.client.cli.modes.Run
 import toRed
 
-const val SERVER_REPLY_TIMEOUT_MS: Long = 10000
+const val SERVER_REPLY_TIMEOUT_MS: Long = 2000
 
 private fun getClientName(): String =
     "SpMs CLI"

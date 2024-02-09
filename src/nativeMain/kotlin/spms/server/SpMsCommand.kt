@@ -27,11 +27,12 @@ import kotlin.system.exitProcess
 import platform.posix.getenv
 import kotlinx.cinterop.toKString
 import spms.*
+import spms.socketapi.shared.SPMS_DEFAULT_PORT
+import spms.socketapi.shared.SPMS_DEFAULT_PORT
 
 const val PROJECT_URL: String = "https://github.com/toasterofbread/spmp-server"
 const val BUG_REPORT_URL: String = PROJECT_URL + "/issues"
 
-const val DEFAULT_PORT: Int = 3973
 const val DEFAULT_ADDRESS: String = "127.0.0.1"
 private const val POLL_INTERVAL_MS: Long = 100
 private const val CLIENT_REPLY_TIMEOUT_MS: Long = 1000
@@ -88,7 +89,7 @@ class SpMsCommand: Command(
     help = { cli.command_help_root },
     is_default = true
 ) {
-    private val port: Int by option("-p", "--port").int().default(DEFAULT_PORT).help { context.loc.server.option_help_port }
+    private val port: Int by option("-p", "--port").int().default(SPMS_DEFAULT_PORT).help { context.loc.server.option_help_port }
     private val headless: Boolean by option("-x", "--headless").flag().help { context.loc.server.option_help_headless }
     private val player_options: PlayerOptions by PlayerOptions()
 

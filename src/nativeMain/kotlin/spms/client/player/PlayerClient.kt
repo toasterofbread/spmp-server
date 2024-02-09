@@ -26,7 +26,7 @@ import spms.socketapi.player.PlayerAction
 import spms.socketapi.shared.*
 import kotlin.system.getTimeMillis
 
-private const val SERVER_REPLY_TIMEOUT_MS: Long = 10000
+private const val SERVER_REPLY_TIMEOUT_MS: Long = 2000
 private const val SERVER_EVENT_TIMEOUT_MS: Long = 10000
 private const val POLL_INTERVAL_MS: Long = 100
 private const val CLIENT_REPLY_TIMEOUT_MS: Long = 1000
