@@ -15,10 +15,11 @@ jobs:
     env:
       TOOLCHAIN_VERSION: aarch64-unknown-linux-gnu-gcc-8.3.0-glibc-2.25-kernel-4.9-2
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk/
-      TOOLCHAIN: ${{ env.GITHUB_WORKSPACE }}/toolchain
-    steps:
-    - run: apt update
 
+    steps:
+    - run: echo "TOOLCHAIN=$GITHUB_WORKSPACE/toolchain" >> $GITHUB_ENV
+
+    - run: apt update
     - run: apt install -y nodejs
       if: env.ACT
 
