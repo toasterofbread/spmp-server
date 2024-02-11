@@ -1,4 +1,4 @@
-name: Build [Windows]
+name: Build [Windows x86_64]
 
 on:
   push:
@@ -22,15 +22,19 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Download libzmq from vcpkg
-      uses: johnwason/vcpkg-action@v5
+    - name: Build libzmq and libcurl
+      uses: johnwason/vcpkg-action@v6
       with:
-        pkgs: zeromq[draft]
+        pkgs: zeromq[draft] curl
         triplet: x64-windows
         token: ${{ github.token }}
+        github-binarycache: true
 
-    - name: Move needed libzmq files
-      run: move "${{ github.workspace }}\vcpkg\packages\zeromq_x64-windows\*" "${{ github.workspace }}\src\nativeInterop"
+    - name: Copy libzmq files
+      run: xcopy /s /i /y "${{ github.workspace }}\vcpkg\packages\zeromq_x64-windows\*" "${{ github.workspace }}\src\nativeInterop"
+
+    - name: Copy libcurl files
+      run: xcopy /s /i /y "${{ github.workspace }}\vcpkg\packages\curl_x64-windows\*" "${{ github.workspace }}\src\nativeInterop"
 
     - name: Download 7-Zip
       run: curl https://www.7-zip.org/a/7z2301-x64.exe --output 7z-installer.exe
@@ -44,24 +48,23 @@ jobs:
     - name: Extract mpv
       run: 7zip\7z.exe x mpv.7z -osrc\nativeInterop
 
-    - name: Create lib directory
-      run: md src\nativeInterop\lib 2> nul
-      continue-on-error: true
-
     - name: Move libmpv.dll.a
       run: move src\nativeInterop\libmpv.dll.a src\nativeInterop\lib\libmpv.dll.a
 
+    - name: Set up Gradle
+      uses: gradle/gradle-build-action@v3
+
     - name: Build native binaries
-      run: .\gradlew.bat nativeBinaries
+      run: .\gradlew.bat nativeBinariesStatic
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
       with:
-        name: spms-windows-debug.exe
-        path: build\bin\native\debugExecutable\spmp-server.exe
+        name: spms-windows-x86_64-debug
+        path: build\bin\native\debugExecutable\*.exe
 
     - name: Upload release binary
       uses: actions/upload-artifact@v3
       with:
-        name: spms-windows-release.exe
-        path: build\bin\native\releaseExecutable\spmp-server.exe
+        name: spms-windows-x86_64-release
+        path: build\bin\native\releaseExecutable\*.exe

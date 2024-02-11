@@ -28,7 +28,6 @@ import platform.posix.getenv
 import kotlinx.cinterop.toKString
 import spms.*
 import spms.socketapi.shared.SPMS_DEFAULT_PORT
-import spms.socketapi.shared.SPMS_DEFAULT_PORT
 
 const val PROJECT_URL: String = "https://github.com/toasterofbread/spmp-server"
 const val BUG_REPORT_URL: String = PROJECT_URL + "/issues"

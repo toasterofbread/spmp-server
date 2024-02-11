@@ -1,4 +1,4 @@
-name: Build [Linux]
+name: Build [Linux x86_64]
 
 on:
   push:
@@ -15,22 +15,22 @@ jobs:
         id: cache-libzmq
         uses: actions/cache@v4
         with:
-         path: libzmq
-         key: ${{ runner.os }}-libzmq
+          path: libzmq
+          key: libzmq-x86_64
 
       - name: Download libzmq
         if: steps.cache-libzmq.outputs.cache-hit != 'true'
         run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz
-  
+
       - name: Extract libzmq
         if: steps.cache-libzmq.outputs.cache-hit != 'true'
         run: tar -xf ./zeromq-4.3.5.tar.gz
-  
+
       - name: Configure libzmq
         if: steps.cache-libzmq.outputs.cache-hit != 'true'
         working-directory: zeromq-4.3.5
         run: ./configure --enable-drafts --enable-static --disable-shared --disable-libbsd --prefix=$GITHUB_WORKSPACE/libzmq
-  
+
       - name: Compile libzmq
         if: steps.cache-libzmq.outputs.cache-hit != 'true'
         working-directory: zeromq-4.3.5
@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-22.04
     container: archlinux
     needs: build-zmq
-  
+
     env:
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk/
 
@@ -55,12 +55,9 @@ jobs:
     - name: Install build tools
       run: pacman --noconfirm -Syu git gcc make jre17-openjdk wget pkgconf
 
-    - name: Resolve dubious repository ownership
-      run: git config --global --add safe.directory $GITHUB_WORKSPACE
-
     - name: Test Java
       run: $JAVA_HOME/bin/java --version
-    
+
     - uses: actions/checkout@v3
       with:
         submodules: recursive
@@ -74,23 +71,26 @@ jobs:
     - name: Install dependencies
       run: pacman --noconfirm -Sy mpv libappindicator-gtk3
 
+    - name: Set up Gradle
+      uses: gradle/gradle-build-action@v3
+
     - name: Grant execute permission for gradlew
       run: chmod +x gradle
-      
+
     - name: Build native binaries
-      run: ./gradlew nativeBinaries -PlinkStatic
+      run: ./gradlew nativeBinariesStatic
 
     - name: Strip release binary
-      run: strip build/bin/native/releaseExecutable/spmp-server.kexe
+      run: strip build/bin/native/releaseExecutable/*.kexe
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
       with:
-        name: spms-linux-debug.kexe
-        path: build/bin/native/debugExecutable/spmp-server.kexe
+        name: spms-linux-x86_64-debug
+        path: build/bin/native/debugExecutable/*.kexe
 
     - name: Upload release binary
       uses: actions/upload-artifact@v3
       with:
-        name: spms-linux-release.kexe
-        path: build/bin/native/releaseExecutable/spmp-server.kexe
+        name: spms-linux-x86_64-release
+        path: build/bin/native/releaseExecutable/*.kexe

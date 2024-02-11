@@ -16,9 +16,14 @@ import kotlinx.cinterop.value
 import libappindicator.*
 import platform.posix.LC_NUMERIC
 import platform.posix.setlocale
+import platform.posix.getenv
 
-fun createTrayIndicator(name: String, icon_path: List<String>): TrayIndicator? = 
-    TrayIndicatorImpl(name, icon_path)
+fun createTrayIndicator(name: String, icon_path: List<String>): TrayIndicator? {
+    if (getenv("XDG_CURRENT_DESKTOP") == null) {
+        return null
+    }
+    return TrayIndicatorImpl(name, icon_path)
+}
 
 @OptIn(ExperimentalForeignApi::class)
 class TrayIndicatorImpl(name: String, icon_path: List<String>): TrayIndicator {

@@ -1,9 +1,8 @@
 @file:Suppress("UNUSED_VARIABLE")
 
 import org.jetbrains.kotlin.gradle.internal.ensureParentDirsCreated
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetWithHostTests
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import java.io.PrintWriter
-import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
@@ -11,13 +10,77 @@ val FLAG_LINK_STATIC: String = "linkStatic"
 val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
 
 plugins {
-    kotlin("multiplatform") version "1.9.10"
+    kotlin("multiplatform") version "1.9.22"
     kotlin("plugin.serialization") version "1.9.0"
 }
 
 repositories {
     mavenCentral()
     gradlePluginPortal()
+    maven("https://jitpack.io")
+}
+
+enum class Arch {
+    X86_64, ARM64;
+
+    val libdir_name: String get() = when (this) {
+        X86_64 -> "x86_64-linux-gnu"
+        ARM64 -> "aarch64-linux-gnu"
+    }
+
+    val PKG_CONFIG_PATH: String get() = "/usr/lib/$libdir_name/pkgconfig"
+
+    companion object {
+        val target: Arch get() {
+            val target_arch: String = System.getenv("SPMS_ARCH") ?: System.getProperty("os.arch")
+            return when (target_arch.lowercase()) {
+                "x86_64", "amd64" -> X86_64
+                "aarch64" -> ARM64
+                else -> throw GradleException("Unsupported CPU architecture '$target_arch'")
+            }
+        }
+    }
+}
+
+enum class OS {
+    LINUX_X86, LINUX_ARM64, WINDOWS, OSX_X86, OSX_ARM;
+
+    val identifier: String
+        get() = when (this) {
+            LINUX_X86 -> "linux-x86_64"
+            LINUX_ARM64 -> "linux-arm64"
+            WINDOWS -> "windows-x86_64"
+            OSX_X86 -> "osx-x86_64"
+            OSX_ARM -> "osx-arm64"
+        }
+
+    val gen_file_extension: String
+        get() = when (this) {
+            LINUX_X86, LINUX_ARM64 -> "linux"
+            WINDOWS -> "windows"
+            OSX_X86, OSX_ARM -> "osx"
+        }
+
+    companion object {
+        val target: OS get() {
+            val target_os: String = System.getenv("SPMS_OS") ?: System.getProperty("os.name")
+            val target_arch: Arch = Arch.target
+
+            val os: String = target_os.lowercase()
+
+            if (os == "linux") {
+                return when (target_arch) {
+                    Arch.X86_64 -> LINUX_X86
+                    Arch.ARM64 -> LINUX_ARM64
+                }
+            }
+            else if (os.startsWith("windows") && target_arch == Arch.X86_64) {
+                return WINDOWS
+            }
+
+            throw GradleException("Unsupported host OS and architecture '$target_os' ($target_arch)")
+        }
+    }
 }
 
 val platform_specific_files: List<String> = listOf(
@@ -45,14 +108,26 @@ val cinterop_definitions: List<CInteropDefinition> = listOf(
             else -> "libzmq"
         },
         listOf("zmq.h", "zmq_utils.h"),
-        static_lib = "libzmq.a",
-        compiler_opts = listOf("-DZMQ_BUILD_DRAFT_API=1"),
-        linker_opts = when (OS.target) {
-            OS.WINDOWS -> listOf("-lssp")
-            else -> emptyList()
+        compiler_opts = listOf("-DZMQ_BUILD_DRAFT_API=1")
+    ).apply {
+        when (OS.target) {
+            OS.LINUX_X86, OS.LINUX_ARM64 -> static_lib = "libzmq.a"
+            OS.WINDOWS -> {
+                linker_opts = listOf("-lssp")
+                bin_dependencies = listOf("libzmq-mt-4_3_5.dll")
+            }
+            else -> {}
+        }
+    },
+    CInteropDefinition(
+        "libcurl",
+        when (OS.target) {
+            OS.WINDOWS -> "libcurl.lib"
+            else -> "libcurl"
         },
+        listOf("curl/curl.h"),
         bin_dependencies = when (OS.target) {
-            OS.WINDOWS -> listOf("libzmq-mt-4_3_5.dll")
+            OS.WINDOWS -> listOf("libcurl.dll")
             else -> emptyList()
         }
     ),
@@ -60,18 +135,21 @@ val cinterop_definitions: List<CInteropDefinition> = listOf(
         "libappindicator",
         "appindicator3-0.1",
         listOf("libappindicator3-0.1/libappindicator/app-indicator.h"),
-        platforms = listOf(OS.LINUX)
+        platforms = listOf(OS.LINUX_X86, OS.LINUX_ARM64)
     )
 )
 
 kotlin {
-    val native_target: KotlinNativeTargetWithHostTests =
+    val native_target: KotlinNativeTarget =
         when (OS.target) {
-            OS.LINUX -> linuxX64("native")
+            OS.LINUX_X86 -> linuxX64("native")
+            OS.LINUX_ARM64 -> linuxArm64("native")
             OS.WINDOWS -> mingwX64("native")
             OS.OSX_X86 -> macosX64("native")
             OS.OSX_ARM -> macosArm64("native")
         }
+
+    println("Building for target ${OS.target}")
 
     native_target.apply {
         compilations.getByName("main") {
@@ -87,6 +165,7 @@ kotlin {
 
         binaries {
             executable {
+                baseName = "spms-${OS.target.identifier}"
                 entryPoint = "main"
             }
         }
@@ -94,19 +173,17 @@ kotlin {
 
     sourceSets {
         val nativeMain by getting {
+            languageSettings.optIn("kotlin.experimental.ExperimentalNativeApi")
+            languageSettings.optIn("kotlinx.cinterop.ExperimentalForeignApi")
+
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
-                implementation("com.github.ajalt.clikt:clikt:4.2.1")
                 implementation("com.squareup.okio:okio:3.6.0")
 
-                val ktor_version: String = "2.3.6"
-                implementation("io.ktor:ktor-client-core:$ktor_version")
-                implementation("io.ktor:ktor-client-curl:$ktor_version")
-
-                if (OS.target != OS.WINDOWS) {
-                    implementation("io.ktor:ktor-server-core:$ktor_version")
-                    implementation("io.ktor:ktor-server-cio:$ktor_version")
+                when (Arch.target) {
+                    Arch.X86_64 -> implementation("com.github.ajalt.clikt:clikt:4.2.2")
+                    Arch.ARM64 -> implementation("com.github.toasterofbread:clikt:65ebc8a4bb0eeecfcfeeec7cd1d05099a4e33df1")
                 }
             }
         }
@@ -151,14 +228,13 @@ tasks.register("bundleIcon") {
     }
 }
 
-tasks.register("bundleGitCommitHash") {
-    val out_file: File = project.file("src/nativeMain/kotlin/GitCommitHash.gen.kt")
-    outputs.file(out_file)
-    outputs.upToDateWhen { false }
+tasks.register("nativeBinariesStatic") {
+    val native_binaries = tasks.getByName("nativeBinaries")
+    finalizedBy(native_binaries)
+    group = native_binaries.group
 
-    doLast {
-        val git_commit_hash: String = getCurrentGitCommitHash()!!
-        out_file.writeText("${GENERATED_FILE_PREFIX}val GIT_COMMIT_HASH: String = \"$git_commit_hash\"\n")
+    doFirst {
+        project.ext.set(FLAG_LINK_STATIC, 1)
     }
 }
 
@@ -184,7 +260,7 @@ tasks.register("configurePlatformSpecificFiles") {
         for (path in platform_specific_files) {
             val out_file: File = path.getFile()
 
-            var platform_file: File = path.getFile('.' + OS.target.name.toLowerCase())
+            var platform_file: File = path.getFile('.' + OS.target.gen_file_extension.toLowerCase())
             if (!platform_file.isFile) {
                 platform_file = path.getFile(".other")
             }
@@ -204,7 +280,6 @@ tasks.register("configurePlatformSpecificFiles") {
 
 tasks.getByName("compileKotlinNative") {
     dependsOn("bundleIcon")
-    dependsOn("bundleGitCommitHash")
     dependsOn("configurePlatformSpecificFiles")
 }
 
@@ -301,47 +376,25 @@ tasks.getByName("linkReleaseExecutableNative") {
     finalizedBy("finaliseBuildRelease")
 }
 
-enum class OS {
-    LINUX, WINDOWS, OSX_X86, OSX_ARM;
-
-    companion object {
-        val target: OS get() {
-            val target_os: String = System.getenv("SPMS_OS") ?: System.getProperty("os.name")
-            val target_arch: String = System.getenv("SPMS_ARCH") ?: System.getProperty("os.arch")
-
-            val os: String = target_os.toLowerCase()
-            val arch: String = target_arch.toLowerCase()
-
-            return when {
-                os == "linux" -> LINUX
-                os.startsWith("windows") -> WINDOWS
-                os == "mac os x" && arch == "x86_64" -> OSX_X86
-                os == "mac os x" && arch == "aarch64" -> OSX_ARM
-                else -> throw GradleException("Host OS '$target_os' ($target_arch) is not supported by Kotlin/Native")
-            }
-        }
-    }
-}
-
 data class CInteropDefinition(
     val name: String,
     val lib: String,
     val headers: List<String>,
-    val static_lib: String? = null,
-    val compiler_opts: List<String> = emptyList(),
-    val linker_opts: List<String> = emptyList(),
-    val bin_dependencies: List<String> = emptyList(),
-    val platforms: List<OS> = OS.values().toList()
+    var static_lib: String? = null,
+    var compiler_opts: List<String> = emptyList(),
+    var linker_opts: List<String> = emptyList(),
+    var bin_dependencies: List<String> = emptyList(),
+    var platforms: List<OS> = OS.values().toList()
 ) {
     fun writeTo(writer: PrintWriter, static: Boolean) {
         writer.writeList("headers", headers.map { formatPlatformInclude(it) })
 
         var copts: List<String> = getBaseCompilerOpts() + compiler_opts
         var lopts: List<String> = getBaseLinkerOpts() + linker_opts
-        
+
         if (static && static_lib != null) {
             writer.writeList("libraryPaths", listOf("src/nativeInterop/lib"))
-            writer.writeList("staticLibraries", listOf(static_lib))
+            writer.writeList("staticLibraries", listOf(static_lib!!))
         }
         else {
             copts += pkgConfig(formatPlatformLib(lib), cflags = true)
@@ -365,22 +418,22 @@ data class CInteropDefinition(
 
     private fun getBaseCompilerOpts(): List<String> =
         when (OS.target) {
-            OS.LINUX -> listOf("-I/usr/include", "-I/usr/include/x86_64-linux-gnu")
+            OS.LINUX_X86, OS.LINUX_ARM64 -> listOf("-I/usr/include", "-I/usr/include/${Arch.target.libdir_name}")
             else -> emptyList()
         } + listOf("-I" + project.file("src/nativeInterop/include").absolutePath.replace('\\', '/'))
 
     private fun getBaseLinkerOpts(): List<String> =
         when (OS.target) {
-            OS.LINUX -> listOf("-L/usr/lib", "-L/usr/lib/x86_64-linux-gnu")
+            OS.LINUX_X86, OS.LINUX_ARM64 -> listOf("-L/usr/lib", "-L/usr/lib/${Arch.target.libdir_name}")
             else -> emptyList()
         }
 
     private fun PrintWriter.writeList(property: String, items: List<String>) {
         if (items.isNotEmpty()) {
             print("$property =")
-            for (header in items)  {
+            for (item in items)  {
                 print(' ')
-                print(header)
+                print(item)
             }
             print('\n')
         }
@@ -393,7 +446,7 @@ fun pkgConfig(
     cflags: Boolean = false,
     libs: Boolean = false
 ): List<String> {
-    if (OS.target != OS.LINUX) {
+    if (OS.target != OS.LINUX_X86 && OS.target != OS.LINUX_ARM64) {
         if (libs) {
             return package_names.map {
                 if (it.startsWith("lib")) "-l" + it.drop(3)
@@ -412,6 +465,7 @@ fun pkgConfig(
             if (libs) "--libs" else null
         ) + package_names
     )
+    process_builder.environment()["PKG_CONFIG_PATH"] = Arch.target.PKG_CONFIG_PATH
     process_builder.environment()["PKG_CONFIG_ALLOW_SYSTEM_LIBS"] = "1"
 
     val process: Process = process_builder.start()
@@ -424,34 +478,5 @@ fun pkgConfig(
 
     return process.inputStream.bufferedReader().use { reader ->
         reader.readText().split(" ").mapNotNull { it.trim().takeIf { it.isNotBlank() } }
-    }
-}
-
-fun cmd(vararg args: String): String {
-    val out = ByteArrayOutputStream()
-    exec {
-        commandLine(args.toList())
-        standardOutput = out
-    }
-    return out.toString().trim()
-}
-
-fun getCurrentGitTag(): String? {
-    try {
-        return cmd("git", "tag", "--points-at", "HEAD").ifBlank { null }
-    }
-    catch (e: Throwable) {
-        RuntimeException("Getting Git tag failed", e).printStackTrace()
-        return null
-    }
-}
-
-fun getCurrentGitCommitHash(): String? {
-    try {
-        return cmd("git", "rev-parse", "HEAD").ifBlank { null }
-    }
-    catch (e: Throwable) {
-        RuntimeException("Getting Git commit hash failed", e).printStackTrace()
-        return null
     }
 }
