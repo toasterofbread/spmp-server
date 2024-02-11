@@ -10,10 +10,12 @@ import spms.client.cli.SpMsCommandLineClientError
 import spms.localisation.loc
 import kotlin.system.getTimeMillis
 import spms.socketapi.shared.SpMsSocketApi
+import kotlinx.cinterop.ExperimentalForeignApi
 
 private const val SERVER_EVENT_TIMEOUT_MS: Long = 10000
 private const val POLL_INTERVAL: Long = 100
 
+@OptIn(ExperimentalForeignApi::class)
 class Poll: CommandLineClientMode("poll", { "TODO" }) {
     override fun run() {
         super.run()

@@ -1,6 +1,5 @@
 package spms.server
 
-import GIT_COMMIT_HASH
 import cinterop.mpv.MpvClientImpl
 import cinterop.mpv.getCurrentStateJson
 import cinterop.zmq.ZmqRouter
@@ -290,7 +289,7 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
             SpMsServerHandshake(
                 name = SpMs.application_name,
                 device_name = getDeviceName(),
-                spms_commit_hash = GIT_COMMIT_HASH,
+                spms_commit_hash = "TODO: Remove",
                 server_state = player.getCurrentStateJson(),
                 machine_id = SpMs.getMachineId()
             )

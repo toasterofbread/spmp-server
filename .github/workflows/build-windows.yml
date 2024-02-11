@@ -1,8 +1,8 @@
-name: Build [Windows]
+name: Build [Windows x86_64]
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "linuxarm64" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -57,11 +57,11 @@ jobs:
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
       with:
-        name: spms-windows-debug.exe
-        path: build\bin\native\debugExecutable\spmp-server.exe
+        name: spms-windows-x86_64-debug
+        path: build\bin\native\debugExecutable\*.exe
 
     - name: Upload release binary
       uses: actions/upload-artifact@v3
       with:
-        name: spms-windows-release.exe
-        path: build\bin\native\releaseExecutable\spmp-server.exe
+        name: spms-windows-x86_64-release
+        path: build\bin\native\releaseExecutable\*.exe

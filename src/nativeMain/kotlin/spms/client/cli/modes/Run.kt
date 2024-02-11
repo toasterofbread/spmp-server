@@ -30,6 +30,7 @@ import spms.socketapi.player.PlayerAction
 import spms.socketapi.server.ServerAction
 import toRed
 import kotlin.system.getTimeMillis
+import kotlinx.cinterop.ExperimentalForeignApi
 
 private fun CommandLineClientMode.jsonModeOption() =
     option("-j", "--json").flag().help { context.loc.server_actions.option_help_json }
@@ -142,6 +143,7 @@ class ActionCommandLineClientMode(
     }
 }
 
+@OptIn(ExperimentalForeignApi::class)
 private fun Action.executeOnSocket(
     socket: ZmqSocket,
     parameter_values: List<JsonPrimitive>,

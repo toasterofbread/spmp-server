@@ -1,6 +1,5 @@
 package spms.client.player
 
-import GIT_COMMIT_HASH
 import cinterop.mpv.MpvClientImpl
 import cinterop.mpv.getCurrentStateJson
 import cinterop.zmq.ZmqSocket
@@ -184,7 +183,7 @@ class PlayerClient private constructor(): Command(
                     SpMsServerHandshake(
                         name = getClientName(),
                         device_name = getDeviceName(),
-                        spms_commit_hash = GIT_COMMIT_HASH,
+                        spms_commit_hash = "TODO: Remove",
                         server_state = player.getCurrentStateJson(),
                         machine_id = SpMs.getMachineId()
                     )

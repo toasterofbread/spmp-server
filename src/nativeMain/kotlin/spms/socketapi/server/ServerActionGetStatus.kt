@@ -2,7 +2,6 @@ package spms.socketapi.server
 
 import cinterop.mpv.getCurrentStateJson
 import com.github.ajalt.clikt.core.Context
-import io.ktor.client.HttpClient
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
 import kotlinx.coroutines.Dispatchers
@@ -64,15 +63,13 @@ class ServerActionGetStatus: ServerAction(
     override fun formatResult(result: JsonElement, context: Context): String {
         val string: StringBuilder = StringBuilder("--- ${context.loc.server_actions.status_output_start} ---\n")
         runBlocking {
-            val http_client: HttpClient = HttpClient()
-
             val entries: Collection<Map.Entry<String, JsonElement>> = result.jsonObject.entries
             val formatted_values: Array<String?> = arrayOfNulls(entries.size)
 
             loadCacheFiles()
             entries.mapIndexed { index, entry ->
                 launch(Dispatchers.Default) {
-                    formatted_values[index] = http_client.formatKeyValue(entry.key, entry.value)
+                    formatted_values[index] = formatKeyValue(entry.key, entry.value)
                 }
             }.joinAll()
             saveCacheFiles()
@@ -94,15 +91,13 @@ class ServerActionGetStatus: ServerAction(
 
                 string.append("$key_text: ${formatted_values[index]}\n")
             }
-
-            http_client.close()
         }
         string.append("---------------------")
 
         return string.toString()
     }
 
-    private suspend fun HttpClient.formatKeyValue(key: String, value: JsonElement): String =
+    private fun formatKeyValue(key: String, value: JsonElement): String =
         when (key) {
             "queue" ->
                 buildString {
@@ -112,7 +107,7 @@ class ServerActionGetStatus: ServerAction(
                         for ((index, item) in value.jsonArray.withIndex()) {
                             append(index)
                             append(": ")
-                            appendLine(getVideoInfo(item.jsonPrimitive.content))
+                            appendLine(item.jsonPrimitive.content)
                         }
                     }
                 }
@@ -120,33 +115,4 @@ class ServerActionGetStatus: ServerAction(
             "repeat_mode" -> value.jsonPrimitive.intOrNull?.let { SpMsPlayerRepeatMode.values().getOrNull(it)?.name } ?: value.jsonPrimitive.toString()
             else -> value.toString()
         }
-
-//    @Serializable
-//    private data class PipedStreamsResponse(val title: String)
-//    private val json: Json = Json { ignoreUnknownKeys = true }
-
-    private suspend fun HttpClient.getVideoInfo(video_id: String): String {
-        return video_id
-
-        // suspend fun tryRequest(): String {
-        //     var parsed: PipedStreamsResponse? = cache_files["video_info"]?.jsonObject?.get(video_id)?.jsonObject?.let { Json.decodeFromJsonElement(it) }
-        //     if (parsed == null) {
-        //         val response: HttpResponse = get("https://pipedapi.kavin.rocks/streams/$video_id")
-        //         parsed = json.decodeFromString(response.bodyAsText())!!
-
-        //         val array: MutableMap<String, JsonElement> = cache_files.getOrPut("video_info") { JsonObject(emptyMap()) }.jsonObject.toMutableMap()
-        //         array[video_id] = json.encodeToJsonElement(parsed)
-        //         cache_files["video_info"] = JsonObject(array)
-        //     }
-        //     return "$video_id - ${parsed.title}"
-        // }
-
-        // for (i in 0 until 5) {
-        //     try {
-        //         return tryRequest()
-        //     }
-        //     catch (_: Throwable) {}
-        // }
-        // return video_id
-    }
 }
