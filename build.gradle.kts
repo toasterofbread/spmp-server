@@ -3,7 +3,6 @@
 import org.jetbrains.kotlin.gradle.internal.ensureParentDirsCreated
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import java.io.PrintWriter
-import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
@@ -109,21 +108,28 @@ val cinterop_definitions: List<CInteropDefinition> = listOf(
             else -> "libzmq"
         },
         listOf("zmq.h", "zmq_utils.h"),
-        static_lib = "libzmq.a",
-        compiler_opts = listOf("-DZMQ_BUILD_DRAFT_API=1"),
-        linker_opts = when (OS.target) {
-            OS.WINDOWS -> listOf("-lssp")
-            else -> emptyList()
-        },
-        bin_dependencies = when (OS.target) {
-            OS.WINDOWS -> listOf("libzmq-mt-4_3_5.dll")
-            else -> emptyList()
+        compiler_opts = listOf("-DZMQ_BUILD_DRAFT_API=1")
+    ).apply {
+        when (OS.target) {
+            OS.LINUX_X86, OS.LINUX_ARM64 -> static_lib = "libzmq.a"
+            OS.WINDOWS -> {
+                linker_opts = listOf("-lssp")
+                bin_dependencies = listOf("libzmq-mt-4_3_5.dll")
+            }
+            else -> {}
         }
-    ),
+    },
     CInteropDefinition(
         "libcurl",
-        "libcurl",
-        listOf("curl/curl.h")
+        when (OS.target) {
+            OS.WINDOWS -> "libcurl.lib"
+            else -> "libcurl"
+        },
+        listOf("curl/curl.h"),
+        bin_dependencies = when (OS.target) {
+            OS.WINDOWS -> listOf("libcurl.dll")
+            else -> emptyList()
+        }
     ),
     CInteropDefinition(
         "libappindicator",
@@ -374,11 +380,11 @@ data class CInteropDefinition(
     val name: String,
     val lib: String,
     val headers: List<String>,
-    val static_lib: String? = null,
-    val compiler_opts: List<String> = emptyList(),
-    val linker_opts: List<String> = emptyList(),
-    val bin_dependencies: List<String> = emptyList(),
-    val platforms: List<OS> = OS.values().toList()
+    var static_lib: String? = null,
+    var compiler_opts: List<String> = emptyList(),
+    var linker_opts: List<String> = emptyList(),
+    var bin_dependencies: List<String> = emptyList(),
+    var platforms: List<OS> = OS.values().toList()
 ) {
     fun writeTo(writer: PrintWriter, static: Boolean) {
         writer.writeList("headers", headers.map { formatPlatformInclude(it) })
@@ -388,7 +394,7 @@ data class CInteropDefinition(
 
         if (static && static_lib != null) {
             writer.writeList("libraryPaths", listOf("src/nativeInterop/lib"))
-            writer.writeList("staticLibraries", listOf(static_lib))
+            writer.writeList("staticLibraries", listOf(static_lib!!))
         }
         else {
             copts += pkgConfig(formatPlatformLib(lib), cflags = true)
@@ -425,9 +431,9 @@ data class CInteropDefinition(
     private fun PrintWriter.writeList(property: String, items: List<String>) {
         if (items.isNotEmpty()) {
             print("$property =")
-            for (header in items)  {
+            for (item in items)  {
                 print(' ')
-                print(header)
+                print(item)
             }
             print('\n')
         }

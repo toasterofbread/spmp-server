@@ -2,7 +2,7 @@ name: Build [Linux arm64]
 
 on:
   push:
-    branches: [ "main", "linuxarm64" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -118,6 +118,9 @@ jobs:
       run: |
         apt update
         apt install -y libmpv-dev:arm64 libcurl4-openssl-dev:arm64 libappindicator3-dev:arm64
+
+    - name: Set up Gradle
+      uses: gradle/gradle-build-action@v3
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradle

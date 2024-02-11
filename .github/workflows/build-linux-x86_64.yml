@@ -2,7 +2,7 @@ name: Build [Linux x86_64]
 
 on:
   push:
-    branches: [ "main", "linuxarm64" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -70,6 +70,9 @@ jobs:
 
     - name: Install dependencies
       run: pacman --noconfirm -Sy mpv libappindicator-gtk3
+
+    - name: Set up Gradle
+      uses: gradle/gradle-build-action@v3
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradle
