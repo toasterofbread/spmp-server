@@ -33,15 +33,6 @@ jobs:
       run: $JAVA_HOME/bin/java --version
 
     - run: apt install -y --reinstall make wget pkg-config libc6-dev-i386
-      if: env.ACT
-
-    - run: apt install -y --reinstall sudo
-      if: ${{ !env.ACT }}
-
-    - uses: awalsh128/cache-apt-pkgs-action@latest
-      if: ${{ !env.ACT }}
-      with:
-        packages: make wget pkg-config libc6-dev-i386
 
     - uses: actions/checkout@v3
       with:
