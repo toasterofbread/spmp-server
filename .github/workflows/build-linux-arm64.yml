@@ -46,7 +46,6 @@ jobs:
         key: libzmq-arm64
 
     - name: Download and extract toolchain
-      if: steps.cache-libzmq.outputs.cache-hit != 'true'
       run: |
         wget https://download.jetbrains.com/kotlin/native/$TOOLCHAIN_VERSION.tar.gz -O toolchain.tar.gz
         tar -xzf toolchain.tar.gz
@@ -127,8 +126,6 @@ jobs:
 
     - name: Build native binaries
       run: SPMS_ARCH="aarch64" ./gradlew nativeBinariesStatic
-
-    - run: ls build/bin/native/releaseExecutable
 
     - name: Strip release binary
       run: $TOOLCHAIN/bin/aarch64-unknown-linux-gnu-strip build/bin/native/releaseExecutable/*.kexe

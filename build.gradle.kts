@@ -149,8 +149,6 @@ kotlin {
             OS.OSX_ARM -> macosArm64("native")
         }
 
-    println("Building for target ${OS.target}")
-
     native_target.apply {
         compilations.getByName("main") {
             cinterops {
@@ -278,7 +276,12 @@ tasks.register("configurePlatformSpecificFiles") {
     }
 }
 
+tasks.register("printBuildTarget") {
+    println("Building spmp-server for target ${OS.target}")
+}
+
 tasks.getByName("compileKotlinNative") {
+    dependsOn("printBuildTarget")
     dependsOn("bundleIcon")
     dependsOn("configurePlatformSpecificFiles")
 }

@@ -8,68 +8,78 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-zmq:
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Get cached libzmq
-        id: cache-libzmq
-        uses: actions/cache@v4
-        with:
-          path: libzmq
-          key: libzmq-x86_64
-
-      - name: Download libzmq
-        if: steps.cache-libzmq.outputs.cache-hit != 'true'
-        run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz
-
-      - name: Extract libzmq
-        if: steps.cache-libzmq.outputs.cache-hit != 'true'
-        run: tar -xf ./zeromq-4.3.5.tar.gz
-
-      - name: Configure libzmq
-        if: steps.cache-libzmq.outputs.cache-hit != 'true'
-        working-directory: zeromq-4.3.5
-        run: ./configure --enable-drafts --enable-static --disable-shared --disable-libbsd --prefix=$GITHUB_WORKSPACE/libzmq
-
-      - name: Compile libzmq
-        if: steps.cache-libzmq.outputs.cache-hit != 'true'
-        working-directory: zeromq-4.3.5
-        run: make -j$(nproc) && make install
-
-      - name: Upload libzmq artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: libzmq
-          path: libzmq
-          retention-days: 1
-
   build-spms:
     runs-on: ubuntu-22.04
-    container: archlinux
-    needs: build-zmq
+    container: ubuntu:23.04
 
     env:
+      TOOLCHAIN_VERSION: x86_64-unknown-linux-gnu-gcc-8.3.0-glibc-2.19-kernel-4.9-2
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk/
 
     steps:
-    - name: Install build tools
-      run: pacman --noconfirm -Syu git gcc make jre17-openjdk wget pkgconf
+    - run: echo "TOOLCHAIN=$GITHUB_WORKSPACE/toolchain" >> $GITHUB_ENV
+
+    - run: apt update
+
+    - run: apt install -y nodejs
+      if: env.ACT
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
 
     - name: Test Java
       run: $JAVA_HOME/bin/java --version
+
+    - run: apt install -y --reinstall git make wget pkg-config libmpv-dev libcurl4-openssl-dev libappindicator3-dev
 
     - uses: actions/checkout@v3
       with:
         submodules: recursive
 
-    - name: Download libzmq artifact
-      uses: actions/download-artifact@v4
+    - name: Get cached libzmq
+      id: cache-libzmq
+      uses: actions/cache@v4
+      with:
+        path: libzmq
+        key: libzmq-x86_64
 
-    - name: Move libzmq into src/nativeInterop
-      run: mkdir src/nativeInterop && mv libzmq/* src/nativeInterop
+    - name: Download and extract toolchain
+      run: |
+        wget https://download.jetbrains.com/kotlin/native/$TOOLCHAIN_VERSION.tar.gz -O toolchain.tar.gz
+        tar -xzf toolchain.tar.gz
+        mv ./$TOOLCHAIN_VERSION $TOOLCHAIN
 
-    - name: Install dependencies
-      run: pacman --noconfirm -Sy mpv libappindicator-gtk3
+    - name: Download libzmq
+      if: steps.cache-libzmq.outputs.cache-hit != 'true'
+      run: wget https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz
+
+    - name: Extract libzmq
+      if: steps.cache-libzmq.outputs.cache-hit != 'true'
+      run: tar -xf ./zeromq-4.3.5.tar.gz
+
+    - name: Configure libzmq
+      if: steps.cache-libzmq.outputs.cache-hit != 'true'
+      working-directory: zeromq-4.3.5
+      run: |
+        LDFLAGS="-lgcc -lgcc_s" \
+        CC=$TOOLCHAIN/bin/x86_64-unknown-linux-gnu-gcc \
+        CXX=$TOOLCHAIN/bin/x86_64-unknown-linux-gnu-g++ \
+        ./configure \
+        --enable-drafts \
+        --enable-static \
+        --disable-shared \
+        --disable-libbsd \
+        --prefix=$GITHUB_WORKSPACE/libzmq
+
+    - name: Compile and install libzmq
+      if: steps.cache-libzmq.outputs.cache-hit != 'true'
+      working-directory: zeromq-4.3.5
+      run: make -j$(nproc) && make install
+
+    - name: Copy libzmq into src/nativeInterop
+      run: mkdir src/nativeInterop && cp -r libzmq/* src/nativeInterop
 
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
@@ -81,7 +91,7 @@ jobs:
       run: ./gradlew nativeBinariesStatic
 
     - name: Strip release binary
-      run: strip build/bin/native/releaseExecutable/*.kexe
+      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip build/bin/native/releaseExecutable/*.kexe
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
