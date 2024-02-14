@@ -31,6 +31,47 @@ private data class YoutubeFormatsResponse(
     data class PlayabilityStatus(val status: String)
 }
 
+fun writeCallback(ptr: CPointer<ByteVar>, size: ULong, nmemb: ULong, data: COpaquePointer): Int {
+    val writer: ByteArrayWriter = data.asStableRef<ByteArrayWriter>().get()
+    return writer.fromPtr(ptr, nmemb.toInt())
+}
+
+fun readCallback(buffer: CPointer<ByteVar>, size: ULong, n_items: ULong, data: COpaquePointer): Int {
+    val reader: ByteArrayReader = data.asStableRef<ByteArrayReader>().get()
+    return reader.toBuffer(buffer, n_items.toInt())
+}
+
+private class ByteArrayReader(
+    private val bytes: ByteArray
+) {
+    private var read: Int = 0
+
+    fun toBuffer(buffer: CPointer<ByteVar>, max: Int): Int {
+        val to_read: Int = minOf(bytes.size - read, max)
+        for (i in read until read + to_read) {
+            buffer[i] = bytes[i]
+        }
+        read += to_read
+        return to_read
+    }
+}
+
+private class ByteArrayWriter(
+    val bytes: ByteArray
+) {
+    private var written: Int = 0
+
+    val size: Int get() = written
+    fun decodeToString(): String = bytes.decodeToString(0, written)
+
+    fun fromPtr(ptr: CPointer<ByteVar>, size: Int): Int {
+        for (i in 0 until size) {
+            bytes[i + written] = ptr[i]
+        }
+        written += size
+        return size
+    }
+}
 
 @OptIn(ExperimentalForeignApi::class)
 object VideoInfoProvider {
@@ -65,17 +106,22 @@ object VideoInfoProvider {
                     "userAgent": "com.google.android.apps.youtube.music/5.28.1 (Linux; U; Android 11) gzip",
                     "acceptHeader": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
                 },
-                "user": {},
+                "user": {}
             },
             "videoId": ""
         }
-        """.trimIndent()
-    private val body_template_video_id_index: Int = body_template.indexOf("\"videoId\": \"\"") + 13
+        """.trimIndent().filter { it != ' ' && it != '\n' }
+
+    private const val VIDEO_ID_MATCH: String = "\"videoId\":\"\""
+    private val body_template_video_id_index: Int =
+        body_template.indexOf(VIDEO_ID_MATCH)
+            .also {
+                check(it != -1) { "VIDEO_ID_MATCH not found in body_template" }
+            } + VIDEO_ID_MATCH.length - 1
 
     private fun getPostBody(video_id: String): String =
         body_template.replaceRange(body_template_video_id_index, body_template_video_id_index, video_id)
 
-    // Convert the following Kotlin function to C, using libcurl
     suspend fun getVideoStreamUrl(video_id: String, account_headers: Map<String, String>? = null): String = withContext(Dispatchers.IO) { memScoped {
         var headers: CValuesRef<curl_slist>? = null
         for (header in default_headers + account_headers.orEmpty()) {
@@ -84,25 +130,30 @@ object VideoInfoProvider {
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers)
 
         val post_body: String = getPostBody(video_id)
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_body)
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE, post_body.length)
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, null)
 
-        val result_builder: StringBuilder = StringBuilder()
-        val result_builder_ref: StableRef<StringBuilder> = StableRef.create(result_builder)
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, result_builder_ref.asCPointer())
+        val reader_ref: StableRef<ByteArrayReader> = StableRef.create(ByteArrayReader(post_body.encodeToByteArray()))
+        curl_easy_setopt(curl, CURLOPT_READDATA, reader_ref.asCPointer())
+        curl_easy_setopt(curl, CURLOPT_READFUNCTION, staticCFunction(::readCallback))
+
+        val writer: ByteArrayWriter = ByteArrayWriter(ByteArray(65536))
+        val writer_ref: StableRef<ByteArrayWriter> = StableRef.create(writer)
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, writer_ref.asCPointer())
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, staticCFunction(::writeCallback))
 
         val result: CURLcode =
             try {
                 curl_easy_perform(curl)
             }
             finally {
-                result_builder_ref.dispose()
+                reader_ref.dispose()
+                writer_ref.dispose()
             }
         if (result != CURLE_OK) {
             throw RuntimeException("getVideoStreamUrl for $video_id with ${account_headers?.size ?: 0} account headers failed ($result)")
         }
 
-        val body: String = result_builder.toString()
+        val body: String = writer.decodeToString()
         try {
             val formats: YoutubeFormatsResponse = json.decodeFromString(body)!!
             val best_format: YoutubeVideoFormat = formats.streamingData.adaptiveFormats.filter { it.audio_only }.maxBy { it.bitrate }
@@ -110,7 +161,7 @@ object VideoInfoProvider {
             return@withContext best_format.url!!
         }
         catch (e: Throwable) {
-            throw RuntimeException(body, e)
+            throw RuntimeException("Request data:\n$post_body\n\nResult data:\n$body", e)
         }
     }}
 }
