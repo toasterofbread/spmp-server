@@ -31,12 +31,12 @@ private data class YoutubeFormatsResponse(
     data class PlayabilityStatus(val status: String)
 }
 
-fun writeCallback(ptr: CPointer<ByteVar>, size: ULong, nmemb: ULong, data: COpaquePointer): Int {
+private fun writeCallback(ptr: CPointer<ByteVar>, size: ULong, nmemb: ULong, data: COpaquePointer): Int {
     val writer: ByteArrayWriter = data.asStableRef<ByteArrayWriter>().get()
     return writer.fromPtr(ptr, nmemb.toInt())
 }
 
-fun readCallback(buffer: CPointer<ByteVar>, size: ULong, n_items: ULong, data: COpaquePointer): Int {
+private fun readCallback(buffer: CPointer<ByteVar>, size: ULong, n_items: ULong, data: COpaquePointer): Int {
     val reader: ByteArrayReader = data.asStableRef<ByteArrayReader>().get()
     return reader.toBuffer(buffer, n_items.toInt())
 }
@@ -150,7 +150,7 @@ object VideoInfoProvider {
                 writer_ref.dispose()
             }
         if (result != CURLE_OK) {
-            throw RuntimeException("getVideoStreamUrl for $video_id with ${account_headers?.size ?: 0} account headers failed ($result)")
+            throw RuntimeException("getVideoStreamUrl for $video_id with ${account_headers?.size ?: 0} account headers failed (${curl_easy_strerror(result)?.toKString() ?: result})")
         }
 
         val body: String = writer.decodeToString()

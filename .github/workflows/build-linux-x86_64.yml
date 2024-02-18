@@ -2,7 +2,7 @@ name: Build [Linux x86_64]
 
 on:
   push:
-    branches: [ "main", "test" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -78,8 +78,8 @@ jobs:
       working-directory: zeromq-4.3.5
       run: make -j$(nproc) && make install
 
-    - name: Copy libzmq into src/nativeInterop
-      run: mkdir src/nativeInterop && cp -r libzmq/* src/nativeInterop
+    - name: Copy libzmq into src/nativeInterop/linux-x86_64
+      run: mkdir -p src/nativeInterop/linux-x86_64 && cp -r libzmq/* src/nativeInterop/linux-x86_64
 
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
@@ -87,20 +87,20 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradle
 
-    - name: Build native binaries
-      run: ./gradlew nativeBinariesStatic
+    - name: Build linux-x86_64 binaries
+      run: ./gradlew linux-x86_64BinariesStatic
 
     - name: Strip release binary
-      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip build/bin/native/releaseExecutable/*.kexe
+      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip build/bin/linux-x86_64/releaseExecutable/*.kexe
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
       with:
         name: spms-linux-x86_64-debug
-        path: build/bin/native/debugExecutable/*.kexe
+        path: build/bin/linux-x86_64/debugExecutable/*.kexe
 
     - name: Upload release binary
       uses: actions/upload-artifact@v3
       with:
         name: spms-linux-x86_64-release
-        path: build/bin/native/releaseExecutable/*.kexe
+        path: build/bin/linux-x86_64/releaseExecutable/*.kexe
