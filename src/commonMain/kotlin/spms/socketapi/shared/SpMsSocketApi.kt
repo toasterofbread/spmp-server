@@ -1,5 +1,7 @@
 package spms.socketapi.shared
 
+const val SPMS_API_VERSION: Int = 0
+
 const val SPMS_DEFAULT_PORT: Int = 3973
 const val SPMS_EXPECT_REPLY_CHAR: Char = '!'
 const val SPMS_MESSAGE_MAX_SIZE: Int = 1024

@@ -183,7 +183,7 @@ class PlayerClient private constructor(): Command(
                     SpMsServerHandshake(
                         name = getClientName(),
                         device_name = getDeviceName(),
-                        spms_commit_hash = "TODO: Remove",
+                        spms_api_version = SPMS_API_VERSION,
                         server_state = player.getCurrentStateJson(),
                         machine_id = SpMs.getMachineId()
                     )

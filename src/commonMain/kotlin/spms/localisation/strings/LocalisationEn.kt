@@ -11,6 +11,9 @@ class LocalisationEn: SpMsLocalisation {
     override val player_actions: PlayerActionLocalisation = PlayerActionLocalisationEn()
     override val cli: CliLocalisation = CliLocalisationEn()
 
+    override fun versionInfoText(api_version: Int): String =
+        "SpMs API v$api_version"
+
     override fun usageError(): String =
         "Error:"
 

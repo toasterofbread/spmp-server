@@ -11,6 +11,8 @@ import spms.localisation.SpMsLocalisation
 import spms.localisation.loc
 import spms.server.SpMs
 import spms.socketapi.shared.SpMsLanguage
+import spms.socketapi.shared.SPMS_API_VERSION
+import kotlin.system.exitProcess
 
 typealias LocalisedMessageProvider = SpMsLocalisation.() -> String
 
@@ -26,6 +28,7 @@ abstract class Command(
     hidden = hidden,
     helpTags = help_tags
 ) {
+    protected val output_version: Boolean by option("-v", "--version").flag().help { context.loc.cli.option_help_version }
     protected val silent: Boolean by option("-s", "--silent").flag().help { context.loc.cli.option_help_silent }
     protected val language: String by option("-l", "--lang").default("").help { context.loc.cli.option_help_language }
     protected val halt: Boolean by option("--halt", hidden = true, envvar = "SPMS_HALT").flag().help { context.loc.cli.option_help_halt }
@@ -33,6 +36,9 @@ abstract class Command(
     protected fun log(message: Any?) {
         SpMs.log(message)
     }
+
+    protected fun getVersionInfoText(): String =
+        localisation.versionInfoText(SPMS_API_VERSION)
 
     override fun commandHelpEpilog(context: Context): String = context.loc.cli.bug_report_notice
     override fun commandHelp(context: Context): String = help?.invoke(context.loc).orEmpty()
@@ -46,6 +52,14 @@ abstract class Command(
         }
         context {
             localization = localisation
+        }
+
+        if (output_version || !silent) {
+            println(getVersionInfoText())
+
+            if (output_version) {
+                exitProcess(0)
+            }
         }
     }
 

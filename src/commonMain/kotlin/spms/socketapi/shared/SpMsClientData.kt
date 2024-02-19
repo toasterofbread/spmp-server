@@ -52,7 +52,7 @@ data class SpMsClientHandshake(
 data class SpMsServerHandshake(
     val name: String,
     val device_name: String,
-    val spms_commit_hash: String,
+    val spms_api_version: Int,
     val server_state: SpMsServerState,
     val machine_id: String
 )

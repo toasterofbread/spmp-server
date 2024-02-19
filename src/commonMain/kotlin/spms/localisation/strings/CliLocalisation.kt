@@ -7,6 +7,7 @@ interface CliLocalisation {
     val command_help_ctrl: String
 
     val option_group_help_controller: String
+    val option_help_version: String
     val option_help_silent: String
     val option_help_language: String
     val option_help_halt: String

@@ -9,6 +9,7 @@ class CliLocalisationEn: CliLocalisation {
     override val command_help_ctrl: String = "Command-line interface for interacting with other servers"
 
     override val option_group_help_controller: String = "Controller options"
+    override val option_help_version: String = "Output version information and exit"
     override val option_help_silent: String = "Disable logging"
     override val option_help_language: String = "Language of outputted logs"
     override val option_help_halt: String = "Halt on start"

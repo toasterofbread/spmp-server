@@ -334,7 +334,7 @@ tasks.register("generateCInteropDefinitions") {
 
             val file: File = cinterop_directory.resolve(definition.name + ".def")
 
-            if (!definition.platforms.contains(platform)) {
+            if (!definition.platforms.contains(platform) && !gradle.taskGraph.hasTask(":prepareKotlinBuildScriptModel")) {
                 file.delete()
                 continue
             }

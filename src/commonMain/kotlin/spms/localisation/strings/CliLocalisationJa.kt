@@ -9,6 +9,7 @@ class CliLocalisationJa: CliLocalisation {
     override val command_help_ctrl: String = "他のサーバと交流するコマンドラインインターフェイス"
 
     override val option_group_help_controller: String = "CLIのオプション"
+    override val option_help_version: String = "バージョン情報を出力し、プログラムを終える"
     override val option_help_silent: String = "ログを出力しない"
     override val option_help_language: String = "出力されるログの言語"
     override val option_help_halt: String = "実行時にプログラムを終える"

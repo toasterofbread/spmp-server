@@ -21,6 +21,8 @@ interface SpMsLocalisation: Localization {
     val player_actions: PlayerActionLocalisation
     val cli: CliLocalisation
     
+    fun versionInfoText(api_version: Int): String
+
     companion object {
         fun get(language: SpMsLanguage = SpMsLanguage.current): SpMsLocalisation {
             return when (language) {
