@@ -57,15 +57,18 @@ private class ByteArrayReader(
 }
 
 private class ByteArrayWriter(
-    val bytes: ByteArray
+    private var bytes: ByteArray
 ) {
     private var written: Int = 0
 
     val size: Int get() = written
-    fun decodeToString(): String = bytes.decodeToString(0, written)
+    fun decodeToString(): String = bytes.decodeToString(0, size)
 
     fun fromPtr(ptr: CPointer<ByteVar>, size: Int): Int {
         for (i in 0 until size) {
+            if (i + written > bytes.lastIndex) {
+                bytes = bytes.copyOf(bytes.size * 2)
+            }
             bytes[i + written] = ptr[i]
         }
         written += size
@@ -76,6 +79,7 @@ private class ByteArrayWriter(
 @OptIn(ExperimentalForeignApi::class)
 object VideoInfoProvider {
     private val curl = curl_easy_init()
+    private val response_bytes: ByteArray = ByteArray(65536)
     private val json: Json = Json { ignoreUnknownKeys = true }
 
     init {
@@ -136,7 +140,7 @@ object VideoInfoProvider {
         curl_easy_setopt(curl, CURLOPT_READDATA, reader_ref.asCPointer())
         curl_easy_setopt(curl, CURLOPT_READFUNCTION, staticCFunction(::readCallback))
 
-        val writer: ByteArrayWriter = ByteArrayWriter(ByteArray(65536))
+        val writer: ByteArrayWriter = ByteArrayWriter(response_bytes)
         val writer_ref: StableRef<ByteArrayWriter> = StableRef.create(writer)
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, writer_ref.asCPointer())
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, staticCFunction(::writeCallback))
