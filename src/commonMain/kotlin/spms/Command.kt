@@ -37,9 +37,6 @@ abstract class Command(
         SpMs.log(message)
     }
 
-    protected fun getVersionInfoText(): String =
-        localisation.versionInfoText(SPMS_API_VERSION)
-
     override fun commandHelpEpilog(context: Context): String = context.loc.cli.bug_report_notice
     override fun commandHelp(context: Context): String = help?.invoke(context.loc).orEmpty()
 
@@ -54,12 +51,9 @@ abstract class Command(
             localization = localisation
         }
 
-        if (output_version || !silent) {
-            println(getVersionInfoText())
-
-            if (output_version) {
-                exitProcess(0)
-            }
+        if (output_version) {
+            SpMs.printVersionInfo(localisation)
+            exitProcess(0)
         }
     }
 

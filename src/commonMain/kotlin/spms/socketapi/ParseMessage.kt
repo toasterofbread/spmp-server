@@ -37,7 +37,6 @@ fun parseSocketMessage(
         val result: JsonElement?
         try {
             result = executeAction(action_name, action_params)
-//            result = Action.executeByName(this@SpMs, client.id, action_name, action_params)
         }
         catch (e: Throwable) {
             val message: String = "Executing action $action_name(${action_params.map { it.toString() }}) failed"
@@ -65,6 +64,6 @@ fun parseSocketMessage(
             )
         }
     }
-    
+
     return reply
 }

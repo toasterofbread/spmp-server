@@ -19,6 +19,7 @@ import spms.socketapi.parseSocketMessage
 import spms.socketapi.player.PlayerAction
 import spms.socketapi.server.ServerAction
 import spms.socketapi.shared.*
+import spms.localisation.SpMsLocalisation
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.system.exitProcess
 import kotlin.system.getTimeMillis
@@ -142,37 +143,46 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
             executing_client_id = client.id
 
             try {
-                val reply: List<SpMsActionReply> =
-                    parseSocketMessage(
-                        client_reply.parts,
-                        {
-                            RuntimeException("Parse exception while processing reply from $client", it).printStackTrace()
-                        }
-                    ) { action_name, action_params ->
-                        val server_action: ServerAction? = ServerAction.getByName(action_name)
-                        if (server_action != null) {
-                            return@parseSocketMessage server_action.execute(this, client.id, action_params)
-                        }
-
-                        if (!headless && player is MpvClientImpl) {
-                            val player_action: PlayerAction? = PlayerAction.getByName(action_name)
-                            if (player_action != null) {
-                                return@parseSocketMessage player_action.execute(player, action_params)
-                            }
-                        }
-
-                        throw NotImplementedError("Unknown action '$action_name'")
-                    }
-
-                if (reply.isNotEmpty()) {
-                    sendMultipart(client.createMessage(listOf(Json.encodeToString(reply))))
-                }
+                processClientMessage(client_reply, client)
             }
             catch (e: Throwable) {
                 RuntimeException("Exception while processing reply from $client", e).printStackTrace()
             }
 
             executing_client_id = null
+        }
+    }
+
+    private fun processClientActions(actions: List<String>, client: SpMsClient): List<SpMsActionReply> {
+        return parseSocketMessage(
+            actions,
+            {
+                RuntimeException("Parse exception while processing message from $client", it).printStackTrace()
+            }
+        ) { action_name, action_params ->
+            val server_action: ServerAction? = ServerAction.getByName(action_name)
+            if (server_action != null) {
+                println("Performing server action $action_name with $action_params from $client")
+                return@parseSocketMessage server_action.execute(this, client.id, action_params)
+            }
+
+            if (!headless && player is MpvClientImpl) {
+                val player_action: PlayerAction? = PlayerAction.getByName(action_name)
+                if (player_action != null) {
+                    println("Performing player action $action_name with $action_params from $client")
+                    return@parseSocketMessage player_action.execute(player, action_params)
+                }
+            }
+
+            throw NotImplementedError("Unknown action '$action_name' from $client")
+        }
+    }
+
+    private fun processClientMessage(message: Message, client: SpMsClient) {
+        val reply: List<SpMsActionReply> = processClientActions(message.parts, client)
+
+        if (reply.isNotEmpty()) {
+            sendMultipart(client.createMessage(listOf(Json.encodeToString(reply))))
         }
     }
 
@@ -234,7 +244,7 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
         event.init(
             event_id = player_event_inc++,
             client_id = if (clientless) null else executing_client_id,
-            client_amount = clients.size
+            client_amount = clients.count { it.type.receivesEvents() }
         )
         player_events.add(event)
     }
@@ -254,25 +264,24 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
         return numbered_name
     }
 
-    private fun onClientMessage(handshake_message: Message) {
-        val id: Int = handshake_message.client_id.contentHashCode()
+    private fun onClientMessage(message: Message) {
+        val id: Int = message.client_id.contentHashCode()
 
-        // Return if client is already added
         if (clients.any { it.id == id }) {
             return
         }
 
         val client_handshake: SpMsClientHandshake
         try {
-            client_handshake = handshake_message.parts.firstOrNull()?.let { Json.decodeFromString(it) } ?: return
+            client_handshake = message.parts.firstOrNull()?.let { Json.decodeFromString(it) } ?: return
         }
         catch (e: SerializationException) {
-            RuntimeException("Exception while parsing the following handshake message: ${handshake_message.parts}", e).printStackTrace()
+            RuntimeException("Exception while parsing the following handshake message: ${message.parts}", e).printStackTrace()
             return
         }
 
         val client: SpMsClient = SpMsClient(
-            handshake_message.client_id,
+            message.client_id,
             SpMsClientInfo(
                 name = getNewClientName(client_handshake.name),
                 type = client_handshake.type,
@@ -283,7 +292,13 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
             player_event_inc
         )
 
-        clients.add(client)
+        val action_replies: List<SpMsActionReply>?
+        if (client_handshake.actions != null) {
+            action_replies = processClientActions(client_handshake.actions, client)
+        }
+        else {
+            action_replies = null
+        }
 
         val server_handshake: SpMsServerHandshake =
             SpMsServerHandshake(
@@ -291,7 +306,8 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
                 device_name = getDeviceName(),
                 spms_api_version = SPMS_API_VERSION,
                 server_state = player.getCurrentStateJson(),
-                machine_id = SpMs.getMachineId()
+                machine_id = SpMs.getMachineId(),
+                action_replies = action_replies
             )
 
         sendMultipart(
@@ -302,7 +318,10 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
         )
         println("Sent connection reply to $client: $server_handshake")
 
-        onClientConnected(client)
+        if (client.type.receivesEvents()) {
+            clients.add(client)
+            onClientConnected(client)
+        }
     }
 
     private fun onClientConnected(client: SpMsClient) {
@@ -348,6 +367,15 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
             if (logging_enabled) {
                 println(msg)
             }
+        }
+
+        private var version_printed: Boolean = false
+        fun printVersionInfo(localisation: SpMsLocalisation) {
+            if (version_printed) {
+                return
+            }
+            println(localisation.versionInfoText(SPMS_API_VERSION))
+            version_printed = true
         }
 
         fun getMachineId(): String {

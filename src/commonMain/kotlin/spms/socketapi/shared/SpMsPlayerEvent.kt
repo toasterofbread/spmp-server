@@ -25,8 +25,6 @@ data class SpMsPlayerEvent(val type: Type, val properties: Map<String, JsonPrimi
         private set
 
     fun init(event_id: Int, client_id: Int?, client_amount: Int) {
-        require(client_amount > 0)
-
         this.event_id = event_id
         this.client_id = client_id
         this.pending_client_amount = client_amount

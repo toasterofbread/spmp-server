@@ -118,7 +118,7 @@ class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
     }
 
     fun sendStringMultipart(parts: List<String>) =
-        sendMultipart(parts.map { it.cstr })
+        sendMultipart(SpMsSocketApi.encode(parts).map { it.cstr })
 
     fun sendMultipart(parts: List<CValues<ByteVar>>) = memScoped {
         if (parts.isEmpty()) {

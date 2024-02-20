@@ -5,7 +5,13 @@ import kotlinx.serialization.Serializable
 typealias SpMsClientID = Int
 
 enum class SpMsClientType {
-    SPMP_PLAYER, SPMP_STANDALONE, PLAYER, COMMAND_LINE, SERVER
+    SPMP_PLAYER, SPMP_STANDALONE, PLAYER, COMMAND_LINE, SERVER, COMMAND_LINE_ACTION;
+
+    fun receivesEvents(): Boolean =
+        when (this) {
+            SPMP_PLAYER, SPMP_STANDALONE, PLAYER, SERVER, COMMAND_LINE -> true
+            else -> false
+        }
 }
 
 enum class SpMsPlayerState {
@@ -23,10 +29,10 @@ enum class SpMsPlayerRepeatMode {
 
 enum class SpMsLanguage {
     EN, JA;
-    
+
     companion object {
         val default: SpMsLanguage = EN
-        
+
         fun fromCode(code: String?): SpMsLanguage? =
             when (code?.split('_', limit = 2)?.firstOrNull()?.uppercase()) {
                 "EN" -> EN
@@ -42,7 +48,8 @@ data class SpMsClientHandshake(
     val type: SpMsClientType,
     val machine_id: String,
     val language: String? = null,
-    val player_port: Int? = null
+    val player_port: Int? = null,
+    val actions: List<String>? = null
 ) {
     fun getLanguage(): SpMsLanguage =
         SpMsLanguage.fromCode(language) ?: SpMsLanguage.default
@@ -54,7 +61,8 @@ data class SpMsServerHandshake(
     val device_name: String,
     val spms_api_version: Int,
     val server_state: SpMsServerState,
-    val machine_id: String
+    val machine_id: String,
+    val action_replies: List<SpMsActionReply>? = null
 )
 
 @Serializable

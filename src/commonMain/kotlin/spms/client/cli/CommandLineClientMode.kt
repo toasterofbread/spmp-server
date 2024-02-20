@@ -29,7 +29,7 @@ abstract class CommandLineClientMode(
         return context.socket
     }
 
-    fun connectSocket() {
+    fun connectSocket(type: SpMsClientType = SpMsClientType.COMMAND_LINE_ACTION, handshake_actions: List<String>? = null): List<String> {
         check(!socket_connected)
 
         try {
@@ -41,9 +41,10 @@ abstract class CommandLineClientMode(
 
             val handshake: SpMsClientHandshake = SpMsClientHandshake(
                 name = context.client_name,
-                type = SpMsClientType.COMMAND_LINE,
+                type = type,
                 machine_id = SpMs.getMachineId(),
-                language = currentContext.loc.language.name
+                language = currentContext.loc.language.name,
+                actions = handshake_actions
             )
             context.socket.sendStringMultipart(listOf(Json.encodeToString(handshake)))
 
@@ -53,15 +54,16 @@ abstract class CommandLineClientMode(
                 throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotRespond(SERVER_REPLY_TIMEOUT_MS))
             }
 
-            log(currentContext.loc.cli.handshake_reply_received)
+            log(currentContext.loc.cli.handshake_reply_received + " " + reply.toString())
+            socket_connected = true
+
+            return reply
         }
         catch (e: Throwable) {
             log(currentContext.loc.cli.releasing_socket)
             context.release()
             throw e
         }
-
-        socket_connected = true
     }
 
     fun releaseSocket() {

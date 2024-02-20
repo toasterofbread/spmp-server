@@ -16,6 +16,7 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.float
 import com.github.ajalt.clikt.parameters.types.int
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import libzmq.ZMQ_NOBLOCK
@@ -24,6 +25,7 @@ import spms.socketapi.shared.SpMsSocketApi
 import spms.client.cli.CommandLineClientMode
 import spms.client.cli.SERVER_REPLY_TIMEOUT_MS
 import spms.localisation.loc
+import spms.socketapi.shared.SpMsServerHandshake
 import spms.socketapi.shared.SpMsActionReply
 import spms.socketapi.shared.SPMS_EXPECT_REPLY_CHAR
 import spms.socketapi.player.PlayerAction
@@ -115,9 +117,13 @@ class ActionCommandLineClientMode(
             }
         }
 
-        connectSocket()
+        val reply: SpMsActionReply? = executeActionOnSocket(
+            action,
+            parameter_values,
+            SERVER_REPLY_TIMEOUT_MS,
+            currentContext, silent = silent
+        )
 
-        val reply: SpMsActionReply? = action.executeOnSocket(socket, parameter_values, SERVER_REPLY_TIMEOUT_MS, currentContext, silent = silent)
         if (reply == null) {
             throw CliktError(currentContext.loc.server_actions.replyNotReceived(SERVER_REPLY_TIMEOUT_MS).toRed())
         }
@@ -141,45 +147,51 @@ class ActionCommandLineClientMode(
 
         releaseSocket()
     }
-}
 
-@OptIn(ExperimentalForeignApi::class)
-private fun Action.executeOnSocket(
-    socket: ZmqSocket,
-    parameter_values: List<JsonPrimitive>,
-    reply_timeout_ms: Long?,
-    context: Context,
-    silent: Boolean = false
-): SpMsActionReply? {
-    socket.recvMultipart(reply_timeout_ms) ?: return null
+    @OptIn(ExperimentalForeignApi::class)
+    private fun executeActionOnSocket(
+        action: Action,
+        parameter_values: List<JsonPrimitive>,
+        reply_timeout_ms: Long?,
+        context: Context,
+        silent: Boolean = false
+    ): SpMsActionReply? {
+        if (!silent) {
+            println(context.loc.server_actions.sendingActionToServer(action.identifier))
+        }
 
-    if (!silent) {
-        println(context.loc.server_actions.sendingActionToServer(identifier))
-    }
+        val reply = connectSocket(
+            handshake_actions = listOf(SPMS_EXPECT_REPLY_CHAR + action.identifier, Json.encodeToString(parameter_values))
+        )
 
-    socket.sendStringMultipart(
-        listOf(SPMS_EXPECT_REPLY_CHAR + identifier, Json.encodeToString(parameter_values))
-    )
+        if (!silent) {
+            println(context.loc.server_actions.actionSentAndWaitingForReply(action.identifier))
+        }
 
-    if (!silent) {
-        println(context.loc.server_actions.actionSentAndWaitingForReply(identifier))
-    }
+        val timeout_end: Long? = reply_timeout_ms?.let { getTimeMillis() + it }
+        do {
+            if (!reply.isNullOrEmpty()) {
+                if (!silent) {
+                    println(context.loc.server_actions.receivedReplyFromServer(action.identifier))
+                }
 
-    val timeout_end: Long? = reply_timeout_ms?.let { getTimeMillis() + it }
-    do {
-        val reply: List<String>? = socket.recvStringMultipart(timeout_end?.let { (it - getTimeMillis()).coerceAtLeast(ZMQ_NOBLOCK.toLong()) })
-        if (!reply.isNullOrEmpty()) {
-            if (!silent) {
-                println(context.loc.server_actions.receivedReplyFromServer(identifier))
+                val decoded: String = SpMsSocketApi.decode(reply).first()
+                try {
+                    val parsed_reply: SpMsServerHandshake = Json.decodeFromString(decoded)
+                    check(!parsed_reply.action_replies.isNullOrEmpty()) {
+                        "Got empty reply from server"
+                    }
+                    return parsed_reply.action_replies.first()
+                }
+                catch (e: Throwable) {
+                    throw RuntimeException("JSON decoding server reply failed $decoded", e)
+                }
             }
+            else if (!silent) {
+                println(context.loc.server_actions.receivedEmptyReplyFromServer(action.identifier))
+            }
+        } while (timeout_end == null || getTimeMillis() < timeout_end)
 
-            val decoded: String = SpMsSocketApi.decode(reply).first()
-            return Json.decodeFromString<SpMsActionReply>(decoded)
-        }
-        else if (!silent) {
-            println(context.loc.server_actions.receivedEmptyReplyFromServer(identifier))
-        }
-    } while (timeout_end == null || getTimeMillis() < timeout_end)
-
-    return null
+        return null
+    }
 }
