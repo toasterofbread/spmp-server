@@ -50,7 +50,6 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
 
         seekToItem(state.current_item_index)
         seekToTime(state.current_position_ms.toLong())
-        setVolume(state.volume.toDouble())
 
         if (state.is_playing) {
             play()
@@ -82,9 +81,6 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
                         }
                         "repeat_mode" -> {
                             setRepeatMode(SpMsPlayerRepeatMode.entries[value!!.int])
-                        }
-                        "volume" -> {
-                            setVolume(value!!.double)
                         }
                         "duration_ms" -> {
                         }

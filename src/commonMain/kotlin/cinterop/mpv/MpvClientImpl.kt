@@ -65,8 +65,6 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
                 return SpMsPlayerRepeatMode.NONE
             }
         }
-    override val volume: Double
-        get() = getProperty("volume")
 
     private val current_item_playlist_id: Int
         get() = getProperty("playlist/${current_item_index}/id")

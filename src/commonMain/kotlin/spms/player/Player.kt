@@ -22,7 +22,6 @@ interface Player {
     val current_position_ms: Long
     val duration_ms: Long
     val repeat_mode: SpMsPlayerRepeatMode
-    val volume: Double
 
     fun play()
     fun pause()

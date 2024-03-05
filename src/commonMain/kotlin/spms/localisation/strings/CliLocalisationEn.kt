@@ -23,7 +23,6 @@ class CliLocalisationEn: CliLocalisation {
     override val status_key_current_position_ms: String = "Item position (ms)"
     override val status_key_duration_ms: String = "Item duration (ms)"
     override val status_key_repeat_mode: String = "Repeat mode"
-    override val status_key_volume: String = "Volume"
 
     override fun connectingToSocket(address: String): String =
         "Connecting to socket at $address..."

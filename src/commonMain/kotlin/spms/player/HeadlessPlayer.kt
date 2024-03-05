@@ -47,8 +47,6 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
     final override val duration_ms: Long get() = queue.getOrNull(current_item_index)?.let { getCachedItemDuration(it) } ?: 0
     final override var repeat_mode: SpMsPlayerRepeatMode = SpMsPlayerRepeatMode.NONE
         private set
-    final override var volume: Double = 1.0
-        private set
 
     private val queue: MutableList<String> = mutableListOf()
 
@@ -418,10 +416,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
         }
     }
 
-    override fun setVolume(value: Double) {
-        log("setVolume($value)")
-        volume = value
-    }
+    override fun setVolume(value: Double) {}
 
     override fun toString(): String =
         "HeadlessPlayer()"
