@@ -57,9 +57,9 @@ class ServerActionLocalisationJa: ServerActionLocalisation {
     override val seek_to_time_help: String = "再生中のアイテムの選択された時間へシーク"
     override val seek_to_time_param_position_ms: String = "シークする時間（ミリ秒）"
 
-    override val set_volume_name: String = "音量を変える"
-    override val set_volume_help: String = "再生音量を設定"
-    override val set_volume_param_volume: String = "設定する音量（０が無音、１が最高）"
+    override val set_repeat_mode_name: String = "繰り返しモードを設定する"
+    override val set_repeat_mode_help: String = "再生の繰り返しモードを設定する"
+    override val set_repeat_mode_param_repeat_mode: String = "繰り返しモードのインデックス（SpMsPlayerRepeatModeを参照）"
 
     override val status_name: String = "状態表示"
     override val status_help: String = "サーバーの現在の状態を表示"

@@ -26,7 +26,7 @@ import spms.socketapi.shared.*
 import kotlin.system.getTimeMillis
 
 private const val SERVER_REPLY_TIMEOUT_MS: Long = 2000
-private const val SERVER_EVENT_TIMEOUT_MS: Long = 10000
+private const val SERVER_EVENT_TIMEOUT_MS: Long = 11000
 private const val POLL_INTERVAL_MS: Long = 100
 private const val CLIENT_REPLY_TIMEOUT_MS: Long = 1000
 
@@ -81,6 +81,7 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
                             }
                         }
                         "repeat_mode" -> {
+                            setRepeatMode(SpMsPlayerRepeatMode.entries[value!!.int])
                         }
                         "volume" -> {
                             setVolume(value!!.double)
@@ -171,7 +172,6 @@ class PlayerClient private constructor(): Command(
         delay(1000)
 
         while (!shutdown) {
-
             try {
                 delay(POLL_INTERVAL_MS)
 
@@ -193,7 +193,7 @@ class PlayerClient private constructor(): Command(
                 )
 
                 val message: List<String> =
-                    socket.recvStringMultipart(CLIENT_REPLY_TIMEOUT_MS)!!
+                    socket.recvStringMultipart(CLIENT_REPLY_TIMEOUT_MS) ?: continue
 
                 val reply: List<SpMsActionReply> =
                     parseSocketMessage(message) { action_name, action_params ->
@@ -203,6 +203,9 @@ class PlayerClient private constructor(): Command(
                 socket.sendStringMultipart(listOf(Json.encodeToString(reply)))
             }
             catch (e: Throwable) {
+                if (e is CancellationException) {
+                    break
+                }
                 e.printStackTrace()
             }
         }
@@ -263,7 +266,7 @@ class PlayerClient private constructor(): Command(
                 log("Sending messages: $message")
             }
             else {
-                message.add("")
+                message.add(" ")
             }
 
             socket.sendStringMultipart(message)
@@ -279,12 +282,16 @@ class PlayerClient private constructor(): Command(
             val message: List<String>? =
                 recvStringMultipart(
                     (wait_end - getTimeMillis()).coerceAtLeast(ZMQ_NOBLOCK.toLong())
-                )?.let {
-                    SpMsSocketApi.decode(it)
-                }
+                )
 
-            events = message?.map {
-                Json.decodeFromString(it)
+            events = message?.mapNotNull {
+                try {
+                    Json.decodeFromString<SpMsPlayerEvent?>(it)
+                }
+                catch (e: Throwable) {
+                    RuntimeException("Parsing SpMsPlayerEvent failed $it", e).printStackTrace()
+                    return emptyList()
+                }
             }
         }
 
@@ -292,7 +299,7 @@ class PlayerClient private constructor(): Command(
             throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotSendEvents(SERVER_EVENT_TIMEOUT_MS))
         }
 
-        return events
+        return events.orEmpty()
     }
 
     companion object {

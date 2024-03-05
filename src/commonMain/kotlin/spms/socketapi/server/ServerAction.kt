@@ -34,7 +34,7 @@ sealed class ServerAction(
             ServerActionSeekToNext(),
             ServerActionSeekToPrevious(),
             ServerActionSeekToTime(),
-            ServerActionSetVolume(),
+            ServerActionSetRepeatMode(),
 
             ServerActionAddItem(),
             ServerActionMoveItem(),

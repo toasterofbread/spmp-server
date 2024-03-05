@@ -69,8 +69,19 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
     private fun onItemPlaybackEnded() {
         log("Item playback ended")
 
+        if (repeat_mode == SpMsPlayerRepeatMode.ONE) {
+            seekToTime(0)
+            play()
+            return
+        }
+
         if (current_item_index + 1 == queue.size) {
-            state = SpMsPlayerState.ENDED
+            if (repeat_mode == SpMsPlayerRepeatMode.ALL) {
+                seekToItem(0)
+            }
+            else {
+                state = SpMsPlayerState.ENDED
+            }
         }
         else {
             current_item_index++
@@ -247,11 +258,16 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
     override fun seekToNext(): Boolean {
         withLock {
             log("seekToNext()")
-            if (current_item_index + 1 == queue.size) {
-                return false
+
+            var seek_target: Int = current_item_index + 1
+            if (seek_target >= queue.size) {
+                if (repeat_mode != SpMsPlayerRepeatMode.ALL) {
+                    return false
+                }
+                seek_target = 0
             }
 
-            performSeekToItem(current_item_index + 1)
+            performSeekToItem(seek_target)
 
             onQueueOrPositionChanged()
             onItemTransition(current_item_index)
@@ -273,6 +289,14 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
             onItemTransition(current_item_index)
 
             return true
+        }
+    }
+
+    override fun setRepeatMode(repeat_mode: SpMsPlayerRepeatMode) {
+        withLock {
+            log("setRepeatMode($repeat_mode)")
+            this.repeat_mode = repeat_mode
+            onEvent(SpMsPlayerEvent.PropertyChanged("repeat_mode", JsonPrimitive(repeat_mode.ordinal)))
         }
     }
 

@@ -1,6 +1,6 @@
 package spms.socketapi.shared
 
-const val SPMS_API_VERSION: Int = 0
+const val SPMS_API_VERSION: Int = 1 // post-v0.3.0
 
 const val SPMS_DEFAULT_PORT: Int = 3973
 const val SPMS_EXPECT_REPLY_CHAR: Char = '!'

@@ -54,7 +54,17 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
     override val duration_ms: Long
         get() = (getProperty<Double>("duration") * 1000).toLong().coerceAtLeast(0)
     override val repeat_mode: SpMsPlayerRepeatMode
-        get() = SpMsPlayerRepeatMode.NONE // TODO
+        get() {
+            if (getProperty<String>("loop-playlist") == "inf") {
+                return SpMsPlayerRepeatMode.ALL
+            }
+            else if (getProperty<String>("loop-file") == "inf") {
+                return SpMsPlayerRepeatMode.ONE
+            }
+            else {
+                return SpMsPlayerRepeatMode.NONE
+            }
+        }
     override val volume: Double
         get() = getProperty("volume")
 
@@ -115,6 +125,25 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
             return true
         }
         return false
+    }
+
+    override fun setRepeatMode(repeat_mode: SpMsPlayerRepeatMode) {
+        when (repeat_mode) {
+            SpMsPlayerRepeatMode.NONE -> {
+                setProperty("loop-playlist", "no")
+                setProperty("loop-file", "no")
+            }
+            SpMsPlayerRepeatMode.ONE -> {
+                setProperty("loop-playlist", "no")
+                setProperty("loop-file", "inf")
+            }
+            SpMsPlayerRepeatMode.ALL -> {
+                setProperty("loop-playlist", "inf")
+                setProperty("loop-file", "no")
+            }
+        }
+
+        onEvent(SpMsPlayerEvent.PropertyChanged("repeat_mode", JsonPrimitive(repeat_mode.ordinal)))
     }
 
     override fun getItem(): String? = getItem(current_item_index)
@@ -228,6 +257,7 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
                 MPV_EVENT_PLAYBACK_RESTART -> {
                     onEvent(SpMsPlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
                     onEvent(SpMsPlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration_ms)), clientless = true)
+                    onEvent(SpMsPlayerEvent.SeekedToTime(current_position_ms), clientless = true)
                 }
                 MPV_EVENT_END_FILE -> {
                     onEvent(SpMsPlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)

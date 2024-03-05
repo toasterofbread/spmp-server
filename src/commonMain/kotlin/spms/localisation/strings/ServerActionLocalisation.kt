@@ -51,9 +51,9 @@ interface ServerActionLocalisation {
     val seek_to_time_help: String
     val seek_to_time_param_position_ms: String
 
-    val set_volume_name: String
-    val set_volume_help: String
-    val set_volume_param_volume: String
+    val set_repeat_mode_name: String
+    val set_repeat_mode_help: String
+    val set_repeat_mode_param_repeat_mode: String
 
     val status_name: String
     val status_help: String

@@ -57,9 +57,9 @@ class ServerActionLocalisationEn: ServerActionLocalisation {
     override val seek_to_time_help: String = "Seek to the specified position within the playing item"
     override val seek_to_time_param_position_ms: String = "Position to seek to in milliseconds"
 
-    override val set_volume_name: String = "Set volume"
-    override val set_volume_help: String = "Set playback volume"
-    override val set_volume_param_volume: String = "Target volume level where 0 is silent and 1 is the maximum volume"
+    override val set_repeat_mode_name: String = "Set repeat mode"
+    override val set_repeat_mode_help: String = "Set the repeat mode to use for music playback"
+    override val set_repeat_mode_param_repeat_mode: String = "Repeat mode index (see SpMsPlayerRepeatMode)"
 
     override val status_name: String = "Get status"
     override val status_help: String = "Get detailed information about the server's current status"

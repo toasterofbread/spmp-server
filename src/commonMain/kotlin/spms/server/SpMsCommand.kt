@@ -34,7 +34,7 @@ const val BUG_REPORT_URL: String = PROJECT_URL + "/issues"
 
 const val DEFAULT_ADDRESS: String = "127.0.0.1"
 private const val POLL_INTERVAL_MS: Long = 100
-private const val CLIENT_REPLY_TIMEOUT_MS: Long = 1000
+private const val CLIENT_REPLY_TIMEOUT_MS: Long = 10000
 
 @Suppress("OPT_IN_USAGE")
 @OptIn(ExperimentalForeignApi::class)

@@ -32,6 +32,7 @@ interface Player {
     fun seekToItem(index: Int)
     fun seekToNext(): Boolean
     fun seekToPrevious(): Boolean
+    fun setRepeatMode(repeat_mode: SpMsPlayerRepeatMode)
 
     fun getItem(): String?
     fun getItem(index: Int): String?
