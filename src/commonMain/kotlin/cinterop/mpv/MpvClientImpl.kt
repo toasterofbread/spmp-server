@@ -65,6 +65,8 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
                 return SpMsPlayerRepeatMode.NONE
             }
         }
+    override var pause_after_songs: Int? = null
+        private set
 
     private val current_item_playlist_id: Int
         get() = getProperty("playlist/${current_item_index}/id")
@@ -142,6 +144,14 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         }
 
         onEvent(SpMsPlayerEvent.PropertyChanged("repeat_mode", JsonPrimitive(repeat_mode.ordinal)))
+    }
+
+    override fun setPauseAfterSongs(song_count: Int?) {
+        if (song_count == pause_after_songs) {
+            return
+        }
+        pause_after_songs = song_count
+        onEvent(SpMsPlayerEvent.PropertyChanged("pause_after_songs", JsonPrimitive(pause_after_songs)))
     }
 
     override fun getItem(): String? = getItem(current_item_index)
@@ -258,6 +268,17 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
                     onEvent(SpMsPlayerEvent.SeekedToTime(current_position_ms), clientless = true)
                 }
                 MPV_EVENT_END_FILE -> {
+                    pause_after_songs?.also { pause_after ->
+                        if (pause_after > 0) {
+                            pause_after_songs = pause_after - 1
+                            if (pause_after == 1) {
+                                setProperty("pause", true)
+                                onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)), clientless = true)
+                                continue
+                            }
+                        }
+                    }
+
                     onEvent(SpMsPlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
                 }
                 MPV_EVENT_FILE_LOADED -> {

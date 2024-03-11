@@ -55,6 +55,10 @@ interface ServerActionLocalisation {
     val set_repeat_mode_help: String
     val set_repeat_mode_param_repeat_mode: String
 
+    val set_pause_after_songs_name: String
+    val set_pause_after_songs_help: String
+    val set_pause_after_songs_param_song_count: String
+
     val status_name: String
     val status_help: String
     val status_output_start: String

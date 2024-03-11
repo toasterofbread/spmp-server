@@ -23,6 +23,7 @@ class CliLocalisationJa: CliLocalisation {
     override val status_key_current_position_ms: String = "アイテム内の時間（ミリ秒）"
     override val status_key_duration_ms: String = "アイテムの長さ（ミリ秒）"
     override val status_key_repeat_mode: String = "リピートモード"
+    override val status_key_pause_after_songs: String = "再生停止までの曲数"
 
     override fun connectingToSocket(address: String): String =
         "${address}のソケットに接続中..."

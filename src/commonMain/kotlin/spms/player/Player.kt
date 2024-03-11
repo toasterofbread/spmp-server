@@ -22,6 +22,7 @@ interface Player {
     val current_position_ms: Long
     val duration_ms: Long
     val repeat_mode: SpMsPlayerRepeatMode
+    val pause_after_songs: Int?
 
     fun play()
     fun pause()
@@ -32,6 +33,7 @@ interface Player {
     fun seekToNext(): Boolean
     fun seekToPrevious(): Boolean
     fun setRepeatMode(repeat_mode: SpMsPlayerRepeatMode)
+    fun setPauseAfterSongs(song_count: Int? = null)
 
     fun getItem(): String?
     fun getItem(index: Int): String?

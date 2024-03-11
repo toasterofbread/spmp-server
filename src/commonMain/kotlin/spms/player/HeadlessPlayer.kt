@@ -47,6 +47,8 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
     final override val duration_ms: Long get() = queue.getOrNull(current_item_index)?.let { getCachedItemDuration(it) } ?: 0
     final override var repeat_mode: SpMsPlayerRepeatMode = SpMsPlayerRepeatMode.NONE
         private set
+    final override var pause_after_songs: Int? = null
+        private set
 
     private val queue: MutableList<String> = mutableListOf()
 
@@ -66,6 +68,17 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
 
     private fun onItemPlaybackEnded() {
         log("Item playback ended")
+
+        pause_after_songs?.also { pause_after ->
+            if (pause_after > 0) {
+                pause_after_songs = pause_after - 1
+                
+                if (pause_after == 1) {
+                    pause()
+                    return
+                }
+            }
+        }
 
         if (repeat_mode == SpMsPlayerRepeatMode.ONE) {
             seekToTime(0)
@@ -296,6 +309,15 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
             this.repeat_mode = repeat_mode
             onEvent(SpMsPlayerEvent.PropertyChanged("repeat_mode", JsonPrimitive(repeat_mode.ordinal)))
         }
+    }
+
+    override fun setPauseAfterSongs(song_count: Int?) {
+        if (song_count == pause_after_songs) {
+            return
+        }
+
+        pause_after_songs = song_count
+        onEvent(SpMsPlayerEvent.PropertyChanged("pause_after_songs", JsonPrimitive(pause_after_songs)))
     }
 
     override fun getItem(): String? {

@@ -48,6 +48,9 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
             addItem(item, -1)
         }
 
+        setRepeatMode(state.repeat_mode)
+        setPauseAfterSongs(state.pause_after_songs)
+        
         seekToItem(state.current_item_index)
         seekToTime(state.current_position_ms.toLong())
 
@@ -83,6 +86,9 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
                             setRepeatMode(SpMsPlayerRepeatMode.entries[value!!.int])
                         }
                         "duration_ms" -> {
+                        }
+                        "pause_after_songs" -> {
+                            setPauseAfterSongs(value?.int)
                         }
                         else -> throw NotImplementedError("${event.properties} ($key)")
                     }

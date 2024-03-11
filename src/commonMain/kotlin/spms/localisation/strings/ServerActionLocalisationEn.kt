@@ -61,6 +61,10 @@ class ServerActionLocalisationEn: ServerActionLocalisation {
     override val set_repeat_mode_help: String = "Set the repeat mode to use for music playback"
     override val set_repeat_mode_param_repeat_mode: String = "Repeat mode index (see SpMsPlayerRepeatMode)"
 
+    override val set_pause_after_songs_name: String = "Set pause after songs"
+    override val set_pause_after_songs_help: String = "Set the amount of songs after which playback will be paused automatically"
+    override val set_pause_after_songs_param_song_count: String = "Amount of songs after which playback will be paused automatically, or zero"
+
     override val status_name: String = "Get status"
     override val status_help: String = "Get detailed information about the server's current status"
     override val status_output_start: String = "Server status"

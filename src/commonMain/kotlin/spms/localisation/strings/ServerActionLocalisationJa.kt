@@ -61,6 +61,10 @@ class ServerActionLocalisationJa: ServerActionLocalisation {
     override val set_repeat_mode_help: String = "再生の繰り返しモードを設定する"
     override val set_repeat_mode_param_repeat_mode: String = "繰り返しモードのインデックス（SpMsPlayerRepeatModeを参照）"
 
+    override val set_pause_after_songs_name: String = "再生停止までの曲数を設定する"
+    override val set_pause_after_songs_help: String = "この曲数の再生が終了したあと、再生は自動的に一時停止されます"
+    override val set_pause_after_songs_param_song_count: String = "再生が終了したあと、再生を自動的に一時停止する曲数"
+
     override val status_name: String = "状態表示"
     override val status_help: String = "サーバーの現在の状態を表示"
     override val status_output_start: String = "サーバー状態"

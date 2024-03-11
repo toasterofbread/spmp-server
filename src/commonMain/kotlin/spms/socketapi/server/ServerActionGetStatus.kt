@@ -84,6 +84,7 @@ class ServerActionGetStatus: ServerAction(
                         "current_position_ms" -> status_key_current_position_ms
                         "duration_ms" -> status_key_duration_ms
                         "repeat_mode" -> status_key_repeat_mode
+                        "pause_after_songs" -> status_key_pause_after_songs
                         else -> entry.key.replaceFirstChar { it.uppercaseChar() }.replace('_', ' ')
                     }
                 }

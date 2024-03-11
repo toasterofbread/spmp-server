@@ -73,7 +73,8 @@ data class SpMsServerState(
     val current_item_index: Int,
     val current_position_ms: Int,
     val duration_ms: Int,
-    val repeat_mode: SpMsPlayerRepeatMode
+    val repeat_mode: SpMsPlayerRepeatMode,
+    val pause_after_songs: Int?
 )
 
 @Serializable

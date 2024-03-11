@@ -21,6 +21,7 @@ interface CliLocalisation {
     val status_key_current_position_ms: String
     val status_key_duration_ms: String
     val status_key_repeat_mode: String
+    val status_key_pause_after_songs: String
 
     fun connectingToSocket(address: String): String
     val releasing_socket: String

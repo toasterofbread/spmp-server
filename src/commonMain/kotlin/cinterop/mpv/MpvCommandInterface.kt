@@ -11,5 +11,6 @@ fun Player.getCurrentStateJson(): SpMsServerState =
         current_item_index,
         current_position_ms.toInt(),
         duration_ms.toInt(),
-        repeat_mode
+        repeat_mode,
+        pause_after_songs
     )
