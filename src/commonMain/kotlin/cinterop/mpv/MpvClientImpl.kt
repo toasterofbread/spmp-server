@@ -12,6 +12,7 @@ import spms.server.SpMs
 import spms.socketapi.shared.SpMsPlayerRepeatMode
 import spms.socketapi.shared.SpMsPlayerState
 import kotlin.math.roundToInt
+import cinterop.utils.safeToKString
 
 private const val URL_PREFIX: String = "spmp://"
 
@@ -269,7 +270,7 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
                 MPV_EVENT_PROPERTY_CHANGE -> {
                     val data: mpv_event_property = event.data.pointedAs()
 
-                    when (data.name?.toKString()) {
+                    when (data.name?.safeToKString()) {
                         "core-idle" -> {
                             val playing: Boolean = !data.data.pointedAs<BooleanVar>().value
                             onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(playing)), clientless = true)
@@ -280,14 +281,14 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
                 MPV_EVENT_HOOK -> {
                     val data: mpv_event_hook = event.data.pointedAs()
                     launch {
-                        onMpvHook(data.name?.toKString(), data.id)
+                        onMpvHook(data.name?.safeToKString(), data.id)
                     }
                 }
 
                 MPV_EVENT_LOG_MESSAGE -> {
                     if (SpMs.logging_enabled) {
                         val message: mpv_event_log_message = event.data.pointedAs()
-                        SpMs.log("From mpv (${message.prefix?.toKString()}): ${message.text?.toKString()}")
+                        SpMs.log("From mpv (${message.prefix?.safeToKString()}): ${message.text?.safeToKString()}")
                     }
                 }
             }
