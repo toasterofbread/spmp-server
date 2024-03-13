@@ -40,7 +40,7 @@ jobs:
       run: .\7z-installer.exe /S /D="${{ github.workspace }}\7zip"
 
     - name: Download mpv
-      run: curl https://downloads.sourceforge.net/project/mpv-player-windows/libmpv/mpv-dev-x86_64-20240114-git-bd35dc8.7z --output mpv.7z
+      run: curl -L https://downloads.sourceforge.net/project/mpv-player-windows/libmpv/mpv-dev-x86_64-20240114-git-bd35dc8.7z --output mpv.7z
 
     - name: Extract mpv
       run: 7zip\7z.exe x mpv.7z -osrc\nativeInterop\windows-x86_64
