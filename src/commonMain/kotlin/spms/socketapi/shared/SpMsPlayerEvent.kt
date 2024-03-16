@@ -2,7 +2,6 @@ package spms.socketapi.shared
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
-import kotlin.properties.Delegates
 
 @Serializable
 data class SpMsPlayerEvent(val type: Type, val properties: Map<String, JsonPrimitive> = emptyMap()) {
@@ -17,12 +16,9 @@ data class SpMsPlayerEvent(val type: Type, val properties: Map<String, JsonPrimi
         READY_TO_PLAY
     }
 
-    var event_id: Int by Delegates.notNull()
-        private set
+    var event_id: Int = -1
     var client_id: Int? = null
-        private set
-    var pending_client_amount: Int by Delegates.notNull()
-        private set
+    var pending_client_amount: Int = -1
 
     fun init(event_id: Int, client_id: Int?, client_amount: Int) {
         this.event_id = event_id
