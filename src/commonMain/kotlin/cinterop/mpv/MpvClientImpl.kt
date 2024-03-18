@@ -197,7 +197,9 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
     }
 
     override fun removeItem(index: Int) {
-        require(index >= 0)
+        if (index !in 0 until item_count) {
+            return
+        }
 
         val original_item_index: Int = current_item_index
         runCommand("playlist-remove", index)
