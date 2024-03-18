@@ -63,7 +63,10 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
         try {
             when (event.type) {
                 SpMsPlayerEvent.Type.ITEM_TRANSITION -> {
-                    seekToItem(event.properties["index"]!!.int)
+                    val index: Int = event.properties["index"]!!.int
+                    if (index >= 0) {
+                        seekToItem(event.properties["index"]!!.int)
+                    }
                 }
                 SpMsPlayerEvent.Type.PROPERTY_CHANGED -> {
                     val value: JsonPrimitive? = event.properties["value"]?.jsonPrimitive

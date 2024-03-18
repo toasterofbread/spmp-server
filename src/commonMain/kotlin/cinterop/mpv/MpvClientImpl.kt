@@ -198,8 +198,15 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
 
     override fun removeItem(index: Int) {
         require(index >= 0)
+
+        val original_item_index: Int = current_item_index
         runCommand("playlist-remove", index)
         onEvent(SpMsPlayerEvent.ItemRemoved(index))
+
+        val new_item_index: Int = current_item_index
+        if (new_item_index != original_item_index) {
+            onEvent(SpMsPlayerEvent.ItemTransition(new_item_index))
+        }
     }
 
     override fun clearQueue() {
