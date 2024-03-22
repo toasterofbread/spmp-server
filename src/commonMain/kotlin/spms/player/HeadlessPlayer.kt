@@ -241,12 +241,13 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
         onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(false)))
     }
 
-    override fun seekToItem(index: Int) {
+    override fun seekToItem(index: Int, position_ms: Long) {
         withLock {
             log("seekToItem($index)")
 
             val target_index: Int = formatQueueIndex(index) ?: return
             performSeekToItem(target_index)
+            seekToTime(position_ms)
 
             onQueueOrPositionChanged()
             onItemTransition(target_index)

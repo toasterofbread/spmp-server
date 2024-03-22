@@ -28,7 +28,7 @@ interface Player {
     fun playPause()
 
     fun seekToTime(position_ms: Long)
-    fun seekToItem(index: Int)
+    fun seekToItem(index: Int, position_ms: Long = 0)
     fun seekToNext(): Boolean
     fun seekToPrevious(): Boolean
     fun setRepeatMode(repeat_mode: SpMsPlayerRepeatMode)

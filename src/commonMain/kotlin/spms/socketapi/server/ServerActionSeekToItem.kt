@@ -1,8 +1,6 @@
 package spms.socketapi.server
 
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.*
 import spms.server.SpMs
 import spms.socketapi.shared.SpMsClientID
 
@@ -16,12 +14,19 @@ class ServerActionSeekToItem: ServerAction(
             true,
             "index",
             { server_actions.seek_to_item_param_index }
+        ),
+        Parameter(
+            Parameter.Type.Int,
+            false,
+            "position_ms",
+            { server_actions.seek_to_item_param_position_ms }
         )
     )
 ) {
     override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement? {
         val index: Int = context.getParameterValue("index")!!.jsonPrimitive.int
-        server.player.seekToItem(index)
+        val position_ms: Long? = context.getParameterValue("position_ms")?.jsonPrimitive?.longOrNull
+        server.player.seekToItem(index, position_ms ?: 0)
         return null
     }
 }

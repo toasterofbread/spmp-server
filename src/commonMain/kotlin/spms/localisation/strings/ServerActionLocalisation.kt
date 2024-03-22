@@ -41,6 +41,7 @@ interface ServerActionLocalisation {
     val seek_to_item_name: String
     val seek_to_item_help: String
     val seek_to_item_param_index: String
+    val seek_to_item_param_position_ms: String
 
     val seek_to_next_name: String
     val seek_to_next_help: String

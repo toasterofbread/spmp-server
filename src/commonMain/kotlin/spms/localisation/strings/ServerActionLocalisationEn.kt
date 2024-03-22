@@ -47,6 +47,7 @@ class ServerActionLocalisationEn: ServerActionLocalisation {
     override val seek_to_item_name: String = "Seek to item"
     override val seek_to_item_help: String = "Seek to the queue item at the specified index"
     override val seek_to_item_param_index: String = "Queue index of the item to seek to"
+    override val seek_to_item_param_position_ms: String = "Optional position in ms to seek to"
 
     override val seek_to_next_name: String = "Seek to next"
     override val seek_to_next_help: String = "Seek to the next queue item"

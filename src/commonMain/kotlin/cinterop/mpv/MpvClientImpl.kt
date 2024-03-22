@@ -26,6 +26,8 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
     private var auth_headers: Map<String, String>? = null
     private val local_files: MutableMap<String, String> = mutableMapOf()
 
+    private var song_initial_seek_position_ms: Long? = null
+
     private fun urlToId(url: String): String? = if (url.startsWith(URL_PREFIX)) url.drop(URL_PREFIX.length) else null
     private fun idToUrl(item_id: String): String = URL_PREFIX + item_id
 
@@ -93,7 +95,7 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         val milliseconds: String = (current % 1000).toString().padStart(2, '0')
         current /= 1000
 
-        val seconds = (current % 60).toString().padStart(2, '0')
+        val seconds: String = (current % 60).toString().padStart(2, '0')
         current /= 60
 
         val minutes: String = (current % 60).toString().padStart(2, '0')
@@ -103,7 +105,11 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         onEvent(SpMsPlayerEvent.SeekedToTime(position_ms))
     }
 
-    override fun seekToItem(index: Int) {
+    override fun seekToItem(index: Int, position_ms: Long) {
+        if (position_ms > 0) {
+            song_initial_seek_position_ms = position_ms
+        }
+
         val max: Int = item_count - 1
         val target_index: Int = if (index < 0) max else index.coerceAtMost(max)
         runCommand("playlist-play-index", target_index.toString())
@@ -272,6 +278,11 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
                 }
                 MPV_EVENT_FILE_LOADED -> {
                     onEvent(SpMsPlayerEvent.ReadyToPlay(), clientless = true)
+
+                    song_initial_seek_position_ms?.also { position_ms ->
+                        seekToTime(position_ms)
+                        song_initial_seek_position_ms = null
+                    }
                 }
                 MPV_EVENT_SHUTDOWN -> {
                     onShutdown()

@@ -47,6 +47,7 @@ class ServerActionLocalisationJa: ServerActionLocalisation {
     override val seek_to_item_name: String = "アイテムにシーク"
     override val seek_to_item_help: String = "選択されたインデックスのキューアイテムへシーク"
     override val seek_to_item_param_index: String = "シークするアイテムのインデックス"
+    override val seek_to_item_param_position_ms: String = "シークする時間（ミリ秒）（オプション）"
 
     override val seek_to_next_name: String = "次にシーク"
     override val seek_to_next_help: String = "一つ後のアイテムへシーク"
