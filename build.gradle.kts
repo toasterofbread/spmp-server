@@ -11,7 +11,7 @@ val FLAG_LINK_STATIC: String = "linkStatic"
 val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
 
 plugins {
-    kotlin("multiplatform") version "1.9.22"
+    kotlin("multiplatform") version "1.9.23"
     kotlin("plugin.serialization") version "1.9.0"
 }
 
