@@ -1,0 +1,13 @@
+package spms.server
+
+import spms.player.Player
+import spms.socketapi.shared.SpMsPlayerEvent
+
+class SpMsMediaSession private constructor() {
+    fun onPlayerEvent(event: SpMsPlayerEvent) {
+    }
+
+    companion object {
+        fun create(player: Player): SpMsMediaSession? = null
+    }
+}

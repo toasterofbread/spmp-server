@@ -18,6 +18,11 @@ plugins {
 repositories {
     mavenCentral()
     gradlePluginPortal()
+
+    // https://github.com/orgs/community/discussions/26634
+    val key: String = "M67GD0wv5HhykCWA5oPN2nD3021qBTGofbBW_phg".reversed()
+    maven("https://toasterofbread:${key}@maven.pkg.github.com/toasterofbread/mediasession-kt")
+
     maven("https://jitpack.io")
 }
 
@@ -62,6 +67,9 @@ enum class Platform {
         }
 
     val gen_file_extension: String
+        get() = identifier.replace("-", ".")
+
+    val alt_gen_file_extension: String
         get() = when (this) {
             LINUX_X86, LINUX_ARM64 -> "linux"
             WINDOWS -> "windows"
@@ -108,7 +116,8 @@ enum class Platform {
 
 val platform_specific_files: List<String> = listOf(
     "cinterop/indicator/TrayIndicatorImpl.kt",
-    "spms/Platform.kt"
+    "spms/Platform.kt",
+    "spms/server/SpMsMediaSession.kt"
 )
 
 enum class CinteropLibraries {
@@ -221,6 +230,10 @@ fun KotlinMultiplatformExtension.configureKotlinTarget(platform: Platform) {
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
             implementation("com.squareup.okio:okio:3.6.0")
 
+            if (platform == Platform.LINUX_X86) {
+                implementation("dev.toastbits.mediasessionkt:library-linuxx64:0.1.0")
+            }
+
             when (platform.arch) {
                 Arch.X86_64 -> {
                     implementation("com.github.ajalt.clikt:clikt:4.2.2")
@@ -293,9 +306,14 @@ tasks.register("configurePlatformSpecificFiles") {
         for (path in platform_specific_files) {
             val out_file: File = path.getFile()
 
-            var platform_file: File = path.getFile('.' + Platform.getTarget(project).gen_file_extension.toLowerCase())
+            var platform_file: File = path.getFile('.' + Platform.getTarget(project).gen_file_extension)
+
             if (!platform_file.isFile) {
-                platform_file = path.getFile(".other")
+                platform_file = path.getFile('.' + Platform.getTarget(project).alt_gen_file_extension)
+
+                if (!platform_file.isFile) {
+                    platform_file = path.getFile(".other")
+                }
             }
 
             if (platform_file.isFile) {

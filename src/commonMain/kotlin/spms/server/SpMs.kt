@@ -54,6 +54,15 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
                 override fun onShutdown() = onPlayerShutdown()
             }
 
+    private val media_session: SpMsMediaSession? =
+        try {
+            SpMsMediaSession.create(player)
+        }
+        catch (e: Throwable) {
+            e.printStackTrace()
+            null
+        }
+
     private var executing_client_id: Int? = null
     private var player_event_inc: Int = 0
     private val player_events: MutableList<SpMsPlayerEvent> = mutableListOf()
@@ -226,6 +235,8 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
         }
 
         println("Event ($clientless): $event")
+
+        media_session?.onPlayerEvent(event)
 
         if (clients.isEmpty()) {
             return

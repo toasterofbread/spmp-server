@@ -248,7 +248,7 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         //        requestLogMessages()
 
         addHook("on_load")
-        observeProperty<Boolean>("core-idle")
+        observeProperty("core-idle", Boolean::class)
 
         coroutine_scope.launch {
             eventLoop()

@@ -103,8 +103,8 @@ abstract class LibMpvClient(val headless: Boolean = true): Player {
         mpv_set_property(ctx, name, format, pointer.ptr)
     }
 
-    protected inline fun <reified T: Any> observeProperty(name: String) {
-        val format: MpvFormat = getFormatOf(T::class)
+    protected fun observeProperty(name: String, cls: KClass<*>) {
+        val format: MpvFormat = getFormatOf(cls)
         mpv_observe_property(ctx, 0UL, name, format)
     }
 
