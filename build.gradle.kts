@@ -18,11 +18,6 @@ plugins {
 repositories {
     mavenCentral()
     gradlePluginPortal()
-
-    // https://github.com/orgs/community/discussions/26634
-    val key: String = "M67GD0wv5HhykCWA5oPN2nD3021qBTGofbBW_phg".reversed()
-    maven("https://toasterofbread:${key}@maven.pkg.github.com/toasterofbread/mediasession-kt")
-
     maven("https://jitpack.io")
 }
 
@@ -231,7 +226,7 @@ fun KotlinMultiplatformExtension.configureKotlinTarget(platform: Platform) {
             implementation("com.squareup.okio:okio:3.6.0")
 
             if (platform == Platform.LINUX_X86) {
-                implementation("dev.toastbits.mediasessionkt:library-linuxx64:0.1.0")
+                implementation("dev.toastbits.mediasession:library-linuxx64:0.0.1")
             }
 
             when (platform.arch) {
