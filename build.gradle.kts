@@ -229,14 +229,7 @@ fun KotlinMultiplatformExtension.configureKotlinTarget(platform: Platform) {
                 implementation("dev.toastbits.mediasession:library-linuxx64:0.0.1")
             }
 
-            when (platform.arch) {
-                Arch.X86_64 -> {
-                    implementation("com.github.ajalt.clikt:clikt:4.2.2")
-                }
-                Arch.ARM64 -> {
-                    implementation("com.github.toasterofbread:clikt:65ebc8a4bb0eeecfcfeeec7cd1d05099a4e33df1")
-                }
-            }
+            implementation("com.github.ajalt.clikt:clikt:4.4.0")
         }
     }
 }
