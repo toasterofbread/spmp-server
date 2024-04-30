@@ -1,4 +1,4 @@
-@file:Suppress("INVISIBLE_MEMBER")
+@file:Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
 package spms.client.cli
 
 import cinterop.zmq.ZmqSocket

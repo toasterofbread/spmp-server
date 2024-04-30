@@ -11,7 +11,7 @@ val FLAG_LINK_STATIC: String = "linkStatic"
 val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
 
 plugins {
-    kotlin("multiplatform") version "1.9.23"
+    kotlin("multiplatform") version "2.0.0-RC1"
     kotlin("plugin.serialization") version "1.9.0"
 }
 
@@ -82,7 +82,7 @@ enum class Platform {
 
     companion object {
         val supported: List<Platform> = listOf(
-            LINUX_X86, LINUX_ARM64, WINDOWS
+            LINUX_X86//, LINUX_ARM64, WINDOWS
         )
 
         fun getTarget(project: Project): Platform {
@@ -203,7 +203,11 @@ fun KotlinMultiplatformExtension.configureKotlinTarget(platform: Platform) {
                     if (!definition.platforms.contains(platform)) {
                         continue
                     }
-                    create(definition.name)
+
+                    // TODO Use https://github.com/JetBrains/kotlin/blob/master/libraries/tools/kotlin-gradle-plugin/src/common/kotlin/org/jetbrains/kotlin/gradle/targets/native/DefaultCInteropSettings.kt
+                    create(definition.name) {
+                        packageName(definition.name)
+                    }
                 }
             }
         }
