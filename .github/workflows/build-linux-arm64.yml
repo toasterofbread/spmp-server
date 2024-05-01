@@ -125,7 +125,7 @@ jobs:
       run: chmod +x gradle
 
     - name: Build linux-arm64 binaries
-      run: ./gradlew linux-arm64BinariesStatic
+      run: ./gradlew linux-arm64Binaries -PlinkStatic
 
     - name: Strip release binary
       run: $TOOLCHAIN/bin/aarch64-unknown-linux-gnu-strip build/bin/linux-arm64/releaseExecutable/*.kexe

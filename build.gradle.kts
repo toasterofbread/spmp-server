@@ -1,11 +1,9 @@
 @file:Suppress("UNUSED_VARIABLE")
 
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-import org.jetbrains.kotlin.gradle.internal.ensureParentDirsCreated
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
-import java.io.PrintWriter
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
+import org.jetbrains.kotlin.gradle.plugin.mpp.DefaultCInteropSettings
+import org.jetbrains.kotlin.gradle.plugin.mpp.Executable
 
 val FLAG_LINK_STATIC: String = "linkStatic"
 val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
@@ -21,7 +19,11 @@ repositories {
     maven("https://jitpack.io")
 }
 
-fun String.capitalised() = this.first().uppercase() + this.drop(1)
+val platform_specific_files: List<String> = listOf(
+    "cinterop/indicator/TrayIndicatorImpl.kt",
+    "spms/Platform.kt",
+    "spms/server/SpMsMediaSession.kt"
+)
 
 enum class Arch {
     X86_64, ARM64;
@@ -34,17 +36,26 @@ enum class Arch {
     val PKG_CONFIG_PATH: String get() = "/usr/lib/$libdir_name/pkgconfig"
 
     companion object {
-        fun getTarget(project: Project): Arch {
-            val target_arch: String =
-                project.findProperty("SPMS_ARCH")?.toString()
-                ?: System.getenv("SPMS_ARCH")
-                ?: System.getProperty("os.arch")
-
-            return when (target_arch.lowercase()) {
+        fun byName(name: String): Arch =
+            when (name.lowercase()) {
                 "x86_64", "amd64" -> X86_64
                 "aarch64", "arm64" -> ARM64
-                else -> throw GradleException("Unsupported CPU architecture '$target_arch'")
+                else -> throw GradleException("Unsupported CPU architecture '$name'")
             }
+
+        fun getCurrent(): Arch =
+            byName(System.getProperty("os.arch"))
+
+        fun getTarget(project: Project): Arch {
+            val target_override: String? =
+                project.findProperty("SPMS_ARCH")?.toString()
+                ?: System.getenv("SPMS_ARCH")
+
+            if (target_override == null) {
+                return getCurrent()
+            }
+
+            return byName(target_override)
         }
     }
 }
@@ -77,106 +88,221 @@ enum class Platform {
             LINUX_ARM64, OSX_ARM -> Arch.ARM64
         }
 
+    val is_linux: Boolean
+        get() = this == LINUX_X86 || this == LINUX_ARM64
+
     fun getNativeDependenciesDir(project: Project) =
         project.file("src/nativeInterop/$identifier")
 
     companion object {
         val supported: List<Platform> = listOf(
-            LINUX_X86//, LINUX_ARM64, WINDOWS
+            LINUX_X86, LINUX_ARM64, WINDOWS
         )
 
-        fun getTarget(project: Project): Platform {
-            val target_os: String =
-                project.findProperty("SPMS_OS")?.toString()
-                ?: System.getenv("SPMS_OS")
-                ?: System.getProperty("os.name")
-            val target_arch: Arch = Arch.getTarget(project)
-
-            val os: String = target_os.lowercase()
-
-            if (os == "linux") {
-                return when (target_arch) {
+        fun byName(name: String, arch: Arch): Platform =
+            if (name.lowercase() == "linux")
+                when (arch) {
                     Arch.X86_64 -> LINUX_X86
                     Arch.ARM64 -> LINUX_ARM64
                 }
-            }
-            else if (os.startsWith("windows") && target_arch == Arch.X86_64) {
-                return WINDOWS
+            else if (name.lowercase().startsWith("windows") && arch == Arch.X86_64) WINDOWS
+            else throw GradleException("Unsupported host OS and architecture '$name' ($arch)")
+
+        fun getCurrent(arch: Arch = Arch.getCurrent()): Platform =
+            byName(System.getProperty("os.name"), arch)
+
+        fun getTarget(project: Project): Platform {
+            val arch: Arch = Arch.getTarget(project)
+            val target_override: String? =
+                project.findProperty("SPMS_OS")?.toString()
+                ?: System.getenv("SPMS_OS")
+
+            if (target_override == null) {
+                return getCurrent(arch)
             }
 
-            throw GradleException("Unsupported host OS and architecture '$target_os' ($target_arch)")
+            return byName(target_override, arch)
         }
     }
 }
-
-val platform_specific_files: List<String> = listOf(
-    "cinterop/indicator/TrayIndicatorImpl.kt",
-    "spms/Platform.kt",
-    "spms/server/SpMsMediaSession.kt"
-)
 
 enum class CinteropLibraries {
     LIBMPV, LIBZMQ, LIBCURL, LIBAPPINDICATOR;
 
     val identifier: String get() = name.lowercase()
 
-    private fun Platform.createDefinition(lib: String, headers: List<String>, action: CInteropDefinition.() -> Unit = {}): CInteropDefinition =
-        CInteropDefinition(this, this@CinteropLibraries.identifier, lib, headers).apply(action)
+    fun includeOnPlatform(platform: Platform): Boolean =
+        when (this) {
+            LIBAPPINDICATOR -> platform.is_linux
+            else -> true
+        }
 
-    private fun String.capitalised() = this.first().uppercase() + this.drop(1)
+    fun getBinaryDependencies(platform: Platform): List<String> =
+        when (this) {
+            LIBMPV ->
+                if (platform == Platform.WINDOWS) listOf("libmpv-2.dll")
+                else emptyList()
+            LIBCURL ->
+                if (platform == Platform.WINDOWS) listOf("libcurl.dll", "zlib1.dll")
+                else emptyList()
+            else -> emptyList()
+        }
 
-    fun getDefinition(platform: Platform): CInteropDefinition = when (this) {
-        LIBMPV ->
-            platform.createDefinition(
-                when (platform) {
-                    Platform.WINDOWS -> "libmpv.dll.a"
-                    else -> "mpv"
-                },
-                listOf("mpv/client.h")
-            ) {
-                if (platform == Platform.WINDOWS) {
-                    bin_dependencies = listOf("libmpv-2.dll")
+    private fun getPackageName(): String =
+        when (this) {
+            LIBMPV -> "mpv"
+            LIBZMQ -> "libzmq"
+            LIBCURL -> "libcurl"
+            LIBAPPINDICATOR -> "appindicator3-0.1"
+        }
+
+    fun configure(
+        platform: Platform,
+        settings: DefaultCInteropSettings,
+        deps_directory: File
+    ) {
+        val cflags: List<String> = pkgConfig(platform, deps_directory, getPackageName(), cflags = true)
+        settings.compilerOpts(cflags)
+
+        val default_include_dirs: List<File> =
+            if (platform.is_linux) listOf("/usr/include", "/usr/include/${platform.arch.libdir_name}").map { File(it) }
+            else emptyList()
+
+        fun addHeaderFile(path: String) {
+            var file: File? = null
+
+            for (dir in listOf(deps_directory.resolve("include")) + default_include_dirs) {
+                if (dir.resolve(path).exists()) {
+                    file = dir.resolve(path)
+                    break
                 }
             }
-        LIBZMQ ->
-            platform.createDefinition(
-                when (platform) {
-                    Platform.WINDOWS -> "libzmq-mt-4_3_5.lib"
-                    else -> "libzmq"
-                },
-                listOf("zmq.h", "zmq_utils.h")
-            ) {
-                compiler_opts = listOf("-DZMQ_BUILD_DRAFT_API=1")
-                when (platform) {
-                    Platform.LINUX_X86, Platform.LINUX_ARM64 -> {
-                        static_lib = "libzmq.a"
+
+            if (file == null) {
+                val first_part: String = path.split("/", limit = 2).first()
+
+                for (flag in cflags) {
+                    if (!flag.startsWith("-I/") || !flag.endsWith("/" + first_part)) {
+                        continue
                     }
-                    Platform.WINDOWS -> {
-                        linker_opts = listOf("-lssp", "-static", "-static-libgcc", "-static-libstdc++", "-lgcc", "-lstdc++")
-                        bin_dependencies = listOf("libzmq-mt-4_3_5.dll")
+
+                    file = File(flag.drop(2).dropLast(first_part.length)).resolve(path).takeIf { it.exists() }
+                    if (file != null) {
+                        break
+                    }
+                }
+            }
+
+            if (file == null) {
+                // println("Could not find header file '$path' for platform $platform in $cflags")
+                return
+            }
+
+            settings.header(file)
+        }
+
+        when (this) {
+            LIBMPV -> {
+                addHeaderFile("mpv/client.h")
+            }
+            LIBZMQ -> {
+                addHeaderFile("zmq.h")
+                addHeaderFile("zmq_utils.h")
+                settings.compilerOpts("-DZMQ_BUILD_DRAFT_API=1")
+            }
+            LIBCURL -> {
+                addHeaderFile("curl/curl.h")
+            }
+            LIBAPPINDICATOR -> {
+                addHeaderFile("libappindicator3-0.1/libappindicator/app-indicator.h")
+            }
+        }
+    }
+
+    fun configureExecutable(
+        platform: Platform,
+        static: Boolean,
+        settings: Executable,
+        deps_directory: File
+    ) {
+        if (platform.is_linux) {
+            settings.linkerOpts(pkgConfig(platform, deps_directory, getPackageName(), libs = true))
+
+            if (static) {
+                when (this) {
+                    LIBZMQ -> {
+                        val zmq: File = deps_directory.resolve("lib/libzmq.a")
+                        settings.linkerOpts("-l:${zmq.absolutePath}")
+                        settings.linkerOpts.remove("-lzmq")
                     }
                     else -> {}
                 }
             }
-        LIBCURL ->
-            platform.createDefinition(
-                when (platform) {
-                    Platform.WINDOWS -> "libcurl.lib"
-                    else -> "libcurl"
-                },
-                listOf("curl/curl.h")
-            ) {
-                if (platform == Platform.WINDOWS) {
-                    bin_dependencies = listOf("libcurl.dll", "zlib1.dll")
-                }
+
+            return
+        }
+
+        fun addLib(filename: String) {
+            settings.linkerOpts(deps_directory.resolve("lib").resolve(filename).absolutePath.replace("\\", "/"))
+        }
+
+        when (this) {
+            LIBMPV -> {
+                addLib("libmpv.dll.a")
             }
-        LIBAPPINDICATOR ->
-            platform.createDefinition(
-                "appindicator3-0.1",
-                listOf("libappindicator3-0.1/libappindicator/app-indicator.h")
-            ) {
-                platforms = listOf(Platform.LINUX_X86, Platform.LINUX_ARM64)
+            LIBZMQ -> {
+                addLib("libzmq-mt-4_3_5.lib")
+                settings.linkerOpts("-lssp", "-static", "-static-libgcc", "-static-libstdc++", "-lgcc", "-lstdc++")
             }
+            LIBCURL -> {
+                addLib("libcurl.lib")
+            }
+            LIBAPPINDICATOR -> throw IllegalAccessException()
+        }
+    }
+
+    // https://gist.github.com/micolous/c00b14b2dc321fdb0eab8ad796d71b80
+    private fun pkgConfig(
+        platform: Platform,
+        deps_directory: File,
+        vararg package_names: String,
+        cflags: Boolean = false,
+        libs: Boolean = false
+    ): List<String> {
+        if (Platform.getCurrent() == Platform.WINDOWS) {
+            return emptyList()
+        }
+
+        require(cflags || libs)
+
+        val process_builder: ProcessBuilder = ProcessBuilder(
+            listOfNotNull(
+                "pkg-config",
+                if (cflags) "--cflags" else null,
+                if (libs) "--libs" else null
+            ) + package_names
+        )
+        process_builder.environment()["PKG_CONFIG_PATH"] =
+            listOfNotNull(
+                deps_directory.resolve("pkgconfig").takeIf { it.isDirectory }?.absolutePath,
+                platform.arch.PKG_CONFIG_PATH,
+                System.getenv("SPMS_LIB")?.plus("/pkgconfig")
+            ).joinToString(":")
+        process_builder.environment()["PKG_CONFIG_ALLOW_SYSTEM_LIBS"] = "1"
+
+        val process: Process = process_builder.start()
+        process.waitFor(10, TimeUnit.SECONDS)
+
+        if (process.exitValue() != 0) {
+            // println("pkg-config failed for platform $platform with package_names: ${package_names.toList()}\n" + process.errorStream.bufferedReader().use { it.readText() })
+            return emptyList()
+        }
+
+        return process.inputStream.bufferedReader().use { reader ->
+            reader.readText().split(" ").mapNotNull { it.trim().takeIf { line ->
+                line.isNotBlank() && line != "-I/usr/include/x86_64-linux-gnu" && line != "-I/usr/include/aarch64-linux-gnu"
+            } }
+        }
     }
 }
 
@@ -195,27 +321,43 @@ fun KotlinMultiplatformExtension.configureKotlinTarget(platform: Platform) {
         Platform.OSX_ARM -> macosArm64(platform.identifier)
     }
 
+    val static: Boolean = project.hasProperty(FLAG_LINK_STATIC)
+    val deps_directory: File = platform.getNativeDependenciesDir(project)
+
     native_target.apply {
         compilations.getByName("main") {
             cinterops {
                 for (library in CinteropLibraries.values()) {
-                    val definition: CInteropDefinition = library.getDefinition(platform)
-                    if (!definition.platforms.contains(platform)) {
+                    if (!library.includeOnPlatform(platform)) {
                         continue
                     }
 
-                    // TODO Use https://github.com/JetBrains/kotlin/blob/master/libraries/tools/kotlin-gradle-plugin/src/common/kotlin/org/jetbrains/kotlin/gradle/targets/native/DefaultCInteropSettings.kt
-                    create(definition.name) {
-                        packageName(definition.name)
+                    val library_name: String = library.name.lowercase()
+
+                    create(library_name) {
+                        packageName(library_name)
+                        library.configure(platform, this, deps_directory)
                     }
                 }
             }
         }
 
+
         binaries {
             executable {
                 baseName = "spms-${platform.identifier}"
                 entryPoint = "main"
+
+                if (deps_directory.resolve("lib").isDirectory) {
+                    linkerOpts("-L" + deps_directory.resolve("lib").absolutePath)
+                }
+
+                for (library in CinteropLibraries.values()) {
+                    if (!library.includeOnPlatform(platform)) {
+                        continue
+                    }
+                    library.configureExecutable(platform, static, this, deps_directory)
+                }
             }
         }
     }
@@ -228,12 +370,11 @@ fun KotlinMultiplatformExtension.configureKotlinTarget(platform: Platform) {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
             implementation("com.squareup.okio:okio:3.6.0")
+            implementation("com.github.ajalt.clikt:clikt:4.4.0")
 
             if (platform == Platform.LINUX_X86) {
                 implementation("dev.toastbits.mediasession:library-linuxx64:0.0.1")
             }
-
-            implementation("com.github.ajalt.clikt:clikt:4.4.0")
         }
     }
 }
@@ -276,128 +417,62 @@ tasks.register("bundleIcon") {
     }
 }
 
-tasks.register("configurePlatformSpecificFiles") {
-    outputs.upToDateWhen { false }
-
-    fun String.getFile(suffix: String? = null): File =
-        project.file("src/commonMain/kotlin/" + if (suffix == null) this.replace(".kt", ".gen.kt") else (this + suffix))
-
-    for (path in platform_specific_files) {
-        outputs.file(path.getFile())
-
-        val input_files: List<File> =
-            Platform.supported.map { path.getFile('.' + it.name.toLowerCase()) } + listOf(path.getFile(".other"))
-        for (file in input_files) {
-            if (file.isFile) {
-                inputs.file(file)
-            }
+for (platform in Platform.supported) {
+    val print_target_task by tasks.register("printTarget${platform.identifier}") {
+        doLast {
+            println("Building spmp-server for target $platform")
         }
     }
 
-    doLast {
+    val configure_platform_files_task by tasks.register("configurePlatformFiles${platform.identifier}") {
+        outputs.upToDateWhen { false }
+
+        fun String.getFile(suffix: String? = null): File =
+            project.file("src/commonMain/kotlin/" + if (suffix == null) this.replace(".kt", ".gen.kt") else (this + suffix))
+
         for (path in platform_specific_files) {
-            val out_file: File = path.getFile()
+            outputs.file(path.getFile())
 
-            var platform_file: File = path.getFile('.' + Platform.getTarget(project).gen_file_extension)
-
-            if (!platform_file.isFile) {
-                platform_file = path.getFile('.' + Platform.getTarget(project).alt_gen_file_extension)
-
-                if (!platform_file.isFile) {
-                    platform_file = path.getFile(".other")
+            val input_files: List<File> =
+                Platform.supported.map { path.getFile('.' + it.name.lowercase()) } + listOf(path.getFile(".other"))
+            for (file in input_files) {
+                if (file.isFile) {
+                    inputs.file(file)
                 }
             }
+        }
 
-            if (platform_file.isFile) {
-                out_file.writer().use { writer ->
-                    writer.write(GENERATED_FILE_PREFIX)
+        doLast {
+            for (path in platform_specific_files) {
+                val out_file: File = path.getFile()
 
-                    platform_file.reader().use { reader ->
-                        reader.transferTo(writer)
+                var platform_file: File = path.getFile('.' + platform.gen_file_extension)
+
+                if (!platform_file.isFile) {
+                    platform_file = path.getFile('.' + platform.alt_gen_file_extension)
+
+                    if (!platform_file.isFile) {
+                        platform_file = path.getFile(".other")
+                    }
+                }
+
+                if (platform_file.isFile) {
+                    out_file.writer().use { writer ->
+                        writer.write(GENERATED_FILE_PREFIX)
+
+                        platform_file.reader().use { reader ->
+                            reader.transferTo(writer)
+                        }
                     }
                 }
             }
         }
     }
-}
 
-tasks.register("printBuildTarget") {
-    doLast {
-        println("Building spmp-server for target ${Platform.getTarget(project)}")
-    }
-}
-
-tasks.register("generateCInteropDefinitions") {
-    outputs.upToDateWhen { false }
-
-    doLast {
-        println("Generating CInterop definitions for platform ${Platform.getTarget(project)}")
-
-        val platform: Platform = Platform.getTarget(project)
-        val static: Boolean = project.hasProperty(FLAG_LINK_STATIC)
-
-        val cinterop_directory: File = project.file("src/nativeInterop/cinterop")
-        val bin_directory: File = platform.getNativeDependenciesDir(project).resolve("bin")
-
-        for (library in CinteropLibraries.values()) {
-            val definition: CInteropDefinition = library.getDefinition(platform)
-
-            val file: File = cinterop_directory.resolve(definition.name + ".def")
-
-            if (!definition.platforms.contains(platform) && !gradle.taskGraph.hasTask(":prepareKotlinBuildScriptModel")) {
-                file.delete()
-                continue
-            }
-
-            for (bin in definition.bin_dependencies) {
-                val bin_file: File = bin_directory.resolve(bin)
-                if (!bin_file.isFile) {
-                    println("WARNING: File ${bin_file.path} is required by library ${definition.name}, but was not found. Compiled executable may not work correctly.")
-                }
-            }
-
-            file.ensureParentDirsCreated()
-            file.createNewFile()
-
-            file.printWriter().use { writer ->
-                writer.print(GENERATED_FILE_PREFIX.replace("//", "#"))
-                definition.writeTo(writer, static, project)
-            }
-        }
-    }
-}
-
-for (platform in Platform.supported) {
     tasks.getByName("compileKotlin" + platform.identifier.capitalised()) {
-        dependsOn("printBuildTarget")
+        dependsOn(print_target_task)
         dependsOn("bundleIcon")
-        dependsOn("configurePlatformSpecificFiles")
-    }
-
-    val register_task = tasks.register("setEnv${platform.identifier.capitalised()}") {
-        doFirst {
-            project.ext.set("SPMS_OS", when (platform) {
-                Platform.LINUX_X86, Platform.LINUX_ARM64 -> "linux"
-                Platform.WINDOWS -> "windows"
-                else -> throw NotImplementedError(platform.name)
-            })
-            project.ext.set("SPMS_ARCH", platform.arch.name)
-        }
-    }
-
-    for (library in CinteropLibraries.values()) {
-        val definition: CInteropDefinition = library.getDefinition(platform)
-        if (!definition.platforms.contains(platform)) {
-            continue
-        }
-
-        tasks.getByName("cinterop${definition.name.capitalised()}${platform.identifier.capitalised()}") {
-            dependsOn(register_task)
-
-            val generate_task = tasks.getByName("generateCInteropDefinitions")
-            dependsOn(generate_task)
-            generate_task.mustRunAfter(register_task)
-        }
+        dependsOn(configure_platform_files_task)
     }
 
     val debug_link_task: Task = tasks.getByName("linkDebugExecutable" + platform.identifier.capitalised())
@@ -411,16 +486,6 @@ for (platform in Platform.supported) {
         binary_output_directory.set(release_link_task.outputs.files.single())
     }
     release_link_task.finalizedBy(release_finalise_task)
-
-    tasks.register(platform.identifier + "BinariesStatic") {
-        val native_binaries = tasks.getByName(platform.identifier + "Binaries")
-        finalizedBy(native_binaries)
-        group = native_binaries.group
-
-        doFirst {
-            project.ext.set(FLAG_LINK_STATIC, 1)
-        }
-    }
 }
 
 open class FinaliseBuild: DefaultTask() {
@@ -439,130 +504,16 @@ open class FinaliseBuild: DefaultTask() {
         val target_directory: File = binary_output_directory.get().asFile
 
         for (library in CinteropLibraries.values()) {
-            val definition: CInteropDefinition = library.getDefinition(platform)
-            for (bin in definition.bin_dependencies) {
-                val file: File = bin_directory.resolve(bin)
+            for (filename in library.getBinaryDependencies(platform)) {
+                val file: File = bin_directory.resolve(filename)
                 if (!file.isFile)  {
                     continue
                 }
 
-                file.copyTo(target_directory.resolve(bin), overwrite = true)
+                file.copyTo(target_directory.resolve(filename), overwrite = true)
             }
         }
     }
 }
 
-data class CInteropDefinition(
-    val platform: Platform,
-    val name: String,
-    val lib: String,
-    val headers: List<String>,
-    var static_lib: String? = null,
-    var compiler_opts: List<String> = emptyList(),
-    var linker_opts: List<String> = emptyList(),
-    var bin_dependencies: List<String> = emptyList(),
-    var platforms: List<Platform> = Platform.supported.toList()
-) {
-    fun writeTo(writer: PrintWriter, static: Boolean, project: Project) {
-        writer.writeList("headers", headers.map { formatPlatformInclude(it) })
-
-        var copts: List<String> = getBaseCompilerOpts(project) + compiler_opts
-        var lopts: List<String> = getBaseLinkerOpts(project) + linker_opts
-
-        if (static && static_lib != null) {
-            writer.writeList(
-                "libraryPaths",
-                listOfNotNull(
-                    platform.getNativeDependenciesDir(project).resolve("lib").absolutePath,
-                    System.getenv("SPMS_LIB")
-                )
-            )
-            writer.writeList("staticLibraries", listOf(static_lib!!))
-        }
-        else {
-            copts += pkgConfig(formatPlatformLib(project, lib), cflags = true)
-            lopts += pkgConfig(formatPlatformLib(project, lib), libs = true)
-        }
-
-        writer.writeList("compilerOpts", copts)
-        writer.writeList("linkerOpts", lopts)
-    }
-
-    private fun formatPlatformInclude(path: String): String =
-        when (platform) {
-            else -> path
-        }
-
-    private fun formatPlatformLib(project: Project, path: String): String =
-        when (platform) {
-            Platform.WINDOWS -> platform.getNativeDependenciesDir(project).resolve("lib").absolutePath.replace('\\', '/') + '/' + path
-            else -> path
-        }
-
-    private fun getBaseCompilerOpts(project: Project): List<String> =
-        when (platform) {
-            Platform.LINUX_X86, Platform.LINUX_ARM64 -> listOf("-I/usr/include", "-I/usr/include/${platform.arch.libdir_name}")
-            else -> emptyList()
-        } + listOfNotNull(platform.getNativeDependenciesDir(project).resolve("include"), System.getenv("SPMS_INCLUDE")).map { path ->
-            "-I" + project.file(path).absolutePath.replace('\\', '/')
-        }
-
-    private fun getBaseLinkerOpts(project: Project): List<String> =
-        when (platform) {
-            Platform.LINUX_X86, Platform.LINUX_ARM64 -> listOf("-L/usr/lib", "-L/usr/lib/${platform.arch.libdir_name}")
-            else -> emptyList()
-        }
-
-    private fun PrintWriter.writeList(property: String, items: List<String>) {
-        if (items.isNotEmpty()) {
-            print("$property =")
-            for (item in items)  {
-                print(' ')
-                print(item)
-            }
-            print('\n')
-        }
-    }
-
-    // https://gist.github.com/micolous/c00b14b2dc321fdb0eab8ad796d71b80
-    private fun pkgConfig(
-        vararg package_names: String,
-        cflags: Boolean = false,
-        libs: Boolean = false
-    ): List<String> {
-        if (platform != Platform.LINUX_X86 && platform != Platform.LINUX_ARM64) {
-            if (libs) {
-                // return package_names.map { "-l$it" }
-                return package_names.map {
-                    if (it.startsWith("lib")) "-l" + it.drop(3)
-                    else it
-                }
-            }
-            return emptyList()
-        }
-
-        require(cflags || libs)
-
-        val process_builder: ProcessBuilder = ProcessBuilder(
-            listOfNotNull(
-                "pkg-config",
-                if (cflags) "--cflags" else null,
-                if (libs) "--libs" else null
-            ) + package_names
-        )
-        process_builder.environment()["PKG_CONFIG_PATH"] = listOfNotNull(platform.arch.PKG_CONFIG_PATH, System.getenv("SPMS_LIB")?.plus("/pkgconfig")).joinToString(":")
-        process_builder.environment()["PKG_CONFIG_ALLOW_SYSTEM_LIBS"] = "1"
-
-        val process: Process = process_builder.start()
-        process.waitFor(10, TimeUnit.SECONDS)
-
-        check(process.exitValue() == 0) {
-            process.errorStream
-            "pkg-config failed with package_names: ${package_names.toList()}\n" + process.errorStream.bufferedReader().use { it.readText() }
-        }
-
-        return process.inputStream.bufferedReader().use { reader ->
-            reader.readText().split(" ").mapNotNull { it.trim().takeIf { it.isNotBlank() } }
-        }
-    }
-}
+fun String.capitalised() = this.first().uppercase() + this.drop(1).lowercase()
