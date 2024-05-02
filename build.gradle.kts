@@ -4,6 +4,10 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.DefaultCInteropSettings
 import org.jetbrains.kotlin.gradle.plugin.mpp.Executable
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCompilation
+import org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenRootPlugin.Companion.kotlinBinaryenExtension
+import org.jetbrains.kotlin.gradle.tasks.CompileUsingKotlinDaemon
+import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
 
 val FLAG_LINK_STATIC: String = "linkStatic"
 val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
@@ -342,7 +346,6 @@ fun KotlinMultiplatformExtension.configureKotlinTarget(platform: Platform) {
             }
         }
 
-
         binaries {
             executable {
                 baseName = "spms-${platform.identifier}"
@@ -469,11 +472,31 @@ for (platform in Platform.supported) {
         }
     }
 
-    tasks.getByName("compileKotlin" + platform.identifier.capitalised()) {
+    val compile_task = tasks.getByName<KotlinNativeCompile>("compileKotlin" + platform.identifier.capitalised()) {
         dependsOn(print_target_task)
         dependsOn("bundleIcon")
         dependsOn(configure_platform_files_task)
     }
+
+    val check_dependencies_task by tasks.register("checkDependencies${platform.identifier}") {
+        doFirst {
+            @Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+            val compilation = (compile_task.compilation as org.jetbrains.kotlin.gradle.plugin.KotlinCompilationInfo.TCS).compilation as KotlinNativeCompilation
+
+            for (executable in compilation.target.binaries) {
+                for (opt in executable.linkerOpts) {
+                    if (!opt.startsWith("-l:")) {
+                        continue
+                    }
+
+                    val file: File = File(opt.drop(3))
+                    check(file.isFile) { "File for static linking does not exist '${file.absolutePath}'" }
+                }
+            }
+        }
+    }
+
+    compile_task.dependsOn(check_dependencies_task)
 
     val debug_link_task: Task = tasks.getByName("linkDebugExecutable" + platform.identifier.capitalised())
     val debug_finalise_task = tasks.register("finaliseBuildDebug" + platform.identifier.capitalised(), FinaliseBuild::class.java) {
