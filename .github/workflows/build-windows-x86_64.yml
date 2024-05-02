@@ -36,7 +36,6 @@ jobs:
     - name: Download mpv
       run: curl -L https://downloads.sourceforge.net/project/mpv-player-windows/libmpv/mpv-dev-x86_64-20240114-git-bd35dc8.7z --output mpv.7z
 
-
     - name: Extract mpv
       shell: bash
       run: |

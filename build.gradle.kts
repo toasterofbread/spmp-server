@@ -490,7 +490,7 @@ for (platform in Platform.supported) {
                     }
 
                     val file: File = File(opt.drop(3))
-                    check(file.isFile) { "File for static linking does not exist '${file.absolutePath}'" }
+                    check(file.isFile) { "Static library doesn't exist '${file.absolutePath}'" }
                 }
             }
         }

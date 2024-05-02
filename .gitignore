@@ -4,6 +4,9 @@ build/
 .fleet/
 .gradle/
 *.gen.kt
-src/nativeInterop
 .vscode
 /.kotlin
+
+/src/nativeInterop/*
+!/src/nativeInterop/buildscripts/
+/src/nativeInterop/buildscripts/build
