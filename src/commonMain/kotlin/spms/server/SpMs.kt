@@ -59,7 +59,7 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
             SpMsMediaSession.create(player)
         }
         catch (e: Throwable) {
-            e.printStackTrace()
+            RuntimeException("Ignoring exception that occurred when creating media session", e).printStackTrace()
             null
         }
 
