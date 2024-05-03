@@ -31,6 +31,12 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
     private var item_durations: MutableMap<String, Long> = mutableMapOf()
     private val item_durations_channel: Channel<Unit> = Channel()
 
+    private var executing_client_id: Int? = null
+    private var player_event_inc: Int = 0
+    private val player_events: MutableList<SpMsPlayerEvent> = mutableListOf()
+    private val clients: MutableList<SpMsClient> = mutableListOf()
+    private var playback_waiting_for_clients: Boolean = false
+
     val player: Player =
         if (headless)
             object : HeadlessPlayer() {
@@ -62,12 +68,6 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
             RuntimeException("Ignoring exception that occurred when creating media session", e).printStackTrace()
             null
         }
-
-    private var executing_client_id: Int? = null
-    private var player_event_inc: Int = 0
-    private val player_events: MutableList<SpMsPlayerEvent> = mutableListOf()
-    private val clients: MutableList<SpMsClient> = mutableListOf()
-    private var playback_waiting_for_clients: Boolean = false
 
     fun getClients(caller: SpMsClientID? = null): List<SpMsClientInfo> =
         listOf(

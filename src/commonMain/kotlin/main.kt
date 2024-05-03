@@ -14,7 +14,7 @@ fun main(args: Array<String>) {
         command.main(args)
     }
     catch (e: Throwable) {
-        e.printStackTrace()
+        RuntimeException("Exception in main method, exiting", e).printStackTrace()
         exitProcess(1)
     }
 }

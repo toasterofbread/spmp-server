@@ -107,7 +107,9 @@ class TrayIndicatorImpl(name: String, icon_path: List<String>): TrayIndicator {
 
         memScoped {
             val gtk_argc: IntVarOf<Int> = alloc()
-            gtk_init(gtk_argc.ptr, null)
+            if (gtk_init_check(gtk_argc.ptr, null) == FALSE) {
+                throw RuntimeException("Call to gtk_init_check failed")
+            }
         }
 
         indicator = app_indicator_new("spms", "indicator-messages", AppIndicatorCategory.APP_INDICATOR_CATEGORY_APPLICATION_STATUS)!!

@@ -57,7 +57,15 @@ fun createIndicator(coroutine_scope: CoroutineScope, loc: SpMsLocalisation, port
         }
     }
 
-    val indicator: TrayIndicator? = createTrayIndicator("SpMs (port $port)", icon_path.segments)
+    val indicator: TrayIndicator? =
+        try {
+            createTrayIndicator("SpMs (port $port)", icon_path.segments)
+        }
+        catch (e: Throwable) {
+            RuntimeException("Ignoring exception while creating tray indicator", e).printStackTrace()
+            return null
+        }
+
     indicator?.apply {
         addButton("Running on port $port", null)
 
@@ -142,7 +150,7 @@ class SpMsCommand: Command(
                     }
                 }
                 catch (e: Throwable) {
-                    e.printStackTrace()
+                    RuntimeException("Exception in main command sequence", e).printStackTrace()
                     throw e
                 }
             }
