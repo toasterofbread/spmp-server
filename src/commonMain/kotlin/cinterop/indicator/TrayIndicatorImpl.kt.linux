@@ -118,10 +118,15 @@ class TrayIndicatorImpl(name: String, icon_path: List<String>): TrayIndicator {
         app_indicator_set_status(indicator, AppIndicatorStatus.APP_INDICATOR_STATUS_ACTIVE)
 
         val path: MutableList<String> = icon_path.toMutableList()
-        val icon_file: String = path.removeLast().split('.', limit = 2).first()
+
+        var filename: String = path.removeLast()
+        val last_dot: Int = filename.lastIndexOf('.')
+        if (last_dot != -1) {
+            filename = filename.substring(0, last_dot)
+        }
 
         app_indicator_set_icon_theme_path(indicator, '/' + path.joinToString("/"))
-        app_indicator_set_icon_full(indicator, icon_file, name)
+        app_indicator_set_icon_full(indicator, filename, name)
 
         menu = gtk_menu_new()!!
 

@@ -10,6 +10,7 @@ interface ServerLocalisation {
     val option_help_gui: String
     val option_help_mute: String
     val option_help_headless: String
+    val option_help_icon: String
 
     val indicator_button_open_client: String
     val indicator_button_stop_server: String

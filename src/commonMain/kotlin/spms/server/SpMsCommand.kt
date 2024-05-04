@@ -38,15 +38,21 @@ private const val CLIENT_REPLY_TIMEOUT_MS: Long = 10000
 
 @Suppress("OPT_IN_USAGE")
 @OptIn(ExperimentalForeignApi::class)
-fun createIndicator(coroutine_scope: CoroutineScope, loc: SpMsLocalisation, port: Int, endProgram: () -> Unit): TrayIndicator? {
+fun createIndicator(
+    coroutine_scope: CoroutineScope,
+    loc: SpMsLocalisation,
+    port: Int,
+    user_icon_path: String?,
+    endProgram: () -> Unit
+): TrayIndicator? {
     val icon_path: Path =
-        when (Platform.osFamily) {
+        user_icon_path?.toPath() ?: when (Platform.osFamily) {
             OsFamily.LINUX -> "/tmp/ic_spmp.png".toPath()
             OsFamily.WINDOWS -> "${getenv("USERPROFILE")!!.toKString()}/AppData/Local/Temp/ic_spmp.png".toPath()
             else -> throw NotImplementedError(Platform.osFamily.name)
         }
 
-    if (!FileSystem.SYSTEM.exists(icon_path)) {
+    if (user_icon_path == null && !FileSystem.SYSTEM.exists(icon_path)) {
         val parent: Path = icon_path.parent!!
         if (!FileSystem.SYSTEM.exists(parent)) {
             FileSystem.SYSTEM.createDirectories(parent, true)
@@ -98,6 +104,7 @@ class SpMsCommand: Command(
 ) {
     private val port: Int by option("-p", "--port").int().default(SPMS_DEFAULT_PORT).help { context.loc.server.option_help_port }
     private val headless: Boolean by option("-x", "--headless").flag().help { context.loc.server.option_help_headless }
+    private val icon_path: String? by option("-i", "--icon").help { context.loc.server.option_help_icon }
     private val player_options: PlayerOptions by PlayerOptions()
 
     override fun run() {
@@ -125,7 +132,7 @@ class SpMsCommand: Command(
 
             runBlocking {
                 try {
-                    val indicator: TrayIndicator? = createIndicator(this, localisation, port) {
+                    val indicator: TrayIndicator? = createIndicator(this, localisation, port, icon_path) {
                         stop = true
                     }
 
