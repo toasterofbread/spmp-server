@@ -3,11 +3,14 @@ package spms.server
 import dev.toastbits.mediasession.MediaSession
 import dev.toastbits.mediasession.MediaSessionMetadata
 import dev.toastbits.mediasession.MediaSessionPlaybackStatus
+import dev.toastbits.mediasession.MediaSessionLoopMode
 import spms.socketapi.shared.SpMsPlayerEvent
+import spms.socketapi.shared.SpMsPlayerRepeatMode
 import spms.player.Player
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.long
+import kotlinx.serialization.json.int
 
 class SpMsMediaSession private constructor(val player: Player) {
     val session: MediaSession =
@@ -41,6 +44,15 @@ class SpMsMediaSession private constructor(val player: Player) {
         session.onSetPosition = { to_ms ->
             player.seekToTime(to_ms)
         }
+        session.onSetLoop = { loop_mode ->
+            player.setRepeatMode(
+                when (loop_mode) {
+                    MediaSessionLoopMode.NONE -> SpMsPlayerRepeatMode.NONE
+                    MediaSessionLoopMode.ONE -> SpMsPlayerRepeatMode.ONE
+                    MediaSessionLoopMode.ALL -> SpMsPlayerRepeatMode.ALL
+                }
+            )
+        }
 
         onSongChanged(player.getItem())
         session.setPlaybackStatus(
@@ -72,6 +84,15 @@ class SpMsMediaSession private constructor(val player: Player) {
                             session.metadata.copy(
                                 length_ms = value.long
                             )
+                        )
+                    }
+                    "repeat_mode" -> {
+                        session.setLoopMode(
+                            when (SpMsPlayerRepeatMode.entries[value.int]) {
+                                SpMsPlayerRepeatMode.NONE -> MediaSessionLoopMode.NONE
+                                SpMsPlayerRepeatMode.ONE -> MediaSessionLoopMode.ONE
+                                SpMsPlayerRepeatMode.ALL -> MediaSessionLoopMode.ALL
+                            }
                         )
                     }
                     else -> {}

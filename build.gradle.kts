@@ -13,8 +13,8 @@ val FLAG_LINK_STATIC: String = "linkStatic"
 val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
 
 plugins {
-    kotlin("multiplatform") version "2.0.0-RC1"
-    kotlin("plugin.serialization") version "1.9.0"
+    kotlin("multiplatform")
+    kotlin("plugin.serialization")
 }
 
 repositories {
@@ -372,11 +372,18 @@ fun KotlinMultiplatformExtension.configureKotlinTarget(platform: Platform) {
         dependencies {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
-            implementation("com.squareup.okio:okio:3.6.0")
-            implementation("com.github.ajalt.clikt:clikt:4.4.0")
 
-            if (platform == Platform.LINUX_X86) {
-                implementation("dev.toastbits.mediasession:library-linuxx64:0.0.1")
+            val okio_version: String = extra["okio.version"] as String
+            implementation("com.squareup.okio:okio:$okio_version")
+
+            val clikt_version: String = extra["clikt.version"] as String
+            implementation("com.github.ajalt.clikt:clikt:$clikt_version")
+
+            val mediasession_version: String = extra["mediasession.version"] as String
+            when (platform) {
+                Platform.LINUX_X86 -> implementation("dev.toastbits.mediasession:library-linuxx64:$mediasession_version")
+                Platform.WINDOWS -> implementation("dev.toastbits.mediasession:library-mingwx64:$mediasession_version")
+                else -> {}
             }
         }
     }
