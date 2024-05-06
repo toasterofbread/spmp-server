@@ -32,10 +32,17 @@ val platform_specific_files: List<String> = listOf(
 enum class Arch {
     X86_64, ARM64;
 
-    val libdir_name: String get() = when (this) {
-        X86_64 -> "x86_64-linux-gnu"
-        ARM64 -> "aarch64-linux-gnu"
-    }
+    val identifier: String get() =
+        when (this) {
+            X86_64 -> "x86_64"
+            ARM64 -> "arm64"
+        }
+
+    val libdir_name: String get() =
+        when (this) {
+            X86_64 -> "x86_64-linux-gnu"
+            ARM64 -> "aarch64-linux-gnu"
+        }
 
     val PKG_CONFIG_PATH: String get() = "/usr/lib/$libdir_name/pkgconfig"
 
@@ -77,9 +84,6 @@ enum class Platform {
         }
 
     val gen_file_extension: String
-        get() = identifier.replace("-", ".")
-
-    val alt_gen_file_extension: String
         get() = when (this) {
             LINUX_X86, LINUX_ARM64 -> "linux"
             WINDOWS -> "windows"
@@ -456,23 +460,25 @@ for (platform in Platform.supported) {
             for (path in platform_specific_files) {
                 val out_file: File = path.getFile()
 
-                var platform_file: File = path.getFile('.' + platform.gen_file_extension)
+                for (platform_file in listOf(
+                    // OS and arch
+                    path.getFile('.' + platform.gen_file_extension + '.' + platform.arch.identifier),
+                    // OS only
+                    path.getFile('.' + platform.gen_file_extension),
+                    // Arch only
+                    path.getFile('.' + platform.arch.identifier),
+                    // Other
+                    path.getFile(".other")
+                )) {
+                    if (platform_file.isFile) {
+                        out_file.writer().use { writer ->
+                            writer.write(GENERATED_FILE_PREFIX)
 
-                if (!platform_file.isFile) {
-                    platform_file = path.getFile('.' + platform.alt_gen_file_extension)
-
-                    if (!platform_file.isFile) {
-                        platform_file = path.getFile(".other")
-                    }
-                }
-
-                if (platform_file.isFile) {
-                    out_file.writer().use { writer ->
-                        writer.write(GENERATED_FILE_PREFIX)
-
-                        platform_file.reader().use { reader ->
-                            reader.transferTo(writer)
+                            platform_file.reader().use { reader ->
+                                reader.transferTo(writer)
+                            }
                         }
+                        break
                     }
                 }
             }
