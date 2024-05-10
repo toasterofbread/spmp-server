@@ -116,7 +116,7 @@ jobs:
     - name: Install arm64 development libraries
       run: |
         apt update
-        apt install -y libmpv-dev:arm64 libcurl4-openssl-dev:arm64 libappindicator3-dev:arm64
+        apt install -y libmpv-dev:arm64 libappindicator3-dev:arm64
 
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3

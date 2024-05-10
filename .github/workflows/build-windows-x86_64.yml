@@ -22,10 +22,10 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Build libzmq and libcurl
+    - name: Build libzmq
       uses: johnwason/vcpkg-action@v6
       with:
-        pkgs: zeromq[draft] curl
+        pkgs: zeromq[draft]
         triplet: x64-windows
         token: ${{ github.token }}
         github-binarycache: true

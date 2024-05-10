@@ -18,6 +18,7 @@ plugins {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
     gradlePluginPortal()
     maven("https://jitpack.io")
@@ -135,7 +136,7 @@ enum class Platform {
 }
 
 enum class CinteropLibraries {
-    LIBMPV, LIBZMQ, LIBCURL, LIBAPPINDICATOR;
+    LIBMPV, LIBZMQ, LIBAPPINDICATOR;
 
     val identifier: String get() = name.lowercase()
 
@@ -150,9 +151,6 @@ enum class CinteropLibraries {
             LIBMPV ->
                 if (platform == Platform.WINDOWS) listOf("libmpv-2.dll")
                 else emptyList()
-            LIBCURL ->
-                if (platform == Platform.WINDOWS) listOf("libcurl.dll", "zlib1.dll")
-                else emptyList()
             else -> emptyList()
         }
 
@@ -160,7 +158,6 @@ enum class CinteropLibraries {
         when (this) {
             LIBMPV -> "mpv"
             LIBZMQ -> "libzmq"
-            LIBCURL -> "libcurl"
             LIBAPPINDICATOR -> "appindicator3-0.1"
         }
 
@@ -218,9 +215,6 @@ enum class CinteropLibraries {
                 addHeaderFile("zmq_utils.h")
                 settings.compilerOpts("-DZMQ_BUILD_DRAFT_API=1")
             }
-            LIBCURL -> {
-                addHeaderFile("curl/curl.h")
-            }
             LIBAPPINDICATOR -> {
                 addHeaderFile("libappindicator3-0.1/libappindicator/app-indicator.h")
             }
@@ -261,9 +255,6 @@ enum class CinteropLibraries {
             LIBZMQ -> {
                 addLib("libzmq-mt-4_3_5.lib")
                 settings.linkerOpts("-lssp", "-static", "-static-libgcc", "-static-libstdc++", "-lgcc", "-lstdc++")
-            }
-            LIBCURL -> {
-                addLib("libcurl.lib")
             }
             LIBAPPINDICATOR -> throw IllegalAccessException()
         }
@@ -384,9 +375,20 @@ fun KotlinMultiplatformExtension.configureKotlinTarget(platform: Platform) {
             implementation("com.github.ajalt.clikt:clikt:$clikt_version")
 
             val mediasession_version: String = extra["mediasession.version"] as String
+            val ytm_version: String = extra["ytm.version"] as String
+
             when (platform) {
-                Platform.LINUX_X86 -> implementation("dev.toastbits.mediasession:library-linuxx64:$mediasession_version")
-                Platform.WINDOWS -> implementation("dev.toastbits.mediasession:library-mingwx64:$mediasession_version")
+                Platform.LINUX_X86 -> {
+                    implementation("dev.toastbits.mediasession:library-linuxx64:$mediasession_version")
+                    implementation("dev.toastbits.ytmkt:ytmkt-linuxx64:$ytm_version")
+                }
+                Platform.LINUX_ARM64 -> {
+                    implementation("dev.toastbits.ytmkt:ytmkt-linuxarm64:$ytm_version")
+                }
+                Platform.WINDOWS -> {
+                    implementation("dev.toastbits.mediasession:library-mingwx64:$mediasession_version")
+                    implementation("dev.toastbits.ytmkt:ytmkt-mingwx64:$ytm_version")
+                }
                 else -> {}
             }
         }
