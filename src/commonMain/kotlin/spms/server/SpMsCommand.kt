@@ -104,6 +104,7 @@ class SpMsCommand: Command(
 ) {
     private val port: Int by option("-p", "--port").int().default(SPMS_DEFAULT_PORT).help { context.loc.server.option_help_port }
     private val headless: Boolean by option("-x", "--headless").flag().help { context.loc.server.option_help_headless }
+    private val no_media_session: Boolean by option("-ns", "--no-media-session").flag().help { context.loc.server.option_no_media_session }
     private val icon_path: String? by option("-i", "--icon").help { context.loc.server.option_help_icon }
     private val player_options: PlayerOptions by PlayerOptions()
 
@@ -121,7 +122,13 @@ class SpMsCommand: Command(
         var stop: Boolean = false
 
         memScoped {
-            val server: SpMs = SpMs(this, headless, player_options.enable_gui)
+            val server: SpMs = 
+                SpMs(
+                    mem_scope = this, 
+                    headless = headless, 
+                    enable_gui = player_options.enable_gui, 
+                    enable_media_session = !no_media_session
+                )
             server.bind(port)
 
             println(localisation.server.serverBoundToPort(server.toString(), port))

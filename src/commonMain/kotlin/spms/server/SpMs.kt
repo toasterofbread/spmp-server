@@ -27,7 +27,12 @@ import kotlin.system.getTimeMillis
 const val SEND_EVENTS_TO_INSTIGATING_CLIENT: Boolean = true
 
 @OptIn(ExperimentalForeignApi::class)
-class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boolean = false): ZmqRouter(mem_scope) {
+class SpMs(
+    mem_scope: MemScope, 
+    val headless: Boolean = false, 
+    enable_gui: Boolean = false,
+    enable_media_session: Boolean = false
+): ZmqRouter(mem_scope) {
     private var item_durations: MutableMap<String, Long> = mutableMapOf()
     private val item_durations_channel: Channel<Unit> = Channel()
 
@@ -62,7 +67,8 @@ class SpMs(mem_scope: MemScope, val headless: Boolean = false, enable_gui: Boole
 
     private val media_session: SpMsMediaSession? =
         try {
-            SpMsMediaSession.create(player)
+            if (enable_media_session) SpMsMediaSession.create(player)
+            else null
         }
         catch (e: Throwable) {
             RuntimeException("Ignoring exception that occurred when creating media session", e).printStackTrace()

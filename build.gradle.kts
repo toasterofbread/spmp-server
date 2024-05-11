@@ -151,6 +151,9 @@ enum class CinteropLibraries {
             LIBMPV ->
                 if (platform == Platform.WINDOWS) listOf("libmpv-2.dll")
                 else emptyList()
+            LIBZMQ ->
+                if (platform == Platform.WINDOWS) listOf("libzmq-mt-4_3_5.dll")
+                else emptyList()
             else -> emptyList()
         }
 

@@ -11,6 +11,7 @@ class ServerLocalisationJa: ServerLocalisation {
     override val option_help_gui: String = "mpvのグラフィカルインタフェースを表示"
     override val option_help_mute: String = "実行時にプレイヤーをミュートする"
     override val option_help_headless: String = "mpvプレイヤーなしで実行"
+    override val option_no_media_session: String = "システムにメディアセッションを発信しない"
     override val option_help_icon: String = "アイコンへのパス"
 
     override val indicator_button_open_client: String = "クライアントを開く"

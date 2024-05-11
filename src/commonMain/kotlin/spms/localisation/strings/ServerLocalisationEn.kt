@@ -11,6 +11,7 @@ class ServerLocalisationEn: ServerLocalisation {
     override val option_help_gui: String = "Show mpv's graphical interface"
     override val option_help_mute: String = "Mute player on startup"
     override val option_help_headless: String = "Run without mpv"
+    override val option_no_media_session: String = "Don't broadcast media sessiont to system"
     override val option_help_icon: String = "Path to icon"
 
     override val indicator_button_open_client: String = "Open client"
