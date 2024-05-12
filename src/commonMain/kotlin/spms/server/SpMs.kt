@@ -25,11 +25,12 @@ import kotlin.system.exitProcess
 import kotlin.system.getTimeMillis
 
 const val SEND_EVENTS_TO_INSTIGATING_CLIENT: Boolean = true
+private const val CLIENT_REPLY_TIMEOUT_MS: Long = 100
 
 @OptIn(ExperimentalForeignApi::class)
 class SpMs(
-    mem_scope: MemScope, 
-    val headless: Boolean = false, 
+    mem_scope: MemScope,
+    val headless: Boolean = false,
     enable_gui: Boolean = false,
     enable_media_session: Boolean = false
 ): ZmqRouter(mem_scope) {
@@ -86,7 +87,7 @@ class SpMs(
             )
         ) + clients.map { it.info.copy(is_caller = it.id == caller) }
 
-    fun poll(client_reply_timeout_ms: Long) {
+    fun poll(client_reply_attempts: Int) {
 
         // Process stray messages (hopefully client handshakes)
         while (true) {
@@ -126,7 +127,7 @@ class SpMs(
             }
 
             // Wait for client to reply
-            val wait_end: Long = getTimeMillis() + client_reply_timeout_ms
+            val wait_end: Long = getTimeMillis() + CLIENT_REPLY_TIMEOUT_MS
             var client_reply: Message? = null
 
             while (true) {
@@ -150,9 +151,13 @@ class SpMs(
 
             // Client did not reply to message within timeout
             if (client_reply == null) {
-                onClientTimedOut(client, client_reply_timeout_ms)
+                if (++client.failed_connection_attempts >= client_reply_attempts) {
+                    onClientTimedOut(client, client_reply_attempts)
+                }
                 continue
             }
+
+            client.failed_connection_attempts = 0
 
             check(executing_client_id == null)
             executing_client_id = client.id
@@ -351,9 +356,9 @@ class SpMs(
         }
     }
 
-    private fun onClientTimedOut(client: SpMsClient, failed_timeout_ms: Long) {
+    private fun onClientTimedOut(client: SpMsClient, attempts: Int) {
         clients.remove(client)
-        println("$client failed to respond within timeout (${failed_timeout_ms}ms)")
+        println("$client failed to respond after $attempts attempts")
 
         if (
             client.type == SpMsClientType.PLAYER
