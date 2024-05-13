@@ -23,6 +23,8 @@ interface Player {
     val duration_ms: Long
     val repeat_mode: SpMsPlayerRepeatMode
 
+    fun canPlay(): Boolean
+
     fun play()
     fun pause()
     fun playPause()

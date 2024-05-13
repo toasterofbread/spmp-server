@@ -24,7 +24,8 @@ sealed class PlayerAction(
             PlayerActionSetAuthInfo(),
             PlayerActionAddLocalFiles(),
             PlayerActionRemoveLocalFiles(),
-            PlayerActionSetLocalFiles()
+            PlayerActionSetLocalFiles(),
+            PlayerActionCancelRadio()
         )
 
         fun getAll(): List<PlayerAction> = ALL

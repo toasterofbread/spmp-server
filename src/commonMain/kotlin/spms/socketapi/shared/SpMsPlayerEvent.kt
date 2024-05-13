@@ -13,7 +13,8 @@ data class SpMsPlayerEvent(val type: Type, val properties: Map<String, JsonPrimi
         ITEM_REMOVED,
         ITEM_MOVED,
         CLEARED,
-        READY_TO_PLAY
+        READY_TO_PLAY,
+        CANCEL_RADIO
     }
 
     var event_id: Int = -1
@@ -26,9 +27,27 @@ data class SpMsPlayerEvent(val type: Type, val properties: Map<String, JsonPrimi
         this.pending_client_amount = client_amount
     }
 
+    fun overrides(other: SpMsPlayerEvent): Boolean {
+        if (this == other) {
+            return true
+        }
+
+        if (type == Type.PROPERTY_CHANGED && properties["key"] == other.properties["key"]) {
+            return true
+        }
+
+        return false
+    }
+
     fun onConsumedByClient() {
         pending_client_amount--
     }
+
+    fun shouldSendToInstigatingClient(): Boolean =
+        when (type) {
+            Type.CANCEL_RADIO -> false
+            else -> true
+        }
 
     override fun toString(): String {
         return "$type($properties)"
@@ -44,5 +63,6 @@ data class SpMsPlayerEvent(val type: Type, val properties: Map<String, JsonPrimi
         fun ItemMoved(from: Int, to: Int) = SpMsPlayerEvent(Type.ITEM_MOVED, mapOf("from" to JsonPrimitive(from), "to" to JsonPrimitive(to)))
         fun QueueCleared() = SpMsPlayerEvent(Type.CLEARED)
         fun ReadyToPlay() = SpMsPlayerEvent(Type.READY_TO_PLAY)
+        fun CancelRadio() = SpMsPlayerEvent(Type.CANCEL_RADIO)
     }
 }

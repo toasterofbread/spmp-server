@@ -73,6 +73,10 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         get() = getProperty("playlist/${current_item_index}/id")
 
     override fun play() {
+        if (!canPlay()) {
+            return
+        }
+
         setProperty("pause", false)
         onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
     }
@@ -240,6 +244,10 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
 
     fun removeLocalFile(file_id: String) {
         local_files.remove(file_id)
+    }
+
+    fun cancelRadio() {
+        onEvent(SpMsPlayerEvent.CancelRadio())
     }
 
     override fun toString(): String = "MpvClientImpl(headless=$headless)"

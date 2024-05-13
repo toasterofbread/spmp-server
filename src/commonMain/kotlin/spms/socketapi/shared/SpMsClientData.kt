@@ -12,6 +12,12 @@ enum class SpMsClientType {
             SPMP_PLAYER, SPMP_STANDALONE, PLAYER, SERVER, COMMAND_LINE -> true
             else -> false
         }
+
+    fun playsAudio(): Boolean =
+        when (this) {
+            SPMP_PLAYER, PLAYER -> true
+            else -> false
+        }
 }
 
 enum class SpMsPlayerState {

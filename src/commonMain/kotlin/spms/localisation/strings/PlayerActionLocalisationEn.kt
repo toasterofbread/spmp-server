@@ -8,6 +8,9 @@ class PlayerActionLocalisationEn: PlayerActionLocalisation {
     override val set_local_files_name: String = "Set local files"
     override val set_local_files_help: String = "Identical to addLocalFiles, but clears previously added files before adding new ones"
     override val set_local_files_param_files: String = "A JSON-encoded map where keys are video IDs and values are absolute paths to files"
+    
+    override val cancel_radio_name: String = "Cancel radio"
+    override val cancel_radio_help: String = "Cancel any currently running radios on the player"
 
     override val add_local_files_name: String = "Add local files"
     override val add_local_files_help: String = "Provide the player with paths to local files for playback"

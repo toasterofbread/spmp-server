@@ -109,6 +109,7 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
                 SpMsPlayerEvent.Type.CLEARED -> {
                     clearQueue()
                 }
+                SpMsPlayerEvent.Type.CANCEL_RADIO -> {}
                 SpMsPlayerEvent.Type.READY_TO_PLAY -> {}
             }
         }
@@ -142,6 +143,8 @@ class PlayerClient private constructor(): Command(
             override fun onShutdown() {
                 shutdown = true
             }
+
+            override fun canPlay() = true
 
             override fun onReadyToPlay() {
                 queued_messages.add("readyToPlay" to listOf(JsonPrimitive(current_item_index), JsonPrimitive(getItem()), JsonPrimitive(duration_ms)))

@@ -8,6 +8,9 @@ interface PlayerActionLocalisation {
     val set_local_files_name: String
     val set_local_files_help: String
     val set_local_files_param_files: String
+    
+    val cancel_radio_name: String
+    val cancel_radio_help: String
 
     val add_local_files_name: String
     val add_local_files_help: String

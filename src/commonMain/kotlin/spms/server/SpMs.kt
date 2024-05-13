@@ -24,7 +24,6 @@ import kotlin.experimental.ExperimentalNativeApi
 import kotlin.system.exitProcess
 import kotlin.system.getTimeMillis
 
-const val SEND_EVENTS_TO_INSTIGATING_CLIENT: Boolean = true
 private const val CLIENT_REPLY_TIMEOUT_MS: Long = 100
 
 @OptIn(ExperimentalForeignApi::class)
@@ -57,11 +56,20 @@ class SpMs(
                     return cached
                 }
 
+                override fun canPlay(): Boolean = !playback_waiting_for_clients
                 override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
                 override fun onShutdown() = onPlayerShutdown()
             }
         else
             object : MpvClientImpl(headless = !enable_gui) {
+                override fun canPlay(): Boolean {
+                    if (playback_waiting_for_clients) {
+                        val waiting_for_clients: List<SpMsClient> = clients.filter { it.type.playsAudio() && !it.ready_to_play }
+                        println("Call to canPlay returning false, waiting for the following clients: $waiting_for_clients")
+                        return false
+                    }
+                    return true
+                }
                 override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
                 override fun onShutdown() = onPlayerShutdown()
             }
@@ -208,13 +216,18 @@ class SpMs(
 
     fun onClientReadyToPlay(client_id: SpMsClientID, item_index: Int, item_id: String, item_duration_ms: Long) {
         if (!playback_waiting_for_clients) {
+            println("Got readyToPlay from a client, but playback_waiting_for_clients is false, ignoring")
             return
         }
 
-        val ready_client: SpMsClient = clients.first { it.id == client_id }
+        val ready_client: SpMsClient? = clients.firstOrNull { it.id == client_id }
+        if (ready_client == null) {
+            println("Got readyToPlay from an unknown client, ignoring")
+            return
+        }
 
         if (item_index != player.current_item_index || item_id != player.getItem()) {
-            println("Got readyToPlay from $ready_client with mismatched index and/or item ID ($item_index, $item_id instead of ${player.current_item_index}, ${player.getItem()})")
+            println("Got readyToPlay from $ready_client with mismatched index and/or item ID, ignoring ($item_index, $item_id instead of ${player.current_item_index}, ${player.getItem()})")
             return
         }
 
@@ -226,14 +239,22 @@ class SpMs(
         item_durations_channel.trySend(Unit)
 
         if (ready_client.ready_to_play) {
+            println("Got readyToPlay from $ready_client, but it is already marked as ready, ignoring")
             return
         }
 
         ready_client.ready_to_play = true
 
-        if (clients.all { it.type != SpMsClientType.PLAYER || it.ready_to_play }) {
-            player.play()
+        val waiting_for: Int = clients.count { it.type.playsAudio() && !it.ready_to_play }
+
+        if (waiting_for == 0) {
+            println("Got readyToPlay from $ready_client, beginning playback")
+
             playback_waiting_for_clients = false
+            player.play()
+        }
+        else {
+            println("Got readyToPlay from $ready_client, but still waiting for $waiting_for other clients to be ready")
         }
     }
 
@@ -245,7 +266,8 @@ class SpMs(
             return
         }
 
-        println("Event ($clientless): $event")
+        val event_client: SpMsClient? = clients.firstOrNull { it.id == event.client_id }
+        println("Event ($clientless, $event_client): $event")
 
         media_session?.onPlayerEvent(event)
 
@@ -253,11 +275,16 @@ class SpMs(
             return
         }
 
-        if (event.type == SpMsPlayerEvent.Type.ITEM_TRANSITION) {
+        if (event.type == SpMsPlayerEvent.Type.ITEM_TRANSITION || event.type == SpMsPlayerEvent.Type.SEEKED) {
+            var paused: Boolean = false
             for (client in clients) {
                 client.ready_to_play = false
 
-                if (client.type == SpMsClientType.PLAYER) {
+                if (client.type.playsAudio()) {
+                    if (!paused) {
+                        player.pause()
+                        paused = true
+                    }
                     playback_waiting_for_clients = true
                 }
             }
@@ -268,6 +295,15 @@ class SpMs(
             client_id = if (clientless) null else executing_client_id,
             client_amount = clients.count { it.type.receivesEvents() }
         )
+
+        val i: MutableIterator<SpMsPlayerEvent> = player_events.iterator()
+        while (i.hasNext()) {
+            val other: SpMsPlayerEvent = i.next()
+            if (event.overrides(other)) {
+                i.remove()
+            }
+        }
+
         player_events.add(event)
     }
 
@@ -349,10 +385,8 @@ class SpMs(
     private fun onClientConnected(client: SpMsClient) {
         println("Client connected: $client")
 
-        if (client.type == SpMsClientType.PLAYER) {
-            if (!playback_waiting_for_clients && player.state == SpMsPlayerState.BUFFERING) {
-                playback_waiting_for_clients = true
-            }
+        if (client.type.playsAudio() && player.state == SpMsPlayerState.BUFFERING) {
+            playback_waiting_for_clients = true
         }
     }
 
@@ -361,9 +395,9 @@ class SpMs(
         println("$client failed to respond after $attempts attempts")
 
         if (
-            client.type == SpMsClientType.PLAYER
+            client.type.playsAudio()
             && !client.ready_to_play
-            && clients.all { it.type != SpMsClientType.PLAYER || it.ready_to_play }
+            && clients.all { !it.type.playsAudio() || it.ready_to_play }
         ) {
             player.play()
             playback_waiting_for_clients = false
@@ -372,7 +406,7 @@ class SpMs(
 
     private fun getEventsForClient(client: SpMsClient): List<SpMsPlayerEvent> =
         player_events.filter { event ->
-            event.event_id >= client.event_head && (SEND_EVENTS_TO_INSTIGATING_CLIENT || event.client_id != client.id)
+            event.event_id >= client.event_head && (event.shouldSendToInstigatingClient() || event.client_id != client.id)
         }
 
     private fun SpMsClient.createMessage(parts: List<String>): ZmqRouter.Message =

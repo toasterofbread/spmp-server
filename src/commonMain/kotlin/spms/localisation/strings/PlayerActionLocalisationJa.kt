@@ -9,6 +9,9 @@ class PlayerActionLocalisationJa: PlayerActionLocalisation {
     override val set_local_files_help: String = "addLocalFilesと同じ機能だが、新しいファイルを追加する前にもとから設定されていたファイルをクリア"
     override val set_local_files_param_files: String = "キーが動画IDでバリューがファイルへのパースのJSONでエンコードされたマップ"
 
+    override val cancel_radio_name: String = "ラジオを止める"
+    override val cancel_radio_help: String = "現在のプレイヤーラジオを停止する"
+
     override val add_local_files_name: String = "ローカルファイルを追加"
     override val add_local_files_help: String = "オーディオストリーミングに使用するこのデバイスに存在するファイルをプレイヤーに送信"
     override val add_local_files_param_files: String = "キーが動画IDでバリューがファイルへのパースのJSONでエンコードされたマップ"
