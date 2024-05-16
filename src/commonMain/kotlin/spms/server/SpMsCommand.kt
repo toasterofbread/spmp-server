@@ -28,6 +28,7 @@ import platform.posix.getenv
 import kotlinx.cinterop.toKString
 import spms.*
 import spms.socketapi.shared.SPMS_DEFAULT_PORT
+import cinterop.mpv.LibMpvClient
 
 const val PROJECT_URL: String = "https://github.com/toasterofbread/spmp-server"
 const val BUG_REPORT_URL: String = PROJECT_URL + "/issues"
@@ -99,7 +100,7 @@ class PlayerOptions: OptionGroup() {
 @OptIn(ExperimentalForeignApi::class)
 class SpMsCommand: Command(
     name = "spms",
-    help = { cli.command_help_root },
+    help = { cli.commandHelpRoot(mpv_enabled = LibMpvClient.isAvailable()) },
     is_default = true
 ) {
     private val port: Int by option("-p", "--port").int().default(SPMS_DEFAULT_PORT).help { context.loc.server.option_help_port }
@@ -122,11 +123,11 @@ class SpMsCommand: Command(
         var stop: Boolean = false
 
         memScoped {
-            val server: SpMs = 
+            val server: SpMs =
                 SpMs(
-                    mem_scope = this, 
-                    headless = headless, 
-                    enable_gui = player_options.enable_gui, 
+                    mem_scope = this,
+                    headless = headless,
+                    enable_gui = player_options.enable_gui,
                     enable_media_session = !no_media_session
                 )
             server.bind(port)

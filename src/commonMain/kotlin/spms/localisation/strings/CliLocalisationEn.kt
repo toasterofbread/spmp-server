@@ -5,7 +5,12 @@ import spms.server.BUG_REPORT_URL
 class CliLocalisationEn: CliLocalisation {
     override val bug_report_notice: String = "Report bugs at $BUG_REPORT_URL"
 
-    override val command_help_root: String = "Desktop server component for SpMp. Uses MPV for audio streaming and playback."
+    override fun commandHelpRoot(mpv_enabled: Boolean): String =
+        "Desktop server component for SpMp. " + (
+            if (mpv_enabled) "Uses mpv for audio streaming and playback."
+            else "This binary was built without support for mpv. Headless mode will always be enabled."
+        )
+
     override val command_help_ctrl: String = "Command-line interface for interacting with other servers"
 
     override val option_group_help_controller: String = "Controller options"

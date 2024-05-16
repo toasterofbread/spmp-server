@@ -1,0 +1,5 @@
+package cinterop.mpv
+
+internal suspend fun MpvClientImpl.eventLoop() {
+    throw NotImplementedError()
+}

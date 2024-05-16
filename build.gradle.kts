@@ -9,7 +9,6 @@ import org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenRootPlugin.Compan
 import org.jetbrains.kotlin.gradle.tasks.CompileUsingKotlinDaemon
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
 
-val FLAG_LINK_STATIC: String = "linkStatic"
 val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
 
 plugins {
@@ -24,11 +23,20 @@ repositories {
     maven("https://jitpack.io")
 }
 
-val platform_specific_files: List<String> = listOf(
-    "cinterop/indicator/TrayIndicatorImpl.kt",
-    "spms/Platform.kt",
-    "spms/server/SpMsMediaSession.kt"
-)
+val PLATFORM_SPECIFIC_FILES: List<String> =
+    listOf(
+        "cinterop/indicator/TrayIndicatorImpl.kt",
+        "spms/Platform.kt",
+        "spms/server/SpMsMediaSession.kt"
+    )
+
+enum class BuildFlag {
+    DISABLE_MPV,
+    LINK_STATIC;
+
+    fun isEnabled(project: Project): Boolean =
+        project.hasProperty(name)
+}
 
 enum class Arch {
     X86_64, ARM64;
@@ -144,6 +152,18 @@ enum class CinteropLibraries {
         when (this) {
             LIBAPPINDICATOR -> platform.is_linux
             else -> true
+        }
+
+    fun includeInProject(project: Project): Boolean =
+        when (this) {
+            LIBMPV -> !BuildFlag.DISABLE_MPV.isEnabled(project)
+            else -> true
+        }
+
+    fun getDependentFiles(): List<String> =
+        when (this) {
+            LIBMPV -> listOf("cinterop/mpv/LibMpvClient.kt", "cinterop/mpv/MpvClientEventLoop.kt")
+            else -> emptyList()
         }
 
     fun getBinaryDependencies(platform: Platform): List<String> =
@@ -323,14 +343,14 @@ fun KotlinMultiplatformExtension.configureKotlinTarget(platform: Platform) {
         Platform.OSX_ARM -> macosArm64(platform.identifier)
     }
 
-    val static: Boolean = project.hasProperty(FLAG_LINK_STATIC)
+    val static: Boolean = BuildFlag.LINK_STATIC.isEnabled(project)
     val deps_directory: File = platform.getNativeDependenciesDir(project)
 
     native_target.apply {
         compilations.getByName("main") {
             cinterops {
                 for (library in CinteropLibraries.values()) {
-                    if (!library.includeOnPlatform(platform)) {
+                    if (!library.includeOnPlatform(platform) || !library.includeInProject(project)) {
                         continue
                     }
 
@@ -354,7 +374,7 @@ fun KotlinMultiplatformExtension.configureKotlinTarget(platform: Platform) {
                 }
 
                 for (library in CinteropLibraries.values()) {
-                    if (!library.includeOnPlatform(platform)) {
+                    if (!library.includeOnPlatform(platform) || !library.includeInProject(project)) {
                         continue
                     }
                     library.configureExecutable(platform, static, this, deps_directory)
@@ -436,6 +456,7 @@ tasks.register("bundleIcon") {
     }
 }
 
+
 for (platform in Platform.supported) {
     val print_target_task by tasks.register("printTarget${platform.identifier}") {
         doLast {
@@ -443,13 +464,43 @@ for (platform in Platform.supported) {
         }
     }
 
+    fun String.getFile(suffix: String? = null): File =
+        project.file("src/commonMain/kotlin/" + if (suffix == null) this.replace(".kt", ".gen.kt") else (this + suffix))
+
+    val configure_library_dependent_files_task by tasks.register("configureLibraryDependentFiles${platform.identifier}") {
+        outputs.upToDateWhen { false }
+
+        for (library in CinteropLibraries.values()) {
+            for (path in library.getDependentFiles()) {
+                outputs.file(path.getFile())
+                inputs.file(path.getFile(".enabled"))
+                inputs.file(path.getFile(".disabled"))
+            }
+        }
+
+        doLast {
+            for (library in CinteropLibraries.values()) {
+                val enabled: Boolean = library.includeOnPlatform(platform) && library.includeInProject(project)
+
+                for (path in library.getDependentFiles()) {
+                    val out_file: File = path.getFile()
+                    val in_file: File = path.getFile(if (enabled) ".enabled" else ".disabled")
+
+                    out_file.writer().use { writer ->
+                        writer.write(GENERATED_FILE_PREFIX)
+
+                        in_file.reader().use { reader ->
+                            reader.transferTo(writer)
+                        }
+                    }
+                }
+            }
+        }
+    }
     val configure_platform_files_task by tasks.register("configurePlatformFiles${platform.identifier}") {
         outputs.upToDateWhen { false }
 
-        fun String.getFile(suffix: String? = null): File =
-            project.file("src/commonMain/kotlin/" + if (suffix == null) this.replace(".kt", ".gen.kt") else (this + suffix))
-
-        for (path in platform_specific_files) {
+        for (path in PLATFORM_SPECIFIC_FILES) {
             outputs.file(path.getFile())
 
             val input_files: List<File> =
@@ -462,7 +513,7 @@ for (platform in Platform.supported) {
         }
 
         doLast {
-            for (path in platform_specific_files) {
+            for (path in PLATFORM_SPECIFIC_FILES) {
                 val out_file: File = path.getFile()
 
                 for (platform_file in listOf(
@@ -494,6 +545,7 @@ for (platform in Platform.supported) {
         dependsOn(print_target_task)
         dependsOn("bundleIcon")
         dependsOn(configure_platform_files_task)
+        dependsOn(configure_library_dependent_files_task)
     }
 
     val check_dependencies_task by tasks.register("checkDependencies${platform.identifier}") {

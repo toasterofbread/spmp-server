@@ -3,7 +3,6 @@ package cinterop.mpv
 import kotlinx.cinterop.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.JsonPrimitive
-import libmpv.*
 import okio.FileSystem
 import okio.Path.Companion.toPath
 import spms.socketapi.shared.SpMsPlayerEvent
@@ -22,11 +21,15 @@ inline fun <reified T: CPointed> CPointer<*>?.pointedAs(): T =
 
 @OptIn(ExperimentalForeignApi::class)
 abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
+    companion object {
+        fun isAvailable(): Boolean = LibMpvClient.isAvailable()
+    }
+
     private val coroutine_scope = CoroutineScope(Job())
     private var auth_headers: Map<String, String>? = null
     private val local_files: MutableMap<String, String> = mutableMapOf()
 
-    private var song_initial_seek_position_ms: Long? = null
+    internal var song_initial_seek_position_ms: Long? = null
 
     private fun urlToId(url: String): String? = if (url.startsWith(URL_PREFIX)) url.drop(URL_PREFIX.length) else null
     private fun idToUrl(item_id: String): String = URL_PREFIX + item_id
@@ -69,7 +72,7 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
             }
         }
 
-    private val current_item_playlist_id: Int
+    internal val current_item_playlist_id: Int
         get() = getProperty("playlist/${current_item_index}/id")
 
     override fun play() {
@@ -263,67 +266,7 @@ abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
         }
     }
 
-    private suspend fun eventLoop() = withContext(Dispatchers.IO) {
-        while (true) {
-            val event: mpv_event? = waitForEvent()
-
-            when (event?.event_id) {
-                MPV_EVENT_START_FILE -> {
-                    val data: mpv_event_start_file = event.data.pointedAs()
-                    if (data.playlist_entry_id.toInt() != current_item_playlist_id) {
-                        continue
-                    }
-
-                    onEvent(SpMsPlayerEvent.ItemTransition(current_item_index), clientless = true)
-                }
-                MPV_EVENT_PLAYBACK_RESTART -> {
-                    onEvent(SpMsPlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
-                    onEvent(SpMsPlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration_ms)), clientless = true)
-                    onEvent(SpMsPlayerEvent.SeekedToTime(current_position_ms), clientless = true)
-                }
-                MPV_EVENT_END_FILE -> {
-                    onEvent(SpMsPlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
-                }
-                MPV_EVENT_FILE_LOADED -> {
-                    onEvent(SpMsPlayerEvent.ReadyToPlay(), clientless = true)
-
-                    song_initial_seek_position_ms?.also { position_ms ->
-                        seekToTime(position_ms)
-                        song_initial_seek_position_ms = null
-                    }
-                }
-                MPV_EVENT_SHUTDOWN -> {
-                    onShutdown()
-                }
-                MPV_EVENT_PROPERTY_CHANGE -> {
-                    val data: mpv_event_property = event.data.pointedAs()
-
-                    when (data.name?.safeToKString()) {
-                        "core-idle" -> {
-                            val playing: Boolean = !data.data.pointedAs<BooleanVar>().value
-                            onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(playing)), clientless = true)
-                        }
-                    }
-                }
-
-                MPV_EVENT_HOOK -> {
-                    val data: mpv_event_hook = event.data.pointedAs()
-                    launch {
-                        onMpvHook(data.name?.safeToKString(), data.id)
-                    }
-                }
-
-                MPV_EVENT_LOG_MESSAGE -> {
-                    if (SpMs.logging_enabled) {
-                        val message: mpv_event_log_message = event.data.pointedAs()
-                        SpMs.log("From mpv (${message.prefix?.safeToKString()}): ${message.text?.safeToKString()}")
-                    }
-                }
-            }
-        }
-    }
-
-    private suspend fun onMpvHook(hook_name: String?, hook_id: ULong) {
+    internal suspend fun onMpvHook(hook_name: String?, hook_id: ULong) {
         try {
             when (hook_name) {
                 "on_load" -> {

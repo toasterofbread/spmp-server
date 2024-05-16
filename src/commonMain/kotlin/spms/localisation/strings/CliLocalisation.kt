@@ -3,7 +3,7 @@ package spms.localisation.strings
 interface CliLocalisation {
     val bug_report_notice: String
 
-    val command_help_root: String
+    fun commandHelpRoot(mpv_enabled: Boolean): String
     val command_help_ctrl: String
 
     val option_group_help_controller: String

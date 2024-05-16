@@ -117,6 +117,10 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
             throw RuntimeException("Processing event $event failed", e)
         }
     }
+
+    companion object {
+        fun isAvailable(): Boolean = MpvClientImpl.isAvailable()
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class)
@@ -125,6 +129,10 @@ class PlayerClient private constructor(): Command(
     help = { "TODO" },
     is_default = true
 ) {
+    companion object {
+        fun get(): PlayerClient? = if (PlayerImpl.isAvailable()) PlayerClient() else null
+    }
+
     private val client_options by ClientOptions()
     private val player_options by PlayerOptions()
 
@@ -302,9 +310,5 @@ class PlayerClient private constructor(): Command(
         }
 
         return events.orEmpty()
-    }
-
-    companion object {
-        fun get(): PlayerClient = PlayerClient()
     }
 }

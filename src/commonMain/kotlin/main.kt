@@ -10,7 +10,7 @@ fun String.toRed() =
 
 fun main(args: Array<String>) {
     try {
-        val command: Command = SpMsCommand().subcommands(CommandLineClient.get(), PlayerClient.get())
+        val command: Command = SpMsCommand().subcommands(listOfNotNull(CommandLineClient.get(), PlayerClient.get()))
         command.main(args)
     }
     catch (e: Throwable) {

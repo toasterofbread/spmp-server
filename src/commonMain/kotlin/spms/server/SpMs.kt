@@ -43,7 +43,7 @@ class SpMs(
     private var playback_waiting_for_clients: Boolean = false
 
     val player: Player =
-        if (headless)
+        if (headless || !MpvClientImpl.isAvailable())
             object : HeadlessPlayer() {
                 override fun getCachedItemDuration(item_id: String): Long? = item_durations[item_id]
 

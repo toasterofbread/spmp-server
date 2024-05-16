@@ -10,11 +10,15 @@ import libmpv.mpv_format as MpvFormat
 
 @OptIn(ExperimentalForeignApi::class)
 abstract class LibMpvClient(val headless: Boolean = true): Player {
+    companion object {
+        fun isAvailable(): Boolean = true
+    }
+
     protected val ctx: CPointer<MpvHandle>
 
     init {
         ctx = mpv_create_client(null, null)
-            ?: throw NullPointerException("Creating MPV client failed")
+            ?: throw NullPointerException("Creating mpv client failed")
 
         memScoped {
             val vid: BooleanVar = alloc()
@@ -31,7 +35,7 @@ abstract class LibMpvClient(val headless: Boolean = true): Player {
         }
 
         val init_result: Int = mpv_initialize(ctx)
-        check(init_result == 0) { "Initialising MPV client failed ($init_result)" }
+        check(init_result == 0) { "Initialising mpv client failed ($init_result)" }
     }
 
     override fun release() {
@@ -124,7 +128,7 @@ abstract class LibMpvClient(val headless: Boolean = true): Player {
             else -> throw NotImplementedError(cls.toString())
         }
 
-    protected fun waitForEvent(): mpv_event? =
+    internal fun waitForEvent(): mpv_event? =
         mpv_wait_event(ctx, -1.0)?.pointed
 
     protected fun requestLogMessages() {

@@ -5,7 +5,12 @@ import spms.server.BUG_REPORT_URL
 class CliLocalisationJa: CliLocalisation {
     override val bug_report_notice: String = "$BUG_REPORT_URL にバグを報告してください"
 
-    override val command_help_root: String = "SpMpのデスクトップ用サーバープログラム。オーディオのストリーミングと再生にはmpvを使用します。"
+    override fun commandHelpRoot(mpv_enabled: Boolean): String =
+        "SpMpのデスクトップ用サーバープログラム。" + (
+            if (mpv_enabled) "オーディオのストリーミングと再生にはmpvを使用します。"
+            else "このバイナリは mpv サポートなしでコンパイルされました。常に「headless」モードを使用します。"
+        )
+
     override val command_help_ctrl: String = "他のサーバと交流するコマンドラインインターフェイス"
 
     override val option_group_help_controller: String = "CLIのオプション"
