@@ -5,11 +5,13 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
+    if: ${{ github.event.pull_request.draft == false && (github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'noci')) }}
 
     steps:
     - uses: actions/checkout@v3
@@ -51,7 +53,7 @@ jobs:
       uses: gradle/gradle-build-action@v3
 
     - name: Build windows-x86_64 binaries
-      run: .\gradlew.bat windows-x86_64Binaries -PlinkStatic
+      run: .\gradlew.bat windows-x86_64Binaries -PLINK_STATIC
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
@@ -65,8 +67,23 @@ jobs:
         name: spms-windows-x86_64-release
         path: build\bin\windows-x86_64\releaseExecutable\*.exe
 
-    # - name: Upload DLL dependencies
-    #   uses: actions/upload-artifact@v3
-    #   with:
-    #     name: dependencies
-    #     path: build\bin\windows-x86_64\releaseExecutable\*.dll
+    - name: Build windows-x86_64 binaries without mpv
+      run: .\gradlew.bat windows-x86_64Binaries -PLINK_STATIC -PDISABLE_MPV
+
+    - name: Upload debug binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-nompv-windows-x86_64-debug
+        path: build\bin\windows-x86_64\debugExecutable\*.exe
+
+    - name: Upload release binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-nompv-windows-x86_64-release
+        path: build\bin\windows-x86_64\releaseExecutable\*.exe
+
+    - name: Upload DLL dependencies
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependencies
+        path: build\bin\windows-x86_64\releaseExecutable\*.dll

@@ -5,12 +5,14 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 jobs:
   build-spms:
     runs-on: ubuntu-22.04
     container: ubuntu:23.04
+    if: ${{ github.event.pull_request.draft == false && (github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'noci')) }}
 
     env:
       TOOLCHAIN_VERSION: aarch64-unknown-linux-gnu-gcc-8.3.0-glibc-2.25-kernel-4.9-2
@@ -125,7 +127,7 @@ jobs:
       run: chmod +x gradle
 
     - name: Build linux-arm64 binaries
-      run: ./gradlew linux-arm64Binaries -PlinkStatic
+      run: ./gradlew linux-arm64Binaries -PLINK_STATIC
 
     - name: Strip release binary
       run: $TOOLCHAIN/bin/aarch64-unknown-linux-gnu-strip build/bin/linux-arm64/releaseExecutable/*.kexe
@@ -141,3 +143,22 @@ jobs:
       with:
         name: spms-linux-arm64-release
         path: build/bin/linux-arm64/releaseExecutable/*.kexe
+
+    - name: Build linux-arm64 binaries without mpv
+      run: ./gradlew linux-arm64Binaries -PLINK_STATIC -PDISABLE_MPV
+
+    - name: Strip release binary
+      run: $TOOLCHAIN/bin/aarch64-unknown-linux-gnu-strip build/bin/linux-arm64/releaseExecutable/*.kexe
+
+    - name: Upload debug binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-nompv-linux-arm64-debug
+        path: build/bin/linux-arm64/debugExecutable/*.kexe
+
+    - name: Upload release binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-nompv-linux-arm64-release
+        path: build/bin/linux-arm64/releaseExecutable/*.kexe
+
