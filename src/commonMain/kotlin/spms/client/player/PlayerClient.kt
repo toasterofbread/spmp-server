@@ -35,9 +35,25 @@ private fun getClientName(): String =
     "SpMs Player Client"
 
 private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headless = headless, playlist_auto_progress = false) {
+    private var applied_server_state: SpMsServerState? = null
+    private var server_state_applied_time: TimeMark? = null
+
     override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) {
         if (event.type == SpMsPlayerEvent.Type.READY_TO_PLAY) {
             onReadyToPlay()
+
+            applied_server_state?.also { state ->
+                var position: Duration = with (Duration) { state.current_position_ms.milliseconds }
+
+                if (state.is_playing) {
+                    position += server_state_applied_time!!.elapsedNow()
+                }
+
+                seekToTime(position.inWholeMilliseconds)
+
+                applied_server_state = null
+                server_state_applied_time = null
+            }
         }
     }
 
@@ -50,7 +66,6 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
         }
 
         seekToItem(state.current_item_index)
-        seekToTime(state.current_position_ms.toLong())
 
         if (state.is_playing) {
             play()
@@ -58,6 +73,9 @@ private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headl
         else {
             pause()
         }
+
+        applied_server_state = state
+        server_state_applied_time = TimeSource.Monotonic.markNow()
     }
 
     fun processServerEvent(event: SpMsPlayerEvent) {
