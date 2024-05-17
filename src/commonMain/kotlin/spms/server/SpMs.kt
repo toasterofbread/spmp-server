@@ -226,6 +226,11 @@ class SpMs(
             return
         }
 
+        if (item_duration_ms <= 0) {
+            println("Got readyToPlay from a $ready_client with invalid duration ($item_duration_ms), ignoring")
+            return
+        }
+
         if (item_index != player.current_item_index || item_id != player.getItem()) {
             println("Got readyToPlay from $ready_client with mismatched index and/or item ID, ignoring ($item_index, $item_id instead of ${player.current_item_index}, ${player.getItem()})")
             return
@@ -239,7 +244,7 @@ class SpMs(
         item_durations_channel.trySend(Unit)
 
         if (ready_client.ready_to_play) {
-            println("Got readyToPlay from $ready_client, but it is already marked as ready, ignoring")
+            println("Got readyToPlay from $ready_client, but it is already marked as ready, ignoring (duration=$item_duration_ms)")
             return
         }
 
@@ -248,13 +253,13 @@ class SpMs(
         val waiting_for: Int = clients.count { it.type.playsAudio() && !it.ready_to_play }
 
         if (waiting_for == 0) {
-            println("Got readyToPlay from $ready_client, beginning playback")
+            println("Got readyToPlay from $ready_client, beginning playback (duration=$item_duration_ms)")
 
             playback_waiting_for_clients = false
             player.play()
         }
         else {
-            println("Got readyToPlay from $ready_client, but still waiting for $waiting_for other clients to be ready")
+            println("Got readyToPlay from $ready_client, but still waiting for $waiting_for other clients to be ready (duration=$item_duration_ms)")
         }
     }
 
@@ -276,17 +281,18 @@ class SpMs(
         }
 
         if (event.type == SpMsPlayerEvent.Type.ITEM_TRANSITION || event.type == SpMsPlayerEvent.Type.SEEKED) {
-            var paused: Boolean = false
+            var audio_client_present: Boolean = false
+
             for (client in clients) {
                 client.ready_to_play = false
-
                 if (client.type.playsAudio()) {
-                    if (!paused) {
-                        player.pause()
-                        paused = true
-                    }
-                    playback_waiting_for_clients = true
+                    audio_client_present = true
                 }
+            }
+
+            if (player is HeadlessPlayer || audio_client_present) {
+                player.pause()
+                playback_waiting_for_clients = true
             }
         }
 
