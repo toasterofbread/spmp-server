@@ -6,6 +6,7 @@ import platform.posix.memcpy
 import spms.zmqPollerWait
 import spms.socketapi.shared.SpMsSocketApi
 import spms.socketapi.shared.SPMS_MESSAGE_MAX_SIZE
+import kotlin.time.Duration
 
 @OptIn(ExperimentalForeignApi::class)
 class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
@@ -88,14 +89,14 @@ class ZmqSocket(mem_scope: MemScope, type: Int, val is_binder: Boolean) {
         zmq_ctx_destroy(context)
     }
 
-    fun recvStringMultipart(timeout_ms: Long?): List<String>? {
-        val message: List<ByteArray> = recvMultipart(timeout_ms) ?: return null
+    fun recvStringMultipart(timeout: Duration?): List<String>? {
+        val message: List<ByteArray> = recvMultipart(timeout) ?: return null
         return SpMsSocketApi.decode(message.map { it.decodeToString() })
     }
 
-    fun recvMultipart(timeout_ms: Long?): List<ByteArray>? = memScoped {
+    fun recvMultipart(timeout: Duration?): List<ByteArray>? = memScoped {
         val event: zmq_poller_event_t = alloc()
-        zmqPollerWait(poller, event.ptr, timeout_ms ?: ZMQ_NOBLOCK.toLong())
+        zmqPollerWait(poller, event.ptr, timeout?.inWholeMilliseconds ?: ZMQ_NOBLOCK.toLong())
 
         if (event.events.toInt() != ZMQ_POLLIN) {
             return null

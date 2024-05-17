@@ -1,5 +1,7 @@
 package spms.localisation.strings
 
+import kotlin.time.Duration
+
 class ServerActionLocalisationEn: ServerActionLocalisation {
     override fun sendingActionToServer(action_identifier: String): String =
         "Sending action '$action_identifier' to server..."
@@ -11,8 +13,8 @@ class ServerActionLocalisationEn: ServerActionLocalisation {
     override fun receivedEmptyReplyFromServer(action_identifier: String): String =
         "Received empty reply from server for action '$action_identifier', continuing to wait..."
 
-    override fun replyNotReceived(timeout_ms: Long): String =
-        "Did not receive valid reply from server within timeout (${timeout_ms}ms)"
+    override fun replyNotReceived(timeout: Duration): String =
+        "Did not receive valid reply from server within timeout ($timeout)"
 
     override val server_completed_request_successfully: String = "The server completed the request successfully"
     override fun serverDidNotCompleteRequest(error: String, cause: String): String =

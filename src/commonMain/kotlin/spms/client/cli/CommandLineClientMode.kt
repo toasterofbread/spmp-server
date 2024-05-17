@@ -48,10 +48,10 @@ abstract class CommandLineClientMode(
             )
             context.socket.sendStringMultipart(listOf(Json.encodeToString(handshake)))
 
-            val reply: List<String>? = context.socket.recvStringMultipart(SERVER_REPLY_TIMEOUT_MS)
+            val reply: List<String>? = context.socket.recvStringMultipart(SERVER_REPLY_TIMEOUT)
 
             if (reply == null) {
-                throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotRespond(SERVER_REPLY_TIMEOUT_MS))
+                throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotRespond(SERVER_REPLY_TIMEOUT))
             }
 
             log(currentContext.loc.cli.handshake_reply_received + " " + reply.toString())

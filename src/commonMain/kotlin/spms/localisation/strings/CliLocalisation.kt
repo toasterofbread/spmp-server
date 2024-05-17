@@ -1,5 +1,7 @@
 package spms.localisation.strings
 
+import kotlin.time.Duration
+
 interface CliLocalisation {
     val bug_report_notice: String
 
@@ -18,8 +20,8 @@ interface CliLocalisation {
     val status_key_state: String
     val status_key_is_playing: String
     val status_key_current_item_index: String
-    val status_key_current_position_ms: String
-    val status_key_duration_ms: String
+    val status_key_current_position: String
+    val status_key_duration: String
     val status_key_repeat_mode: String
 
     fun connectingToSocket(address: String): String
@@ -30,6 +32,6 @@ interface CliLocalisation {
 
     val poll_polling_server_for_events: String
 
-    fun errServerDidNotRespond(timeout_ms: Long): String
-    fun errServerDidNotSendEvents(timeout_ms: Long): String
+    fun errServerDidNotRespond(timeout: Duration): String
+    fun errServerDidNotSendEvents(timeout: Duration): String
 }

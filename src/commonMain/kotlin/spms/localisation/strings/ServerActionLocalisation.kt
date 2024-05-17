@@ -1,11 +1,13 @@
 package spms.localisation.strings
 
+import kotlin.time.Duration
+
 interface ServerActionLocalisation {
     fun sendingActionToServer(action_identifier: String): String
     fun actionSentAndWaitingForReply(action_identifier: String): String
     fun receivedReplyFromServer(action_identifier: String): String
     fun receivedEmptyReplyFromServer(action_identifier: String): String
-    fun replyNotReceived(timeout_ms: Long): String
+    fun replyNotReceived(timeout: Duration): String
 
     val server_completed_request_successfully: String
     fun serverDidNotCompleteRequest(error: String, cause: String): String

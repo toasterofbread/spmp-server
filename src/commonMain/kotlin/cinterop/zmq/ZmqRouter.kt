@@ -6,6 +6,7 @@ import kotlinx.cinterop.cstr
 import kotlinx.cinterop.toCValues
 import libzmq.*
 import spms.socketapi.shared.SpMsSocketApi
+import kotlin.time.Duration
 
 @OptIn(ExperimentalForeignApi::class)
 abstract class ZmqRouter(mem_scope: MemScope) {
@@ -36,8 +37,8 @@ abstract class ZmqRouter(mem_scope: MemScope) {
         socket.release()
     }
 
-    protected fun recvMultipart(timeout_ms: Long?): Message? {
-        val parts: List<ByteArray> = socket.recvMultipart(timeout_ms) ?: return null
+    protected fun recvMultipart(timeout: Duration?): Message? {
+        val parts: List<ByteArray> = socket.recvMultipart(timeout) ?: return null
 
         var client_id: ByteArray? = null
         val message_parts: MutableList<String> = mutableListOf()

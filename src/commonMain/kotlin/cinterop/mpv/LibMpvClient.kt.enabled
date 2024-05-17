@@ -9,7 +9,10 @@ import cnames.structs.mpv_handle as MpvHandle
 import libmpv.mpv_format as MpvFormat
 
 @OptIn(ExperimentalForeignApi::class)
-abstract class LibMpvClient(val headless: Boolean = true): Player {
+abstract class LibMpvClient(
+    val headless: Boolean = true,
+    playlist_auto_progress: Boolean = true
+): Player {
     companion object {
         fun isAvailable(): Boolean = true
     }
@@ -31,6 +34,10 @@ abstract class LibMpvClient(val headless: Boolean = true): Player {
                 val osd_level: IntVar = alloc()
                 osd_level.value = 3
                 mpv_set_option(ctx, "osd-level", MPV_FORMAT_INT64, osd_level.ptr)
+            }
+
+            if (!playlist_auto_progress) {
+                mpv_set_option_string(ctx, "keep-open", "always")
             }
         }
 

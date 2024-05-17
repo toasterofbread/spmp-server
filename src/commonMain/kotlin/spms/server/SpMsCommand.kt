@@ -34,7 +34,7 @@ const val PROJECT_URL: String = "https://github.com/toasterofbread/spmp-server"
 const val BUG_REPORT_URL: String = PROJECT_URL + "/issues"
 
 const val DEFAULT_ADDRESS: String = "127.0.0.1"
-private const val POLL_INTERVAL_MS: Long = 100
+private const val POLL_INTERVAL: Long = 100
 private const val CLIENT_REPLY_ATTEMPTS: Int = 10
 
 @Suppress("OPT_IN_USAGE")
@@ -153,7 +153,7 @@ class SpMsCommand: Command(
                     println("--- ${localisation.server.polling_started} ---")
                     while (!stop) {
                         server.poll(CLIENT_REPLY_ATTEMPTS)
-                        delay(POLL_INTERVAL_MS)
+                        delay(POLL_INTERVAL)
                     }
                     println("--- ${localisation.server.polling_ended} ---")
 

@@ -19,6 +19,7 @@ import spms.server.SpMs
 import spms.socketapi.shared.SpMsClientID
 import spms.socketapi.shared.SpMsPlayerRepeatMode
 import spms.socketapi.shared.SpMsPlayerState
+import kotlin.time.Duration
 
 @Suppress("OPT_IN_USAGE")
 @OptIn(ExperimentalForeignApi::class)
@@ -81,8 +82,8 @@ class ServerActionGetStatus: ServerAction(
                         "state" -> status_key_state
                         "is_playing" -> status_key_is_playing
                         "current_item_index" -> status_key_current_item_index
-                        "current_position_ms" -> status_key_current_position_ms
-                        "duration_ms" -> status_key_duration_ms
+                        "current_position_ms" -> status_key_current_position
+                        "duration_ms" -> status_key_duration
                         "repeat_mode" -> status_key_repeat_mode
                         else -> entry.key.replaceFirstChar { it.uppercaseChar() }.replace('_', ' ')
                     }
@@ -112,6 +113,9 @@ class ServerActionGetStatus: ServerAction(
                 }
             "state" -> value.jsonPrimitive.intOrNull?.let { SpMsPlayerState.values().getOrNull(it)?.name } ?: value.jsonPrimitive.toString()
             "repeat_mode" -> value.jsonPrimitive.intOrNull?.let { SpMsPlayerRepeatMode.values().getOrNull(it)?.name } ?: value.jsonPrimitive.toString()
+            "current_position_ms", "duration_ms" -> with (Duration) {
+                value.jsonPrimitive.longOrNull?.let { it.milliseconds }.toString()
+            }
             else -> value.toString()
         }
 }

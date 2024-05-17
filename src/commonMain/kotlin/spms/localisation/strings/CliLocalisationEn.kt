@@ -1,6 +1,7 @@
 package spms.localisation.strings
 
 import spms.server.BUG_REPORT_URL
+import kotlin.time.Duration
 
 class CliLocalisationEn: CliLocalisation {
     override val bug_report_notice: String = "Report bugs at $BUG_REPORT_URL"
@@ -25,8 +26,8 @@ class CliLocalisationEn: CliLocalisation {
     override val status_key_state: String = "Playback state"
     override val status_key_is_playing: String = "Is playing"
     override val status_key_current_item_index: String = "Current item index"
-    override val status_key_current_position_ms: String = "Item position (ms)"
-    override val status_key_duration_ms: String = "Item duration (ms)"
+    override val status_key_current_position: String = "Item position"
+    override val status_key_duration: String = "Item duration"
     override val status_key_repeat_mode: String = "Repeat mode"
 
     override fun connectingToSocket(address: String): String =
@@ -38,8 +39,8 @@ class CliLocalisationEn: CliLocalisation {
 
     override val poll_polling_server_for_events: String = "Polling server for events..."
 
-    override fun errServerDidNotRespond(timeout_ms: Long): String =
-        "Server did not respond within timeout (${timeout_ms}ms)"
-    override fun errServerDidNotSendEvents(timeout_ms: Long): String =
-        "Server did not send events within timeout (${timeout_ms}ms)"
+    override fun errServerDidNotRespond(timeout: Duration): String =
+        "Server did not respond within timeout ($timeout)"
+    override fun errServerDidNotSendEvents(timeout: Duration): String =
+        "Server did not send events within timeout ($timeout)"
 }

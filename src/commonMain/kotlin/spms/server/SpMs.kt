@@ -13,8 +13,8 @@ import okio.Path
 import okio.Path.Companion.toPath
 import platform.posix.getenv
 import spms.getHostname
-import spms.player.HeadlessPlayer
 import spms.player.Player
+import spms.player.headless.HeadlessPlayer
 import spms.socketapi.parseSocketMessage
 import spms.socketapi.player.PlayerAction
 import spms.socketapi.server.ServerAction
@@ -23,8 +23,9 @@ import spms.localisation.SpMsLocalisation
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.system.exitProcess
 import kotlin.system.getTimeMillis
+import kotlin.time.*
 
-private const val CLIENT_REPLY_TIMEOUT_MS: Long = 100
+private val CLIENT_REPLY_TIMEOUT: Duration = with (Duration) { 100.milliseconds }
 
 @OptIn(ExperimentalForeignApi::class)
 class SpMs(
@@ -33,7 +34,7 @@ class SpMs(
     enable_gui: Boolean = false,
     enable_media_session: Boolean = false
 ): ZmqRouter(mem_scope) {
-    private var item_durations: MutableMap<String, Long> = mutableMapOf()
+    private var item_durations: MutableMap<String, Duration> = mutableMapOf()
     private val item_durations_channel: Channel<Unit> = Channel()
 
     private var executing_client_id: Int? = null
@@ -45,10 +46,10 @@ class SpMs(
     val player: Player =
         if (headless || !MpvClientImpl.isAvailable())
             object : HeadlessPlayer() {
-                override fun getCachedItemDuration(item_id: String): Long? = item_durations[item_id]
+                override fun getCachedItemDuration(item_id: String): Duration? = item_durations[item_id]
 
-                override suspend fun loadItemDuration(item_id: String): Long {
-                    var cached: Long? = item_durations[item_id]
+                override suspend fun loadItemDuration(item_id: String): Duration {
+                    var cached: Duration? = item_durations[item_id]
                     while (cached == null) {
                         item_durations_channel.receive()
                         cached = item_durations[item_id]
@@ -135,12 +136,12 @@ class SpMs(
             }
 
             // Wait for client to reply
-            val wait_end: Long = getTimeMillis() + CLIENT_REPLY_TIMEOUT_MS
+            val wait_start: TimeMark = TimeSource.Monotonic.markNow()
             var client_reply: Message? = null
 
             while (true) {
-                val remaining = wait_end - getTimeMillis()
-                if (remaining <= 0) {
+                val remaining: Duration = CLIENT_REPLY_TIMEOUT - wait_start.elapsedNow()
+                if (remaining <= Duration.ZERO) {
                     break
                 }
 
@@ -214,7 +215,7 @@ class SpMs(
         }
     }
 
-    fun onClientReadyToPlay(client_id: SpMsClientID, item_index: Int, item_id: String, item_duration_ms: Long) {
+    fun onClientReadyToPlay(client_id: SpMsClientID, item_index: Int, item_id: String, item_duration: Duration) {
         if (!playback_waiting_for_clients) {
             println("Got readyToPlay from a client, but playback_waiting_for_clients is false, ignoring")
             return
@@ -226,8 +227,8 @@ class SpMs(
             return
         }
 
-        if (item_duration_ms <= 0) {
-            println("Got readyToPlay from a $ready_client with invalid duration ($item_duration_ms), ignoring")
+        if (item_duration <= Duration.ZERO) {
+            println("Got readyToPlay from $ready_client with invalid duration ($item_duration), ignoring")
             return
         }
 
@@ -236,15 +237,15 @@ class SpMs(
             return
         }
 
-        item_durations[item_id] = item_duration_ms
+        item_durations[item_id] = item_duration
         if (player is HeadlessPlayer) {
-            player.onDurationLoaded(item_id, item_duration_ms)
+            player.onDurationLoaded(item_id, item_duration)
         }
 
         item_durations_channel.trySend(Unit)
 
         if (ready_client.ready_to_play) {
-            println("Got readyToPlay from $ready_client, but it is already marked as ready, ignoring (duration=$item_duration_ms)")
+            println("Got readyToPlay from $ready_client, but it is already marked as ready, ignoring (duration=$item_duration)")
             return
         }
 
@@ -253,13 +254,13 @@ class SpMs(
         val waiting_for: Int = clients.count { it.type.playsAudio() && !it.ready_to_play }
 
         if (waiting_for == 0) {
-            println("Got readyToPlay from $ready_client, beginning playback (duration=$item_duration_ms)")
+            println("Got readyToPlay from $ready_client, beginning playback (duration=$item_duration)")
 
             playback_waiting_for_clients = false
             player.play()
         }
         else {
-            println("Got readyToPlay from $ready_client, but still waiting for $waiting_for other clients to be ready (duration=$item_duration_ms)")
+            println("Got readyToPlay from $ready_client, but still waiting for $waiting_for other clients to be ready (duration=$item_duration)")
         }
     }
 

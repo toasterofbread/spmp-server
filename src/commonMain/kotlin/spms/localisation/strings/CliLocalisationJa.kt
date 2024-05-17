@@ -1,6 +1,7 @@
 package spms.localisation.strings
 
 import spms.server.BUG_REPORT_URL
+import kotlin.time.Duration
 
 class CliLocalisationJa: CliLocalisation {
     override val bug_report_notice: String = "$BUG_REPORT_URL にバグを報告してください"
@@ -25,8 +26,8 @@ class CliLocalisationJa: CliLocalisation {
     override val status_key_state: String = "再生状態"
     override val status_key_is_playing: String = "再生中"
     override val status_key_current_item_index: String = "再生中のアイテムのインデックス"
-    override val status_key_current_position_ms: String = "アイテム内の時間（ミリ秒）"
-    override val status_key_duration_ms: String = "アイテムの長さ（ミリ秒）"
+    override val status_key_current_position: String = "アイテム内の時間"
+    override val status_key_duration: String = "アイテムの長さ"
     override val status_key_repeat_mode: String = "リピートモード"
 
     override fun connectingToSocket(address: String): String =
@@ -38,8 +39,8 @@ class CliLocalisationJa: CliLocalisation {
 
     override val poll_polling_server_for_events: String = "サーバーのイベントをポール中..."
 
-    override fun errServerDidNotRespond(timeout_ms: Long): String =
-        "タイムアウト（${timeout_ms}ミリ秒）の内にサーバーから返信が来ませんでした"
-    override fun errServerDidNotSendEvents(timeout_ms: Long): String =
-        "タイムアウト（${timeout_ms}ミリ秒）の内にサーバーからイベントが来ませんでした"
+    override fun errServerDidNotRespond(timeout: Duration): String =
+        "タイムアウト（$timeout）の内にサーバーから返信が来ませんでした"
+    override fun errServerDidNotSendEvents(timeout: Duration): String =
+        "タイムアウト（$timeout）の内にサーバーからイベントが来ませんでした"
 }

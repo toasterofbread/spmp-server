@@ -1,4 +1,4 @@
-package spms.player
+package spms.player.headless
 
 import kotlinx.atomicfu.locks.ReentrantLock
 import kotlinx.atomicfu.locks.withLock
@@ -11,14 +11,16 @@ import kotlinx.serialization.json.JsonPrimitive
 import spms.socketapi.shared.SpMsPlayerEvent
 import spms.socketapi.shared.SpMsPlayerRepeatMode
 import spms.socketapi.shared.SpMsPlayerState
+import spms.player.*
 import kotlin.system.getTimeNanos
+import kotlin.time.*
 
 abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Player {
-    protected abstract fun getCachedItemDuration(item_id: String): Long?
-    protected abstract suspend fun loadItemDuration(item_id: String): Long
-    fun onDurationLoaded(item_id: String, item_duration_ms: Long) {
+    protected abstract fun getCachedItemDuration(item_id: String): Duration?
+    protected abstract suspend fun loadItemDuration(item_id: String): Duration
+    fun onDurationLoaded(item_id: String, item_duration: Duration) {
         if (item_id == getItem()) {
-            onEvent(SpMsPlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(item_duration_ms)))
+            onEvent(SpMsPlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(item_duration.inWholeMilliseconds)))
         }
     }
 
@@ -32,26 +34,24 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
             _state = value
             onEvent(SpMsPlayerEvent.PropertyChanged("state", JsonPrimitive(value.ordinal)))
         }
-    final override var is_playing: Boolean = false
-        private set
+    final override val is_playing: Boolean get() = playback_state.is_playing
 
     final override val item_count: Int get() = queue.size
 
     final override var current_item_index: Int = -1
         private set
 
+    private var playback_state: PlaybackState = PlaybackState.Paused(Duration.ZERO)
+
     final override val current_position_ms: Long
-        get() =
-            if (is_playing) (getTimeNanos() - playback_mark) / 1000000
-            else playback_mark
-    final override val duration_ms: Long get() = queue.getOrNull(current_item_index)?.let { getCachedItemDuration(it) } ?: 0
+        get() = playback_state.current_position.inWholeMilliseconds
+    final override val duration_ms: Long get() = queue.getOrNull(current_item_index)?.let { getCachedItemDuration(it)?.inWholeMilliseconds } ?: 0
     final override var repeat_mode: SpMsPlayerRepeatMode = SpMsPlayerRepeatMode.NONE
         private set
 
     private val queue: MutableList<String> = mutableListOf()
 
     private val playback_scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
-    private var playback_mark: Long = 0
 
     private val playback_lock: ReentrantLock = ReentrantLock()
     private inline fun <T> withLock(block: () -> T): T = playback_lock.withLock(block)
@@ -60,7 +60,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
 
     private fun log(message: Any?) {
         if (enable_logging) {
-            println("HeadlessPlayer: $message")
+            println("HeadlessPlayer (state=$playback_state): $message")
         }
     }
 
@@ -83,8 +83,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
         }
         else {
             current_item_index++
-            playback_mark = 0
-            onQueueOrPositionChanged()
+            playback_state = PlaybackState.Paused(Duration.ZERO)
             onItemTransition(current_item_index)
         }
     }
@@ -94,11 +93,8 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
 
         val item_id: String = queue.getOrNull(to) ?: return
 
-        val duration: Long? = getCachedItemDuration(item_id)
-        onEvent(SpMsPlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration ?: 0)))
-    }
-
-    private fun onQueueOrPositionChanged() {
+        val duration: Duration? = getCachedItemDuration(item_id)
+        onEvent(SpMsPlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration?.inWholeMilliseconds ?: 0)))
     }
 
     override fun play() {
@@ -109,7 +105,6 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                 if (current_item_index < 0) {
                     if (queue.isNotEmpty()) {
                         current_item_index = 0
-                        onQueueOrPositionChanged()
                         onItemTransition(0)
                     }
                     else {
@@ -118,18 +113,16 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                     }
                 }
 
-                val current_position: Long = playback_mark
-                playback_mark = getTimeNanos() - current_position
-
                 val item_id: String = queue[current_item_index]
-                var duration: Long? = getCachedItemDuration(item_id)
+                var duration: Duration? = getCachedItemDuration(item_id)
 
                 if (duration == null) {
                     state = SpMsPlayerState.BUFFERING
+                    playback_state = playback_state.toPaused()
                 }
                 else {
                     state = SpMsPlayerState.READY
-                    is_playing = true
+                    playback_state = playback_state.toPlaying()
                     onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(true)))
                 }
 
@@ -141,17 +134,9 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
 
                         duration = loadItemDuration(item_id)
 
-                        if (duration == null) {
-                            state = SpMsPlayerState.IDLE
-                            is_playing = false
-                            playback_mark = 0
-                            println("play(): Duration is null, cannot play")
-                            TODO()
-                        }
-
                         withLock {
                             state = SpMsPlayerState.READY
-                            is_playing = true
+                            playback_state = playback_state.toPlaying()
                             onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(true)))
                         }
                     }
@@ -159,14 +144,14 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                         log("play() $item_id: Using existing duration")
                     }
 
-                    log("play() will wait for ${duration!! - current_position}ms (${duration} $current_position)")
-                    delay(duration!! - current_position)
+                    val wait_duration: Duration = duration!! - playback_state.current_position
+                    log("play() will wait for ${wait_duration}ms ($duration)")
+                    delay(wait_duration)
                     log("play() resumed after delay")
 
                     withLock {
-                        is_playing = false
                         state = SpMsPlayerState.IDLE
-                        playback_mark = duration!!
+                        playback_state = PlaybackState.Paused(duration)
                         onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(false)))
                         onItemPlaybackEnded()
                     }
@@ -182,8 +167,6 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                 if (state == SpMsPlayerState.READY) {
                     onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(false)))
                 }
-
-                playback_mark = current_position_ms
                 stop()
             }
             else {
@@ -206,7 +189,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
 
     private fun stop() {
         playback_scope.coroutineContext.cancelChildren()
-        is_playing = false
+        playback_state = playback_state.toPaused()
         state = SpMsPlayerState.IDLE
     }
 
@@ -227,7 +210,9 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
         withLock {
             val target_position: Long = position_ms.coerceIn(0, duration_ms)
             modifyPlayback {
-                playback_mark = target_position
+                playback_state = with (Duration) {
+                    PlaybackState.Paused(target_position.milliseconds)
+                }
             }
 
             onEvent(SpMsPlayerEvent.SeekedToTime(target_position))
@@ -236,7 +221,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
 
     private fun performSeekToItem(index: Int) {
         stop()
-        playback_mark = 0
+        playback_state = PlaybackState.Paused(Duration.ZERO)
         current_item_index = index
         onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(false)))
     }
@@ -249,7 +234,6 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
             performSeekToItem(target_index)
             seekToTime(position_ms)
 
-            onQueueOrPositionChanged()
             onItemTransition(target_index)
         }
     }
@@ -268,7 +252,6 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
 
             performSeekToItem(seek_target)
 
-            onQueueOrPositionChanged()
             onItemTransition(current_item_index)
 
             return true
@@ -284,7 +267,6 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
 
             performSeekToItem(current_item_index - 1)
 
-            onQueueOrPositionChanged()
             onItemTransition(current_item_index)
 
             return true
@@ -338,7 +320,6 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                 current_item_index++
             }
 
-            onQueueOrPositionChanged()
             onEvent(SpMsPlayerEvent.ItemAdded(item_id, target_index))
 
             if (queue.size == 1) {
@@ -366,7 +347,6 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                 current_item_index = target_to
             }
 
-            onQueueOrPositionChanged()
             onEvent(SpMsPlayerEvent.ItemMoved(target_from, target_to))
         }
     }
@@ -388,14 +368,13 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
                     current_item_index--
                 }
                 modifyPlayback {
-                    playback_mark = 0
+                    playback_state = PlaybackState.Paused(Duration.ZERO)
                 }
             }
             else if (target_index < current_item_index) {
                 current_item_index--
             }
 
-            onQueueOrPositionChanged()
             onEvent(SpMsPlayerEvent.ItemRemoved(target_index))
 
             if (target_index == current_item_index) {
@@ -410,7 +389,7 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
             stop()
             queue.clear()
             current_item_index = -1
-            playback_mark = 0
+            playback_state = PlaybackState.Paused(Duration.ZERO)
 
             onEvent(SpMsPlayerEvent.QueueCleared())
             onItemTransition(-1)

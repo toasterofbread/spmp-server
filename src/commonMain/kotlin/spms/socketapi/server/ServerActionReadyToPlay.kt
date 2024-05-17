@@ -6,6 +6,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import spms.server.SpMs
 import spms.socketapi.shared.SpMsClientID
+import kotlin.time.Duration
 
 class ServerActionReadyToPlay: ServerAction(
     identifier = "readyToPlay",
@@ -38,7 +39,9 @@ class ServerActionReadyToPlay: ServerAction(
             client,
             context.getParameterValue("item_index")!!.jsonPrimitive.int,
             context.getParameterValue("item_id")!!.jsonPrimitive.content,
-            context.getParameterValue("item_duration_ms")!!.jsonPrimitive.long
+            with (Duration) {
+                context.getParameterValue("item_duration_ms")!!.jsonPrimitive.long.milliseconds
+            }
         )
         return null
     }

@@ -11,7 +11,10 @@ class mpv_event {
     val event_id: Int get() = throw NotImplementedError()
 }
 
-abstract class LibMpvClient(val headless: Boolean = true): Player {
+abstract class LibMpvClient(
+    val headless: Boolean = true,
+    playlist_auto_progress: Boolean = true
+): Player {
     companion object {
         fun isAvailable(): Boolean = false
     }

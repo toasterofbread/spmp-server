@@ -23,7 +23,7 @@ import libzmq.ZMQ_NOBLOCK
 import spms.socketapi.Action
 import spms.socketapi.shared.SpMsSocketApi
 import spms.client.cli.CommandLineClientMode
-import spms.client.cli.SERVER_REPLY_TIMEOUT_MS
+import spms.client.cli.SERVER_REPLY_TIMEOUT
 import spms.localisation.loc
 import spms.socketapi.shared.SpMsServerHandshake
 import spms.socketapi.shared.SpMsActionReply
@@ -33,6 +33,7 @@ import spms.socketapi.server.ServerAction
 import toRed
 import kotlin.system.getTimeMillis
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlin.time.*
 
 private fun CommandLineClientMode.jsonModeOption() =
     option("-j", "--json").flag().help { context.loc.server_actions.option_help_json }
@@ -120,12 +121,13 @@ class ActionCommandLineClientMode(
         val reply: SpMsActionReply? = executeActionOnSocket(
             action,
             parameter_values,
-            SERVER_REPLY_TIMEOUT_MS,
-            currentContext, silent = silent
+            SERVER_REPLY_TIMEOUT,
+            currentContext,
+            silent = silent
         )
 
         if (reply == null) {
-            throw CliktError(currentContext.loc.server_actions.replyNotReceived(SERVER_REPLY_TIMEOUT_MS).toRed())
+            throw CliktError(currentContext.loc.server_actions.replyNotReceived(SERVER_REPLY_TIMEOUT).toRed())
         }
         else if (reply.success) {
             if (json_mode || parent_json_mode) {
@@ -152,7 +154,7 @@ class ActionCommandLineClientMode(
     private fun executeActionOnSocket(
         action: Action,
         parameter_values: List<JsonPrimitive>,
-        reply_timeout_ms: Long?,
+        reply_timeout: Duration?,
         context: Context,
         silent: Boolean = false
     ): SpMsActionReply? {
@@ -168,7 +170,7 @@ class ActionCommandLineClientMode(
             println(context.loc.server_actions.actionSentAndWaitingForReply(action.identifier))
         }
 
-        val timeout_end: Long? = reply_timeout_ms?.let { getTimeMillis() + it }
+        val timeout_end: TimeMark? = reply_timeout?.let { TimeSource.Monotonic.markNow() + it }
         do {
             if (!reply.isNullOrEmpty()) {
                 if (!silent) {
@@ -190,7 +192,7 @@ class ActionCommandLineClientMode(
             else if (!silent) {
                 println(context.loc.server_actions.receivedEmptyReplyFromServer(action.identifier))
             }
-        } while (timeout_end == null || getTimeMillis() < timeout_end)
+        } while (timeout_end == null || timeout_end.hasNotPassedNow())
 
         return null
     }

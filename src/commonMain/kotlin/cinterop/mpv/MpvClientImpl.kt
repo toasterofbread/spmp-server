@@ -20,7 +20,7 @@ inline fun <reified T: CPointed> CPointer<*>?.pointedAs(): T =
     this!!.reinterpret<T>().pointed
 
 @OptIn(ExperimentalForeignApi::class)
-abstract class MpvClientImpl(headless: Boolean = true): LibMpvClient(headless) {
+abstract class MpvClientImpl(headless: Boolean = true, playlist_auto_progress: Boolean = true): LibMpvClient(headless = headless, playlist_auto_progress = playlist_auto_progress) {
     companion object {
         fun isAvailable(): Boolean = LibMpvClient.isAvailable()
     }

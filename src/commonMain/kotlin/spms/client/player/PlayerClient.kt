@@ -24,16 +24,17 @@ import spms.socketapi.parseSocketMessage
 import spms.socketapi.player.PlayerAction
 import spms.socketapi.shared.*
 import kotlin.system.getTimeMillis
+import kotlin.time.*
 
-private const val SERVER_REPLY_TIMEOUT_MS: Long = 2000
-private const val SERVER_EVENT_TIMEOUT_MS: Long = 11000
-private const val POLL_INTERVAL_MS: Long = 100
-private const val CLIENT_REPLY_TIMEOUT_MS: Long = 1000
+private val SERVER_REPLY_TIMEOUT: Duration = with (Duration) { 2.seconds }
+private val SERVER_EVENT_TIMEOUT: Duration = with (Duration) { 11.seconds }
+private val POLL_INTERVAL: Duration = with (Duration) { 100.milliseconds }
+private val CLIENT_REPLY_TIMEOUT: Duration = with (Duration) { 1.seconds }
 
 private fun getClientName(): String =
     "SpMs Player Client"
 
-private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headless) {
+private abstract class PlayerImpl(headless: Boolean = true): MpvClientImpl(headless = headless, playlist_auto_progress = false) {
     override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) {
         if (event.type == SpMsPlayerEvent.Type.READY_TO_PLAY) {
             onReadyToPlay()
@@ -183,11 +184,11 @@ class PlayerClient private constructor(): Command(
 
         while (!shutdown) {
             try {
-                delay(POLL_INTERVAL_MS)
+                delay(POLL_INTERVAL)
 
                 // We don't actually care about the client handshake, it's just for consistency with the main server api
 //                val handshake_message: List<String> =
-                socket.recvStringMultipart(CLIENT_REPLY_TIMEOUT_MS) ?: continue
+                socket.recvStringMultipart(CLIENT_REPLY_TIMEOUT) ?: continue
 
                 val handshake_reply: SpMsServerHandshake =
                     SpMsServerHandshake(
@@ -203,7 +204,7 @@ class PlayerClient private constructor(): Command(
                 )
 
                 val message: List<String> =
-                    socket.recvStringMultipart(CLIENT_REPLY_TIMEOUT_MS) ?: continue
+                    socket.recvStringMultipart(CLIENT_REPLY_TIMEOUT) ?: continue
 
                 val reply: List<SpMsActionReply> =
                     parseSocketMessage(message) { action_name, action_params ->
@@ -241,9 +242,9 @@ class PlayerClient private constructor(): Command(
         )
         socket.sendStringMultipart(listOf(json.encodeToString(handshake)))
 
-        val reply: List<String>? = socket.recvStringMultipart(SERVER_REPLY_TIMEOUT_MS)
+        val reply: List<String>? = socket.recvStringMultipart(SERVER_REPLY_TIMEOUT)
         if (reply == null) {
-            throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotRespond(SERVER_REPLY_TIMEOUT_MS))
+            throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotRespond(SERVER_REPLY_TIMEOUT))
         }
 
         val server_handshake: SpMsServerHandshake = Json.decodeFromString(reply.first())
@@ -258,7 +259,7 @@ class PlayerClient private constructor(): Command(
         val message: MutableList<String> = mutableListOf()
 
         while (!shutdown) {
-//            delay(POLL_INTERVAL_MS)
+//            delay(POLL_INTERVAL)
 
             val events: List<SpMsPlayerEvent> = socket.pollEvents()
             for (event in events) {
@@ -285,14 +286,15 @@ class PlayerClient private constructor(): Command(
     }
 
     private fun ZmqSocket.pollEvents(): List<SpMsPlayerEvent> {
-        val wait_end: Long = getTimeMillis() + SERVER_EVENT_TIMEOUT_MS
+        val wait_start: TimeMark = TimeSource.Monotonic.markNow()
         var events: List<SpMsPlayerEvent>? = null
 
-        while (events == null && getTimeMillis() < wait_end) {
-            val message: List<String>? =
+        while (events == null && wait_start.elapsedNow() < SERVER_EVENT_TIMEOUT) {
+            val message: List<String>? = with (Duration) {
                 recvStringMultipart(
-                    (wait_end - getTimeMillis()).coerceAtLeast(ZMQ_NOBLOCK.toLong())
+                    (SERVER_EVENT_TIMEOUT - wait_start.elapsedNow()).inWholeMilliseconds.coerceAtLeast(ZMQ_NOBLOCK.toLong()).milliseconds
                 )
+            }
 
             events = message?.mapNotNull {
                 try {
@@ -306,7 +308,7 @@ class PlayerClient private constructor(): Command(
         }
 
         if (events == null) {
-            throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotSendEvents(SERVER_EVENT_TIMEOUT_MS))
+            throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotSendEvents(SERVER_EVENT_TIMEOUT))
         }
 
         return events.orEmpty()

@@ -13,8 +13,9 @@ import spms.client.cli.modes.Interactive
 import spms.client.cli.modes.Poll
 import spms.client.cli.modes.Run
 import toRed
+import kotlin.time.Duration
 
-const val SERVER_REPLY_TIMEOUT_MS: Long = 2000
+val SERVER_REPLY_TIMEOUT: Duration = with (Duration) { 2.seconds }
 
 private fun getClientName(): String =
     "SpMs CLI"

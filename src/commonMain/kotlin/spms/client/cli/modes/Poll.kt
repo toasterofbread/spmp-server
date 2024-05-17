@@ -8,11 +8,11 @@ import libzmq.ZMQ_NOBLOCK
 import spms.client.cli.CommandLineClientMode
 import spms.client.cli.SpMsCommandLineClientError
 import spms.localisation.loc
-import kotlin.system.getTimeMillis
 import spms.socketapi.shared.SpMsSocketApi
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlin.time.*
 
-private const val SERVER_EVENT_TIMEOUT_MS: Long = 10000
+private val SERVER_EVENT_TIMEOUT: Duration = with (Duration) { 10000.milliseconds }
 private const val POLL_INTERVAL: Long = 100
 
 @OptIn(ExperimentalForeignApi::class)
@@ -28,16 +28,17 @@ class Poll: CommandLineClientMode("poll", { "TODO" }) {
             while (true) {
                 delay(POLL_INTERVAL)
 
-                val wait_end: Long = getTimeMillis() + SERVER_EVENT_TIMEOUT_MS
+                val wait_start: TimeMark = TimeSource.Monotonic.markNow()
                 var events: List<JsonElement>? = null
 
-                while (events == null && getTimeMillis() < wait_end) {
-                    val message: List<String>? =
+                while (events == null && wait_start.elapsedNow() < SERVER_EVENT_TIMEOUT) {
+                    val message: List<String>? = with (Duration) {
                         socket.recvStringMultipart(
-                            (wait_end - getTimeMillis()).coerceAtLeast(ZMQ_NOBLOCK.toLong())
+                            (SERVER_EVENT_TIMEOUT - wait_start.elapsedNow()).inWholeMilliseconds.coerceAtLeast(ZMQ_NOBLOCK.toLong()).milliseconds
                         )?.let {
                             SpMsSocketApi.decode(it)
                         }
+                    }
 
                     events = message?.map {
                         Json.decodeFromString(it)
@@ -45,7 +46,7 @@ class Poll: CommandLineClientMode("poll", { "TODO" }) {
                 }
 
                 if (events == null) {
-                    throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotSendEvents(SERVER_EVENT_TIMEOUT_MS))
+                    throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotSendEvents(SERVER_EVENT_TIMEOUT))
                 }
 
                 if (events.isNotEmpty()) {
