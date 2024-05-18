@@ -331,21 +331,28 @@ class SpMs(
 
     private fun onClientMessage(message: Message) {
         val id: Int = message.client_id.contentHashCode()
+        val content: String? = message.parts.firstOrNull()
 
-        if (clients.any { it.id == id }) {
+        var client: SpMsClient? = clients.firstOrNull { it.id == id }
+        if (client != null) {
+            println("Got stray message from connected client $client, ignoring: ${message.parts.toList()}")
+            return
+        }
+        else if (content == null) {
+            println("Got empty stray message from unknown client, ignoring")
             return
         }
 
         val client_handshake: SpMsClientHandshake
         try {
-            client_handshake = message.parts.firstOrNull()?.let { Json.decodeFromString(it) } ?: return
+            client_handshake = Json.decodeFromString(content)
         }
         catch (e: SerializationException) {
             RuntimeException("Exception while parsing the following handshake message: ${message.parts}", e).printStackTrace()
             return
         }
 
-        val client: SpMsClient = SpMsClient(
+        client = SpMsClient(
             message.client_id,
             SpMsClientInfo(
                 name = getNewClientName(client_handshake.name),
