@@ -57,23 +57,25 @@ class SpMs(
                     return cached
                 }
 
-                override fun canPlay(): Boolean = !playback_waiting_for_clients
+                override fun canPlay(): Boolean = this@SpMs.canPlay()
                 override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
                 override fun onShutdown() = onPlayerShutdown()
             }
         else
             object : MpvClientImpl(headless = !enable_gui) {
-                override fun canPlay(): Boolean {
-                    if (playback_waiting_for_clients) {
-                        val waiting_for_clients: List<SpMsClient> = clients.filter { it.type.playsAudio() && !it.ready_to_play }
-                        println("Call to canPlay returning false, waiting for the following clients: $waiting_for_clients")
-                        return false
-                    }
-                    return true
-                }
+                override fun canPlay(): Boolean = this@SpMs.canPlay()
                 override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
                 override fun onShutdown() = onPlayerShutdown()
             }
+
+    private fun canPlay(): Boolean {
+        if (playback_waiting_for_clients) {
+            val waiting_for_clients: List<SpMsClient> = clients.filter { it.type.playsAudio() && !it.ready_to_play }
+            println("Call to canPlay returning false, waiting for the following clients: $waiting_for_clients")
+            return false
+        }
+        return true
+    }
 
     private val media_session: SpMsMediaSession? =
         try {

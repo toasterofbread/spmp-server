@@ -54,7 +54,7 @@ abstract class LibMpvClient(
             args.getOrNull(i)?.toString()?.cstr?.getPointer(this)
         }.toCValues()
 
-    protected fun runCommand(name: String, vararg args: Any?, check_result: Boolean = true): Int =
+    internal fun runCommand(name: String, vararg args: Any?, check_result: Boolean = true): Int =
         memScoped {
             val result: Int = mpv_command(ctx, buildArgs(listOf(name).plus(args)))
 
@@ -67,7 +67,7 @@ abstract class LibMpvClient(
             return result
         }
 
-    protected inline fun <reified V> getProperty(name: String): V =
+    internal inline fun <reified V> getProperty(name: String): V =
         memScoped {
             if (V::class == String::class) {
                 val string: CPointer<ByteVarOf<Byte>> = mpv_get_property_string(ctx, name)
@@ -103,7 +103,7 @@ abstract class LibMpvClient(
             return extractor()
         }
 
-    protected inline fun <reified T: Any> setProperty(name: String, value: T) = memScoped {
+    internal inline fun <reified T: Any> setProperty(name: String, value: T) = memScoped {
         if (value is String) {
             mpv_set_property_string(ctx, name, value)
             return@memScoped
@@ -114,12 +114,18 @@ abstract class LibMpvClient(
         mpv_set_property(ctx, name, format, pointer.ptr)
     }
 
-    protected fun observeProperty(name: String, cls: KClass<*>) {
+    internal fun observeProperty(name: String, cls: KClass<*>) {
         val format: MpvFormat = getFormatOf(cls)
-        mpv_observe_property(ctx, 0UL, name, format)
+
+        try {
+            mpv_observe_property(ctx, 0UL, name, format)
+        }
+        catch (e: Throwable) {
+            throw RuntimeException("Call to mpv_observe_property for $name with format $format failed", e)
+        }
     }
 
-    protected inline fun <reified T> MemScope.getPointerOf(v: T? = null): CPrimitiveVar =
+    internal inline fun <reified T> MemScope.getPointerOf(v: T? = null): CPrimitiveVar =
         when (T::class) {
             Boolean::class -> alloc<BooleanVar>().apply { if (v != null) value = v as Boolean }
             Int::class -> alloc<IntVar>().apply { if (v != null) value = v as Int }
@@ -127,7 +133,7 @@ abstract class LibMpvClient(
             else -> throw NotImplementedError(T::class.toString())
         }
 
-    protected fun getFormatOf(cls: KClass<*>): MpvFormat =
+    internal fun getFormatOf(cls: KClass<*>): MpvFormat =
         when (cls) {
             Boolean::class -> MPV_FORMAT_FLAG
             Int::class -> MPV_FORMAT_INT64
@@ -138,15 +144,15 @@ abstract class LibMpvClient(
     internal fun waitForEvent(): mpv_event? =
         mpv_wait_event(ctx, -1.0)?.pointed
 
-    protected fun requestLogMessages() {
+    internal fun requestLogMessages() {
         mpv_request_log_messages(ctx, "stats")
     }
 
-    protected fun addHook(name: String, priority: Int = 0) {
+    internal fun addHook(name: String, priority: Int = 0) {
         mpv_hook_add(ctx, 0UL, name, priority)
     }
 
-    protected fun continueHook(id: ULong) {
+    internal fun continueHook(id: ULong) {
         mpv_hook_continue(ctx, id)
     }
 }

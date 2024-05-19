@@ -98,6 +98,10 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
     }
 
     override fun play() {
+        if (!canPlay()) {
+            return
+        }
+
         withLock {
             log("play(): Running=$player_running")
 

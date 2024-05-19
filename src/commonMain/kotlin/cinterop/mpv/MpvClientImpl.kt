@@ -11,6 +11,7 @@ import spms.server.SpMs
 import spms.socketapi.shared.SpMsPlayerRepeatMode
 import spms.socketapi.shared.SpMsPlayerState
 import kotlin.math.roundToInt
+import kotlin.time.*
 import cinterop.utils.safeToKString
 
 private const val URL_PREFIX: String = "spmp://"
@@ -29,7 +30,7 @@ abstract class MpvClientImpl(headless: Boolean = true, playlist_auto_progress: B
     private var auth_headers: Map<String, String>? = null
     private val local_files: MutableMap<String, String> = mutableMapOf()
 
-    internal var song_initial_seek_position_ms: Long? = null
+    internal var song_initial_seek_time: TimeMark? = null
 
     private fun urlToId(url: String): String? = if (url.startsWith(URL_PREFIX)) url.drop(URL_PREFIX.length) else null
     private fun idToUrl(item_id: String): String = URL_PREFIX + item_id
@@ -114,7 +115,7 @@ abstract class MpvClientImpl(headless: Boolean = true, playlist_auto_progress: B
 
     override fun seekToItem(index: Int, position_ms: Long) {
         if (position_ms > 0) {
-            song_initial_seek_position_ms = position_ms
+            song_initial_seek_time = TimeSource.Monotonic.markNow() - with (Duration) { position_ms.milliseconds }
         }
 
         val max: Int = item_count - 1
@@ -259,7 +260,6 @@ abstract class MpvClientImpl(headless: Boolean = true, playlist_auto_progress: B
         //        requestLogMessages()
 
         addHook("on_load")
-        observeProperty("core-idle", Boolean::class)
 
         coroutine_scope.launch {
             eventLoop()

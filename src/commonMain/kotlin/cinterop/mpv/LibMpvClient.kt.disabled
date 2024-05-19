@@ -25,14 +25,14 @@ abstract class LibMpvClient(
 
     override fun release() { throw NotImplementedError() }
 
-    protected fun runCommand(name: String, vararg args: Any?, check_result: Boolean = true): Int = throw NotImplementedError()
-    protected inline fun <reified V> getProperty(name: String): V = throw NotImplementedError()
-    protected inline fun <reified T: Any> setProperty(name: String, value: T) { throw NotImplementedError() }
-    protected fun observeProperty(name: String, cls: KClass<*>) { throw NotImplementedError() }
-    protected inline fun <reified T> MemScope.getPointerOf(v: T? = null): CPrimitiveVar = throw NotImplementedError()
-    protected fun getFormatOf(cls: KClass<*>): MpvFormat = throw NotImplementedError()
-    protected fun waitForEvent(): mpv_event? = throw NotImplementedError()
-    protected fun requestLogMessages() { throw NotImplementedError() }
-    protected fun addHook(name: String, priority: Int = 0) { throw NotImplementedError() }
-    protected fun continueHook(id: ULong) { throw NotImplementedError() }
+    internal fun runCommand(name: String, vararg args: Any?, check_result: Boolean = true): Int = throw NotImplementedError()
+    internal inline fun <reified V> getProperty(name: String): V = throw NotImplementedError()
+    internal inline fun <reified T: Any> setProperty(name: String, value: T) { throw NotImplementedError() }
+    internal fun observeProperty(name: String, cls: KClass<*>) { throw NotImplementedError() }
+    internal inline fun <reified T> MemScope.getPointerOf(v: T? = null): CPrimitiveVar = throw NotImplementedError()
+    internal fun getFormatOf(cls: KClass<*>): MpvFormat = throw NotImplementedError()
+    internal fun waitForEvent(): mpv_event? = throw NotImplementedError()
+    internal fun requestLogMessages() { throw NotImplementedError() }
+    internal fun addHook(name: String, priority: Int = 0) { throw NotImplementedError() }
+    internal fun continueHook(id: ULong) { throw NotImplementedError() }
 }
