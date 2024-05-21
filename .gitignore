@@ -6,7 +6,10 @@ build/
 *.gen.kt
 .vscode
 /.kotlin
+*.log
 
-/src/nativeInterop/*
-!/src/nativeInterop/buildscripts/
-/src/nativeInterop/buildscripts/build
+/library/src/jvmMain/java
+
+/library/src/nativeInterop/*
+!/library/src/nativeInterop/buildscripts/
+/library/src/nativeInterop/buildscripts/build

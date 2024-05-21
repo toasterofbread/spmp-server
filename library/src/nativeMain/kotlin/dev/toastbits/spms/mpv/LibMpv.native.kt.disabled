@@ -1,0 +1,26 @@
+package dev.toastbits.spms.mpv
+
+import dev.toastbits.spms.player.Player
+
+actual abstract class LibMpvClient actual constructor(
+    headless: Boolean,
+    playlist_auto_progress: Boolean
+): Player {
+    actual companion object {
+        actual fun isAvailable(): Boolean = false
+    }
+
+    init {
+        throw NotImplementedError()
+    }
+
+    actual val is_headless: Boolean = headless
+
+    actual override fun release() { throw NotImplementedError() }
+
+    actual fun runCommand(name: String, vararg args: Any?, check_result: Boolean): Int = throw NotImplementedError()
+    actual inline fun <reified V> getProperty(name: String): V = throw NotImplementedError()
+    actual inline fun <reified T: Any> setProperty(name: String, value: T) { throw NotImplementedError() }
+    actual fun addHook(name: String, priority: Int) { throw NotImplementedError() }
+    actual fun continueHook(id: ULong) { throw NotImplementedError() }
+}
