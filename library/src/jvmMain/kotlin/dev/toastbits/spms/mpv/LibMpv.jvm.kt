@@ -80,11 +80,25 @@ fun MemorySegment.getString(): String? {
 
 actual class LibMpv private constructor() {
     actual companion object {
-        actual fun create(): LibMpv? {
+        actual fun isAvailable(): Boolean {
             try {
                 client_h.mpv_client_api_version()
             }
             catch (_: Throwable) {
+                return false
+            }
+
+            return true
+        }
+
+        actual fun create(throw_on_fail: Boolean): LibMpv? {
+            try {
+                client_h.mpv_client_api_version()
+            }
+            catch (e: Throwable) {
+                if (throw_on_fail) {
+                    throw e
+                }
                 return null
             }
             return LibMpv()

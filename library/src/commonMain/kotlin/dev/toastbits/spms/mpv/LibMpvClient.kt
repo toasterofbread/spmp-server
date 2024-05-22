@@ -69,18 +69,10 @@ abstract class LibMpvClient(
         }
     }
 
-    // internal inline fun <reified T> MemScope.getPointerOf(v: T? = null): CPrimitiveVar =
-    //     when (T::class) {
-    //         Boolean::class -> alloc<BooleanVar>().apply { if (v != null) value = v as Boolean }
-    //         Int::class -> alloc<IntVar>().apply { if (v != null) value = v as Int }
-    //         Double::class -> alloc<DoubleVar>().apply { if (v != null) value = v as Double }
-    //         else -> throw NotImplementedError(T::class.toString())
-    //     }
-
     internal fun waitForEvent(): MpvEvent = libmpv.waitEvent(ctx, -1.0)
 
     internal fun requestLogMessages() {
-        val result: Int = libmpv.requestLogMessages(ctx, "v")
+        val result: Int = libmpv.requestLogMessages(ctx, "info")
         check(result == 0) { "Call to requestLogMessages failed ($result)" }
     }
 

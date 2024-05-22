@@ -7,7 +7,7 @@ plugins {
 }
 
 mavenPublishing {
-    coordinates("dev.toastbits", "spms", "1.1.0")
+    coordinates("dev.toastbits", "spms", extra["project.version"] as String)
 
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
     signAllPublications()

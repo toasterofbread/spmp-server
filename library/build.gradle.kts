@@ -87,14 +87,6 @@ enum class BuildFlag {
     DISABLE_MPV;
 
     fun isEnabled(project: Project, platform: Platform): Boolean {
-        when (this) {
-            DISABLE_MPV -> {
-                if (platform == Platform.JVM) {
-                    return true
-                }
-            }
-        }
-
         return project.hasProperty(name)
     }
 }

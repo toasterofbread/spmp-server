@@ -17,8 +17,6 @@ kotlin {
     jvm {
         mainRun {
             mainClass.set("dev.toastbits.spms.MainKt")
-
-            // args("ctrl", "run", "status")
         }
     }
 
@@ -41,7 +39,6 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                // implementation("dev.toastbits:spms:1.1.0")
                 implementation(project(":library"))
 
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")

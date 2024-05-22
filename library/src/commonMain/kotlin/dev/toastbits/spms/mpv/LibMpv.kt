@@ -6,7 +6,8 @@ expect class MpvHandle
 
 expect class LibMpv {
     companion object {
-        fun create(): LibMpv?
+        fun isAvailable(): Boolean
+        fun create(throw_on_fail: Boolean = false): LibMpv?
     }
 
     fun create(): MpvHandle?

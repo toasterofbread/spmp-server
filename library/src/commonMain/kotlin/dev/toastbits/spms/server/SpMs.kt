@@ -40,9 +40,8 @@ open class SpMs(
     private val clients: MutableList<SpMsClient> = mutableListOf()
     private var playback_waiting_for_clients: Boolean = false
 
-    val libmpv: LibMpv? = LibMpv.create()
     val player: Player =
-        if (headless || libmpv == null)
+        if (headless)
             object : HeadlessPlayer() {
                 override fun getCachedItemDuration(item_id: String): Duration? = item_durations[item_id]
 
@@ -60,7 +59,7 @@ open class SpMs(
                 override fun onShutdown() = onPlayerShutdown()
             }
         else
-            object : MpvClientImpl(libmpv, headless = !enable_gui) {
+            object : MpvClientImpl(LibMpv.create(true)!!, headless = !enable_gui) {
                 override fun canPlay(): Boolean = this@SpMs.canPlay()
                 override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
                 override fun onShutdown() = onPlayerShutdown()
@@ -417,6 +416,14 @@ open class SpMs(
 
     companion object {
         const val application_name: String = "spmp-server"
+
+        fun isAvailable(headless: Boolean): Boolean {
+            if (headless) {
+                return true
+            }
+
+            return LibMpv.isAvailable()
+        }
 
         var logging_enabled: Boolean = true
         fun log(msg: Any?) {

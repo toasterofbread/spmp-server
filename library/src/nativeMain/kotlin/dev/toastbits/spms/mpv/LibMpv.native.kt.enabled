@@ -1,175 +1,126 @@
-// enabled
 package dev.toastbits.spms.mpv
 
 import cnames.structs.mpv_handle
+import kotlinx.cinterop.BooleanVar
+import kotlinx.cinterop.ByteVarOf
+import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.CPrimitiveVar
+import kotlinx.cinterop.DoubleVar
+import kotlinx.cinterop.IntVar
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.cstr
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.toCValues
+import kotlinx.cinterop.toKString
+import kotlinx.cinterop.value
+import kotlinx.cinterop.pointed
+import kotlinx.cinterop.MemScope
 import libmpv.*
 
-actual typealias MpvHandle = mpv_handle
-actual class MpvEventData(val data: MemorySegment)
+actual class MpvHandle(val pointer: CPointer<mpv_handle>)
 
 actual class LibMpv private constructor() {
     actual fun create(): MpvHandle? {
-        return mpv_create_client(null, null)
+        return mpv_create_client(null, null)?.let { MpvHandle(it) }
     }
 
     actual fun terminateDestroy(handle: MpvHandle) {
-        val arena: Arena = Arena.ofConfined()
-        return client_h.mpv_terminate_destroy(handle.data)
+        return mpv_terminate_destroy(handle.pointer)
     }
 
     actual fun initialize(handle: MpvHandle): Int {
-        val arena: Arena = Arena.ofConfined()
-        return client_h.mpv_initialize(handle.data)
+        return mpv_initialize(handle.pointer)
     }
 
-    actual fun command(handle: MpvHandle, args: Array<String?>): Int {
-        val arena: Arena = Arena.ofConfined()
-        return client_h.mpv_command(handle.data, args.memorySegment(arena))
+    actual fun command(handle: MpvHandle, args: Array<String?>): Int = memScoped {
+        return mpv_command(handle.pointer, args.map { it?.cstr?.getPointer(this) }.toCValues())
     }
 
-    actual inline fun <reified T> getProperty(handle: MpvHandle, name: String): T {
-        val arena: Arena = Arena.global()
-
+    actual inline fun <reified T> getProperty(handle: MpvHandle, name: String): T = memScoped {
         if (T::class == String::class) {
-            val string: String = client_h.mpv_get_property_string(handle.data, name.memorySegment(arena, extra_zero_hack = true)).getString().also { println("GETPROP RESULT $name '$it'") }
-                ?: throw NullPointerException("Getting string property '$name' failed")
-            return string as T
+            return getPropertyString(handle, name) as T
         }
 
-        val pointer: MemorySegment
+        val pointer: CPrimitiveVar
         val format: Int
         val extractor: () -> T
 
         when (T::class) {
             Boolean::class -> {
-                pointer = arena.allocate(ValueLayout.JAVA_BOOLEAN.byteSize(), 1L)
+                pointer = alloc<BooleanVar>()
                 format = MPV_FORMAT_FLAG
-                extractor = { pointer.get(ValueLayout.JAVA_BOOLEAN, 0) as T }
+                extractor = { pointer.value as T }
             }
             Int::class -> {
-                pointer = arena.allocate(ValueLayout.JAVA_INT.byteSize(), 1L)
+                pointer = alloc<IntVar>()
                 format = MPV_FORMAT_INT64
-                extractor = { pointer.get(ValueLayout.JAVA_INT, 0) as T }
+                extractor = { pointer.value as T }
             }
             Double::class -> {
-                pointer = arena.allocate(ValueLayout.JAVA_DOUBLE.byteSize(), 1L)
+                pointer = alloc<DoubleVar>()
                 format = MPV_FORMAT_DOUBLE
-                extractor = { pointer.get(ValueLayout.JAVA_DOUBLE, 0) as T }
+                extractor = { pointer.value as T }
             }
             else -> throw NotImplementedError(T::class.toString())
         }
 
-        client_h.mpv_get_property(handle.data, name.memorySegment(arena), format, pointer)
+        mpv_get_property(handle.pointer, name, format.toUInt(), pointer.ptr)
 
         return extractor()
     }
     actual fun getPropertyString(handle: MpvHandle, name: String): String? {
-        val arena: Arena = Arena.ofConfined()
-        return client_h.mpv_get_property_string(handle.data, name.memorySegment(arena)).getString()
+        return mpv_get_property_string(handle.pointer, name)?.toKString()
     }
     actual inline fun <reified T> setProperty(handle: MpvHandle, name: String, data: T?): Int {
-        val arena: Arena = Arena.ofConfined()
-        val pointer: MemorySegment = getPointerOf(arena, data)
-        val format: Int = getMpvFormatOf(T::class)
-        return client_h.mpv_set_property(handle.data, name.memorySegment(arena), format, pointer)
+        if (T::class == String::class) {
+            return setPropertyString(handle, name, data as String)
+        }
+
+        memScoped {
+
+            val pointer: CPrimitiveVar = getPointerOf(data)
+            val format: mpv_format = getMpvFormatOf(T::class).toUInt()
+            return mpv_set_property(handle.pointer, name, format, pointer.ptr)
+        }
     }
     actual fun setPropertyString(handle: MpvHandle, name: String, data: String): Int {
-        val arena: Arena = Arena.ofConfined()
-        return client_h.mpv_set_property_string(handle.data, name.memorySegment(arena), data.memorySegment(arena))
+        return mpv_set_property_string(handle.pointer, name, data)
     }
-    actual inline fun <reified T> setOption(handle: MpvHandle, name: String, data: T?): Int {
-        val arena: Arena = Arena.global()
-        val pointer: MemorySegment = getPointerOf(arena, data)
-        val format: Int = getMpvFormatOf(T::class)
-        return client_h.mpv_set_option(handle.data, name.memorySegment(arena), format, pointer)
+    actual inline fun <reified T> setOption(handle: MpvHandle, name: String, data: T?): Int = memScoped {
+        val pointer: CPrimitiveVar = getPointerOf(data)
+        val format: mpv_format = getMpvFormatOf(T::class).toUInt()
+        return mpv_set_option(handle.pointer, name, format, pointer.ptr)
     }
     actual fun setOptionString(handle: MpvHandle, name: String, data: String): Int {
-        val arena: Arena = Arena.ofConfined()
-        return client_h.mpv_set_option_string(handle.data, name.memorySegment(arena), data.memorySegment(arena))
+        return mpv_set_option_string(handle.pointer, name, data)
     }
     actual fun observeProperty(handle: MpvHandle, reply_userdata: Long, name: String, format: Int): Int {
-        val arena: Arena = Arena.ofConfined()
-        return client_h.mpv_observe_property(handle.data, reply_userdata, name.memorySegment(arena), format)
+        return mpv_observe_property(handle.pointer, reply_userdata.toULong(), name, format.toUInt())
     }
-    actual fun waitEvent(handle: MpvHandle, timeout: Double): MpvEvent? {
-        val arena: Arena = Arena.ofConfined()
-        return InternalMpvEvent(client_h.mpv_wait_event(handle.data, timeout))
+    actual fun waitEvent(handle: MpvHandle, timeout: Double): MpvEvent {
+        return InternalMpvEvent(mpv_wait_event(handle.pointer, timeout)!!.pointed)
     }
     actual fun requestLogMessages(handle: MpvHandle, min_level: String): Int {
-        val arena: Arena = Arena.ofConfined()
-        return client_h.mpv_request_log_messages(handle.data, min_level.memorySegment(arena, true))
+        return mpv_request_log_messages(handle.pointer, min_level)
     }
     actual fun hookAdd(handle: MpvHandle, reply_userdata: Long, name: String, priority: Int): Int {
-        val arena: Arena = Arena.ofConfined()
-        return client_h.mpv_hook_add(handle.data, reply_userdata, name.memorySegment(arena, true), priority)
+        return mpv_hook_add(handle.pointer, reply_userdata.toULong(), name, priority)
     }
     actual fun hookContinue(handle: MpvHandle, id: Long): Int {
-        val arena: Arena = Arena.ofConfined()
-        return client_h.mpv_hook_continue(handle.data, id)
+        return mpv_hook_continue(handle.pointer, id.toULong())
     }
 
-    inline fun <reified T> getPointerOf(arena: Arena, v: T? = null): MemorySegment =
+    inline fun <reified T> MemScope.getPointerOf(v: T? = null): CPrimitiveVar =
         when (T::class) {
-            Boolean::class -> arena.allocate(ValueLayout.JAVA_BOOLEAN.byteSize(), 1L).apply { if (v != null) set(ValueLayout.JAVA_BOOLEAN, 0L, v as Boolean) }
-            Int::class -> arena.allocate(ValueLayout.JAVA_INT.byteSize(), 1L).apply { if (v != null) set(ValueLayout.JAVA_INT, 0L, v as Int) }
-            Double::class -> arena.allocate(ValueLayout.JAVA_DOUBLE.byteSize(), 1L).apply { if (v != null) set(ValueLayout.JAVA_DOUBLE, 0L, v as Double) }
+            Boolean::class -> alloc<BooleanVar>().apply { if (v != null) value = v as Boolean }
+            Int::class -> alloc<IntVar>().apply { if (v != null) value = v as Int }
+            Double::class -> alloc<DoubleVar>().apply { if (v != null) value = v as Double }
             else -> throw NotImplementedError(T::class.toString())
         }
-
-    inline fun <reified T> MemorySegment.getValue(): T? =
-        when (T::class) {
-            Boolean::class -> this.get(ValueLayout.JAVA_BOOLEAN, 0L)
-            Int::class -> this.get(ValueLayout.JAVA_INT, 0L)
-            Double::class -> this.get(ValueLayout.JAVA_DOUBLE, 0L)
-            else -> throw NotImplementedError(T::class.toString())
-        } as T
 
     actual companion object {
-        actual fun create(): LibMpv? {
-            try {
-                client_h.mpv_client_api_version()
-            }
-            catch (_: Throwable) {
-                return null
-            }
-            return LibMpv()
-        }
+        actual fun isAvailable(): Boolean = true
+        actual fun create(throw_on_fail: Boolean): LibMpv? = LibMpv()
     }
 }
-
-// interface LibMpvInterface: Library {
-//     companion object {
-//         private var instance: LibMpvInterface? = null
-//         private var created: Boolean = false
-//         internal fun getInstance(): LibMpvInterface? {
-//             if (!created) {
-//                 try {
-//                     instance = Native.load("libmpv.so", LibMpvInterface::class.java)
-//                 }
-//                 catch (_: Throwable) {}
-//                 created = true
-//             }
-//             return instance
-//         }
-//     }
-
-//     fun setlocale(category: Int, locale: String): String
-
-//     fun mpv_create_client(ctx: MpvHandle?, name: String?): MpvHandle
-//     fun mpv_terminate_destroy(handle: MpvHandle)
-//     fun mpv_initialize(handle: MpvHandle): Long
-//     fun mpv_command(handle: MpvHandle, args: Array<String?>): Int
-//     fun mpv_get_property(handle: MpvHandle, name: String, format: Int, data: Pointer?): Int
-//     fun mpv_get_property_string(handle: MpvHandle, name: String): String?
-//     fun mpv_set_property(handle: MpvHandle, name: String, format: Int, data: Pointer?): Int
-//     fun mpv_set_property_string(handle: MpvHandle, name: String, data: String): Int
-//     fun mpv_set_option(handle: MpvHandle, name: String, format: Int, data: Pointer?): Int
-//     fun mpv_set_option_string(handle: MpvHandle, name: String, data: String): Int
-//     fun mpv_observe_property(handle: MpvHandle, reply_userdata: Long, name: String, format: Int): Int
-//     fun mpv_wait_event(handle: MpvHandle, timeOut: Double): InternalMpvEvent
-//     fun mpv_request_log_messages(handle: MpvHandle, min_level: String): Int
-//     fun mpv_hook_add(handle: MpvHandle, reply_userdata: Long, name: String, priority: Int): Int
-//     fun mpv_hook_continue(handle: MpvHandle, id: Long): Int
-// }
-
-

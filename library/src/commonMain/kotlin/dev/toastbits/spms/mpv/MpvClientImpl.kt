@@ -253,7 +253,7 @@ abstract class MpvClientImpl(
     override fun toString(): String = "MpvClientImpl(is_headless=$is_headless)"
 
     private fun initialise() {
-        requestLogMessages()
+        // requestLogMessages()
 
         addHook("on_load", -1000)
         addHook("main/on_load", -1000)
