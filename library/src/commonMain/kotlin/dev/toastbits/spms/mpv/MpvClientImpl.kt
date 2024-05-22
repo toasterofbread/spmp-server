@@ -79,7 +79,8 @@ abstract class MpvClientImpl(
         onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
     }
     override fun pause() {
-        setProperty("pause", true)
+        val result: Int = setProperty("pause", true)
+        // check(result == 0) { "Call to setProperty(\"pause\") failed ($result)" }
         onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
     }
     override fun playPause() {
@@ -253,7 +254,8 @@ abstract class MpvClientImpl(
     private fun initialise() {
         requestLogMessages()
 
-        addHook("on_load")
+        addHook("on_load", -1000)
+        addHook("main/on_load", -1000)
 
         coroutine_scope.launch {
             eventLoop()
@@ -284,7 +286,7 @@ abstract class MpvClientImpl(
 
                     setProperty("stream-open-filename", stream_url)
                 }
-                else -> {}//throw NotImplementedError("Unknown mpv hook name '$hook_name'")
+                else -> throw NotImplementedError("Unknown mpv hook name '$hook_name'")
             }
         }
         catch (e: Throwable) {

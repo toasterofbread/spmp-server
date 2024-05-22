@@ -77,6 +77,7 @@ kotlin {
 
                 val ktor_version: String = extra["ktor.version"] as String
                 implementation("io.ktor:ktor-client-core:$ktor_version")
+                implementation("io.ktor:ktor-client-cio:$ktor_version")
             }
         }
     }
@@ -283,9 +284,9 @@ enum class CinteropLibraries {
                 }
             }
 
-            // checkNotNull(file) { "Could not find header file '$path' for platform $platform in $cflags or ${deps_directory.resolve("include")} or $default_include_dirs" }
+            checkNotNull(file) { "Could not find header file '$path' for platform $platform in $cflags or ${deps_directory.resolve("include")} or $default_include_dirs" }
 
-            // settings.header(file)
+            settings.header(file)
         }
 
         when (this) {
@@ -435,6 +436,10 @@ for (platform in Platform.supported) {
                 val enabled: Boolean = library.shouldInclude(project, platform)
 
                 for (path in library.getDependentFiles()) {
+                    if (path.getFile("").isFile) {
+                        continue
+                    }
+
                     val out_file: File = path.getFile()
                     val in_file: File = path.getFile(if (enabled) ".enabled" else ".disabled")
 

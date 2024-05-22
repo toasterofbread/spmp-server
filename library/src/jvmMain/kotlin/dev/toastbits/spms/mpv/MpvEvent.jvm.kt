@@ -1,50 +1,34 @@
 package dev.toastbits.spms.mpv
 
 import java.lang.foreign.MemorySegment
+import java.lang.foreign.ValueLayout
+import dev.toastbits.spms.mpv.libmpv.*
 
-// import com.sun.jna.Structure
-// import com.sun.jna.MpvEventData
-
-actual class MpvEventStartFile private constructor(private val event_data: MemorySegment) {
-    actual companion object {
-        actual fun fromData(data: MpvEventData?): MpvEventStartFile = MpvEventStartFile(data!!.data)
-    }
-
-    actual val playlist_entry_id: Long get() = mpv_event_start_file.playlist_entry_id(event_data)
+actual class MpvEventStartFile actual constructor(private val event_data: MpvEventData) {
+    actual val playlist_entry_id: Long get() = mpv_event_start_file.playlist_entry_id(event_data.data)
 }
 
-actual class MpvEventProperty private constructor(private val event_data: MemorySegment) {
-    actual companion object {
-        actual fun fromData(data: MpvEventData?): MpvEventProperty = MpvEventProperty(data!!.data)
-    }
-
-    actual val name: String? get() = mpv_event_property.name(event_data).getString()
-    actual val format: Int get() = mpv_event_property.format(event_data)
-    actual val data: MpvEventPropertyData? get() = TODO()//structure.data?.let {
-    //     object : MpvEventPropertyData {
-    //         override fun toBoolean(): Boolean = it.toBoolean()
-    //     }
-    // }
+actual class MpvEventProperty actual constructor(private val event_data: MpvEventData) {
+    actual val name: String? get() = mpv_event_property.name(event_data.data).getString()
+    actual val format: Int get() = mpv_event_property.format(event_data.data)
+    actual val data: MpvEventPropertyData?
+        get() = mpv_event_property.data(event_data.data).takeIf { it.address() != 0L }?.let {
+            object : MpvEventPropertyData {
+                override fun toBoolean(): Boolean = it.get(ValueLayout.JAVA_BOOLEAN, 0)
+            }
+        }
 }
 
-actual class MpvEventHook private constructor(private val event_data: MemorySegment) {
-    actual companion object {
-        actual fun fromData(data: MpvEventData?): MpvEventHook = MpvEventHook(data!!.data)
-    }
-
-    actual val name: String? get() = TODO()//structure.name
-    actual val id: Long get() = TODO()//structure.id
+actual class MpvEventHook actual constructor(private val event_data: MpvEventData) {
+    actual val name: String? get() = mpv_event_hook.name(event_data.data).getString()
+    actual val id: Long get() = mpv_event_hook.id(event_data.data)
 }
 
-actual class MpvEventLogMessage private constructor(private val event_data: MemorySegment) {
-    actual companion object {
-        actual fun fromData(data: MpvEventData?): MpvEventLogMessage = MpvEventLogMessage(data!!.data)
-    }
-
-    actual val prefix: String? get() = mpv_event_log_message.prefix(event_data).getString()
-    actual val level: String? get() = mpv_event_log_message.level(event_data).getString()
-    actual val text: String? get() = mpv_event_log_message.text(event_data).getString()
-    actual val log_level: Int get() = mpv_event_log_message.log_level(event_data)
+actual class MpvEventLogMessage actual constructor(private val event_data: MpvEventData) {
+    actual val prefix: String? get() = mpv_event_log_message.prefix(event_data.data).getString()
+    actual val level: String? get() = mpv_event_log_message.level(event_data.data).getString()
+    actual val text: String? get() = mpv_event_log_message.text(event_data.data).getString()
+    actual val log_level: Int get() = mpv_event_log_message.log_level(event_data.data)
 }
 
 // class mpv_event_start_file(data: MpvEventData?): Structure(data!!.data) {

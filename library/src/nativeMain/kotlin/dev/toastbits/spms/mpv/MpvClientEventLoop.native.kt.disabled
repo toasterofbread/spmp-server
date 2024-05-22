@@ -1,5 +1,0 @@
-package dev.toastbits.spms.mpv
-
-actual internal suspend fun MpvClientImpl.eventLoop() {
-    throw NotImplementedError()
-}

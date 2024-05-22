@@ -3,7 +3,6 @@ package dev.toastbits.spms.mpv
 import kotlin.reflect.KClass
 
 expect class MpvHandle
-expect class MpvEventData
 
 expect class LibMpv {
     companion object {
@@ -21,7 +20,7 @@ expect class LibMpv {
     inline fun <reified T> setOption(handle: MpvHandle, name: String, data: T?): Int
     fun setOptionString(handle: MpvHandle, name: String, data: String): Int
     fun observeProperty(handle: MpvHandle, reply_userdata: Long, name: String, format: Int): Int
-    fun waitEvent(handle: MpvHandle, timeout: Double): MpvEvent?
+    fun waitEvent(handle: MpvHandle, timeout: Double): MpvEvent
     fun requestLogMessages(handle: MpvHandle, min_level: String): Int
     fun hookAdd(handle: MpvHandle, reply_userdata: Long, name: String, priority: Int): Int
     fun hookContinue(handle: MpvHandle, id: Long): Int

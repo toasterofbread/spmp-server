@@ -12,11 +12,10 @@ internal suspend fun MpvClientImpl.eventLoop() = withContext(Dispatchers.IO) {
     var waiting_for_seek_end: Boolean = false
 
     while (true) {
-        val event: MpvEvent? = waitForEvent()
-
-        when (event?.event_id) {
+        val event: MpvEvent = waitForEvent()
+        when (event.event_id) {
             MPV_EVENT_START_FILE -> {
-                val data: MpvEventStartFile = MpvEventStartFile.fromData(event.data)
+                val data: MpvEventStartFile = MpvEventStartFile(event.data!!)
                 if (data.playlist_entry_id.toInt() != current_item_playlist_id) {
                     continue
                 }
@@ -43,7 +42,7 @@ internal suspend fun MpvClientImpl.eventLoop() = withContext(Dispatchers.IO) {
                 onShutdown()
             }
             MPV_EVENT_PROPERTY_CHANGE -> {
-                val data: MpvEventProperty = MpvEventProperty.fromData(event.data)
+                val data: MpvEventProperty = MpvEventProperty(event.data!!)
 
                 when (data.name) {
                     "core-idle" -> {
@@ -69,7 +68,8 @@ internal suspend fun MpvClientImpl.eventLoop() = withContext(Dispatchers.IO) {
             }
 
             MPV_EVENT_HOOK -> {
-                val data: MpvEventHook = MpvEventHook.fromData(event.data)
+                val data: MpvEventHook = MpvEventHook(event.data!!)
+                println("ARRRRR $event ${data.name} ${data.id}")
                 launch {
                     onMpvHook(data.name, data.id)
                 }
@@ -77,7 +77,7 @@ internal suspend fun MpvClientImpl.eventLoop() = withContext(Dispatchers.IO) {
 
             MPV_EVENT_LOG_MESSAGE -> {
                 if (SpMs.logging_enabled) {
-                    val message: MpvEventLogMessage = MpvEventLogMessage.fromData(event.data)
+                    val message: MpvEventLogMessage = MpvEventLogMessage(event.data!!)
                     SpMs.log("From mpv (${message.prefix}): ${message.text}")
                 }
             }

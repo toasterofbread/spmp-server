@@ -4,25 +4,6 @@ import dev.toastbits.spms.player.Player
 import toInt
 import kotlin.reflect.KClass
 
-// expect abstract class LibMpvClient(
-//     headless: Boolean = true,
-//     playlist_auto_progress: Boolean = true
-// ): Player {
-//     companion object {
-//         fun isAvailable(): Boolean
-//     }
-
-//     val is_headless: Boolean
-
-//     override fun release()
-
-//     fun runCommand(name: String, vararg args: Any?, check_result: Boolean = true): Int
-//     internal inline fun <reified V> getProperty(name: String): V
-//     internal inline fun <reified T: Any> setProperty(name: String, value: T)
-//     fun addHook(name: String, priority: Int = 0)
-//     fun continueHook(id: ULong)
-// }
-
 abstract class LibMpvClient(
     val libmpv: LibMpv,
     headless: Boolean,
@@ -96,18 +77,16 @@ abstract class LibMpvClient(
     //         else -> throw NotImplementedError(T::class.toString())
     //     }
 
-    internal fun waitForEvent(): MpvEvent? = libmpv.waitEvent(ctx, -1.0)
+    internal fun waitForEvent(): MpvEvent = libmpv.waitEvent(ctx, -1.0)
 
     internal fun requestLogMessages() {
-        for (i in 0 until 10) {
-            if (libmpv.requestLogMessages(ctx, "trace") == 0) {
-                break
-            }
-        }
+        val result: Int = libmpv.requestLogMessages(ctx, "v")
+        check(result == 0) { "Call to requestLogMessages failed ($result)" }
     }
 
     fun addHook(name: String, priority: Int = 0) {
-        libmpv.hookAdd(ctx, 0L, name, priority)
+        val result: Int = libmpv.hookAdd(ctx, 0L, name, priority)
+        check(result == 0) { "Call to hookAdd with name=$name and priority=$priority failed ($result)" }
     }
 
     fun continueHook(id: Long) {
