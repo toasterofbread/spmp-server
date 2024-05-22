@@ -75,12 +75,13 @@ abstract class MpvClientImpl(
             return
         }
 
-        setProperty("pause", false)
+        val result: Int = setProperty("pause", false)
+        check(result == 0) { "Call to setProperty(\"pause\", false) failed ($result)" }
         onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
     }
     override fun pause() {
         val result: Int = setProperty("pause", true)
-        // check(result == 0) { "Call to setProperty(\"pause\") failed ($result)" }
+        check(result == 0) { "Call to setProperty(\"pause\", true) failed ($result)" }
         onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(is_playing)))
     }
     override fun playPause() {

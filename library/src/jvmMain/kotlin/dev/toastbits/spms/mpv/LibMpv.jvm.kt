@@ -79,8 +79,6 @@ fun MemorySegment.getString(): String? {
 }
 
 actual class LibMpv private constructor() {
-    private val callback_arena: Arena = Arena.ofConfined()
-
     actual companion object {
         actual fun create(): LibMpv? {
             try {
@@ -159,7 +157,9 @@ actual class LibMpv private constructor() {
         }
 
         val arena: Arena = Arena.ofConfined()
-        val pointer: MemorySegment = getPointerOf(arena, data)
+        val pointer: MemorySegment =
+            if (data is Boolean) getPointerOf(arena, if (data) 1 else 0)
+            else getPointerOf(arena, data)
         val format: Int = getMpvFormatOf(T::class)
         return client_h.mpv_set_property(handle.data, name.memorySegment(arena), format, pointer)
     }
@@ -203,6 +203,6 @@ actual class LibMpv private constructor() {
             Boolean::class -> arena.allocate(ValueLayout.JAVA_BOOLEAN.byteSize(), 1L).apply { if (v != null) set(ValueLayout.JAVA_BOOLEAN, 0L, v as Boolean) }
             Int::class -> arena.allocate(ValueLayout.JAVA_INT.byteSize(), 1L).apply { if (v != null) set(ValueLayout.JAVA_INT, 0L, v as Int) }
             Double::class -> arena.allocate(ValueLayout.JAVA_DOUBLE.byteSize(), 1L).apply { if (v != null) set(ValueLayout.JAVA_DOUBLE, 0L, v as Double) }
-            else -> throw NotImplementedError(T::class.toString())
+            else -> throw NotImplementedError("getPointerOf not implemented for type '${T::class}'")
         }
 }
