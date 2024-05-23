@@ -15,6 +15,7 @@ plugins {
     kotlin("multiplatform")
     kotlin("plugin.serialization")
     id("plugin.publishing")
+    id("plugin.nativelibs")
 }
 
 tasks.withType<JavaCompile>() {

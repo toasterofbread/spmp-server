@@ -8,6 +8,7 @@ build/
 /.kotlin
 *.log
 
+/.jextract
 /library/src/jvmMain/java
 
 /library/src/nativeInterop/*
