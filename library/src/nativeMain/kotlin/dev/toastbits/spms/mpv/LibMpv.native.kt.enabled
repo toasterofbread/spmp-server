@@ -21,6 +21,11 @@ import libmpv.*
 actual class MpvHandle(val pointer: CPointer<mpv_handle>)
 
 actual class LibMpv private constructor() {
+    actual companion object {
+        actual fun isAvailable(): Boolean = true
+        actual fun create(throw_on_fail: Boolean): LibMpv? = LibMpv()
+    }
+
     actual fun create(): MpvHandle? {
         return mpv_create_client(null, null)?.let { MpvHandle(it) }
     }
@@ -118,9 +123,4 @@ actual class LibMpv private constructor() {
             Double::class -> alloc<DoubleVar>().apply { if (v != null) value = v as Double }
             else -> throw NotImplementedError(T::class.toString())
         }
-
-    actual companion object {
-        actual fun isAvailable(): Boolean = true
-        actual fun create(throw_on_fail: Boolean): LibMpv? = LibMpv()
-    }
 }

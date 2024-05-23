@@ -39,8 +39,8 @@ tasks.jextract {
 
     header("/usr/include/mpv/client.h") {
         libraries = listOf("mpv")
-        targetPackage = "dev.toastbits.spms.mpv.libmpv"
-        className = "client_h"
+        targetPackage = "libmpv"
+        className = "client"
         outputDir = project.file("src/jvmMain/java")
 
         val binary: File = extractJextract.get().getJextractBinary()

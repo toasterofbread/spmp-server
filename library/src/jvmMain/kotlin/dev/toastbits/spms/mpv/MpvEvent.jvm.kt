@@ -1,8 +1,16 @@
 package dev.toastbits.spms.mpv
 
-import java.lang.foreign.MemorySegment
-import java.lang.foreign.ValueLayout
-import dev.toastbits.spms.mpv.libmpv.*
+import java.lang.foreign.*
+import libmpv.*
+
+class InternalMpvEvent(private val event_data: MemorySegment): MpvEvent() {
+    override val event_id: Int get() = mpv_event.event_id(event_data)
+    override val error: Int get() = mpv_event.error(event_data)
+    override val reply_userdata: Long get() = mpv_event.reply_userdata(event_data)
+    override val data: MpvEventData? get() = MpvEventData(mpv_event.data(event_data))
+}
+
+actual class MpvEventData(val data: MemorySegment)
 
 actual class MpvEventStartFile actual constructor(private val event_data: MpvEventData) {
     actual val playlist_entry_id: Long get() = mpv_event_start_file.playlist_entry_id(event_data.data)
@@ -30,29 +38,3 @@ actual class MpvEventLogMessage actual constructor(private val event_data: MpvEv
     actual val text: String? get() = mpv_event_log_message.text(event_data.data).getString()
     actual val log_level: Int get() = mpv_event_log_message.log_level(event_data.data)
 }
-
-// class mpv_event_start_file(data: MpvEventData?): Structure(data!!.data) {
-//     @JvmField var playlist_entry_id: Long = -1
-//     override fun getFieldOrder(): List<String> = listOf("playlist_entry_id")
-// }
-
-// class mpv_event_property(data: MpvEventData?): Structure(data!!.data) {
-//     @JvmField var name: String? = null
-//     @JvmField var format: Int = -1
-//     @JvmField var data: MpvEventData? = null
-//     override fun getFieldOrder(): List<String> = listOf("name", "format", "data")
-// }
-
-// class mpv_event_hook(data: MpvEventData?): Structure(data!!.data) {
-//     @JvmField val name: String? = null
-//     @JvmField val id: Long = 0
-//     override fun getFieldOrder(): List<String> = listOf("name", "id")
-// }
-
-// class mpv_event_log_message(data: MpvEventData?): Structure(data!!.data) {
-//     @JvmField var prefix: MpvEventData? = null
-//     @JvmField var level: MpvEventData? = null
-//     @JvmField var text: MpvEventData? = null
-//     @JvmField var log_level: MpvEventData? = null
-//     override fun getFieldOrder(): List<String> = listOf("prefix", "level", "text", "log_level")
-// }
