@@ -2,7 +2,6 @@ package dev.toastbits.spms.client.player
 
 import dev.toastbits.spms.mpv.MpvClientImpl
 import dev.toastbits.spms.mpv.getCurrentStateJson
-import dev.toastbits.spms.mpv.LibMpv
 import dev.toastbits.spms.zmq.ZmqSocket
 import dev.toastbits.spms.zmq.ZmqSocketType
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
@@ -20,7 +19,9 @@ import dev.toastbits.spms.socketapi.player.PlayerAction
 import dev.toastbits.spms.socketapi.shared.*
 import dev.toastbits.spms.getDeviceName
 import dev.toastbits.spms.getMachineId
+import dev.toastbits.spms.createLibMpv
 import kotlin.time.*
+import gen.libmpv.LibMpv
 
 private val SERVER_REPLY_TIMEOUT: Duration = with (Duration) { 2.seconds }
 private val SERVER_EVENT_TIMEOUT: Duration = with (Duration) { 11.seconds }
@@ -141,8 +142,11 @@ class PlayerClient private constructor(val libmpv: LibMpv): Command(
 ) {
     companion object {
         fun get(): PlayerClient? {
-            val libmpv: LibMpv = LibMpv.create() ?: return null
-            return PlayerClient(libmpv)
+            if (!LibMpv.isAvailable()) {
+                return null
+            }
+
+            return PlayerClient(createLibMpv())
         }
     }
 

@@ -10,6 +10,7 @@ import dev.toastbits.spms.server.SpMs
 import dev.toastbits.spms.socketapi.shared.SpMsPlayerRepeatMode
 import dev.toastbits.spms.socketapi.shared.SpMsPlayerState
 import dev.toastbits.spms.PLATFORM
+import gen.libmpv.LibMpv
 import kotlin.math.roundToInt
 import kotlin.time.*
 
@@ -253,17 +254,16 @@ abstract class MpvClientImpl(
     override fun toString(): String = "MpvClientImpl(is_headless=$is_headless)"
 
     private fun initialise() {
-        // requestLogMessages()
+        requestLogMessages()
 
-        addHook("on_load", -1000)
-        addHook("main/on_load", -1000)
+        addHook("on_load")
 
         coroutine_scope.launch {
             eventLoop()
         }
     }
 
-    internal suspend fun onMpvHook(hook_name: String?, hook_id: Long) {
+    internal suspend fun onMpvHook(hook_name: String?, hook_id: ULong) {
         try {
             when (hook_name) {
                 "on_load" -> {

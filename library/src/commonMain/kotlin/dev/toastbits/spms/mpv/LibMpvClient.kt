@@ -3,6 +3,12 @@ package dev.toastbits.spms.mpv
 import dev.toastbits.spms.player.Player
 import toInt
 import kotlin.reflect.KClass
+import gen.libmpv.LibMpv
+import kjna.struct.mpv_handle
+import kjna.struct.mpv_event
+import kjna.enum.mpv_format
+import dev.toastbits.kjna.runtime.KJnaTypedPointer
+import dev.toastbits.kjna.runtime.KJnaMemScope
 
 abstract class LibMpvClient(
     val libmpv: LibMpv,
@@ -11,29 +17,36 @@ abstract class LibMpvClient(
 ): Player {
     val is_headless: Boolean = headless
 
-    protected val ctx: MpvHandle
+    protected val ctx: KJnaTypedPointer<mpv_handle>
 
     init {
-        ctx = libmpv.create()
+        ctx = libmpv.mpv_create()
             ?: throw NullPointerException("Creating mpv client failed")
 
-        libmpv.setOption(ctx, "vid", !is_headless)
+        KJnaMemScope.confined {
+            val vid: KJnaTypedPointer<Boolean> = alloc<Boolean>()
+            vid.set(!is_headless)
+            libmpv.mpv_set_option(ctx, "vid", mpv_format.MPV_FORMAT_FLAG, vid)
 
-        if (!is_headless) {
-            libmpv.setOptionString(ctx, "force-window", "immediate")
-            libmpv.setOption(ctx, "osd-level", 3)
+            if (!is_headless) {
+                libmpv.mpv_set_option_string(ctx, "force-window", "immediate")
+
+                val osd_level: KJnaTypedPointer<Int> = alloc<Int>()
+                osd_level.set(3)
+                libmpv.mpv_set_option(ctx, "osd-level", mpv_format.MPV_FORMAT_INT64, osd_level)
+            }
+
+            if (!playlist_auto_progress) {
+                libmpv.mpv_set_option_string(ctx, "keep-open", "always")
+            }
         }
 
-        if (!playlist_auto_progress) {
-            libmpv.setOptionString(ctx, "keep-open", "always")
-        }
-
-        val init_result: Int = libmpv.initialize(ctx)
+        val init_result: Int = libmpv.mpv_initialize(ctx)
         check(init_result == 0) { "Initialising mpv client failed ($init_result)" }
     }
 
     override fun release() {
-        libmpv.terminateDestroy(ctx)
+        libmpv.mpv_terminate_destroy(ctx)
     }
 
     private fun buildArgs(args: List<Any?>, terminate: Boolean = true): Array<String?> =
@@ -42,7 +55,9 @@ abstract class LibMpvClient(
         }
 
     fun runCommand(name: String, vararg args: Any?, check_result: Boolean = true): Int {
-        val result: Int = libmpv.command(ctx, buildArgs(listOf(name).plus(args)))
+        val result: Int = KJnaMemScope.confined {
+            libmpv.mpv_command(ctx, allocStringArray(buildArgs(listOf(name).plus(args))))
+        }
 
         if (check_result) {
             check(result == 0) {
@@ -53,15 +68,33 @@ abstract class LibMpvClient(
         return result
     }
 
-    internal inline fun <reified T> getProperty(name: String): T = libmpv.getProperty(ctx, name)
+    internal inline fun <reified T: Any> getProperty(name: String): T = KJnaMemScope.confined {
+        if (T::class == String::class) {
+            return libmpv.mpv_get_property_string(ctx, name)!! as T
+        }
 
-    internal inline fun <reified T: Any> setProperty(name: String, value: T) = libmpv.setProperty(ctx, name, value)
+        val pointer: KJnaTypedPointer<T> = alloc<T>()
+        val format: mpv_format = getMpvFormatOf(T::class)
+        libmpv.mpv_get_property(ctx, name, format, pointer)
+        return@confined pointer.get()
+    }
+
+    internal inline fun <reified T: Any> setProperty(name: String, value: T): Int = KJnaMemScope.confined {
+        if (T::class == String::class) {
+            return@confined libmpv.mpv_set_property_string(ctx, name, value as String)
+        }
+
+        val pointer: KJnaTypedPointer<T> = alloc<T>()
+        val format: mpv_format = getMpvFormatOf(T::class)
+        pointer.set(value)
+        libmpv.mpv_set_property(ctx, name, format, pointer)
+    }
 
     internal fun observeProperty(name: String, cls: KClass<*>) {
-        val format: Int = getMpvFormatOf(cls)
+        val format: mpv_format = getMpvFormatOf(cls)
 
         try {
-            val res: Int = libmpv.observeProperty(ctx, 0L, name, format)
+            val res: Int = libmpv.mpv_observe_property(ctx, 0UL, name, format)
             check(res == 0) { res }
         }
         catch (e: Throwable) {
@@ -69,19 +102,28 @@ abstract class LibMpvClient(
         }
     }
 
-    internal fun waitForEvent(): MpvEvent = libmpv.waitEvent(ctx, -1.0)
+    internal fun waitForEvent(): mpv_event = libmpv.mpv_wait_event(ctx, -1.0)!!.get()
 
     internal fun requestLogMessages() {
-        val result: Int = libmpv.requestLogMessages(ctx, "info")
+        val result: Int = libmpv.mpv_request_log_messages(ctx, "info")
         check(result == 0) { "Call to requestLogMessages failed ($result)" }
     }
 
     fun addHook(name: String, priority: Int = 0) {
-        val result: Int = libmpv.hookAdd(ctx, 0L, name, priority)
+        val result: Int = libmpv.mpv_hook_add(ctx, 0UL, name, priority)
         check(result == 0) { "Call to hookAdd with name=$name and priority=$priority failed ($result)" }
     }
 
-    fun continueHook(id: Long) {
-        libmpv.hookContinue(ctx, id)
+    fun continueHook(id: ULong) {
+        libmpv.mpv_hook_continue(ctx, id)
     }
 }
+
+fun getMpvFormatOf(cls: KClass<*>): mpv_format =
+    when (cls) {
+        Boolean::class -> mpv_format.MPV_FORMAT_FLAG
+        Int::class -> mpv_format.MPV_FORMAT_INT64
+        Double::class -> mpv_format.MPV_FORMAT_DOUBLE
+        String::class -> mpv_format.MPV_FORMAT_STRING
+        else -> throw NotImplementedError(cls.toString())
+    }

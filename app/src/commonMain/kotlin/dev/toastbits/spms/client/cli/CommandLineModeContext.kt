@@ -1,4 +1,4 @@
-@file:Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+// @file:Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
 package dev.toastbits.spms.client.cli
 
 import dev.toastbits.spms.zmq.ZmqSocket

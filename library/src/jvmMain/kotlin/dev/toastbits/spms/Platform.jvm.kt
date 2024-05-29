@@ -6,6 +6,7 @@ import okio.FileSystem
 import java.net.InetAddress
 import java.lang.System.getenv
 import dev.toastbits.spms.server.SpMs
+import gen.libmpv.LibMpv
 
 actual val FileSystem.Companion.PLATFORM: FileSystem get() = FileSystem.SYSTEM
 
@@ -23,6 +24,15 @@ actual fun getCacheDir(): Path =
         OS.LINUX -> "/home/${getenv("USER")!!}/.cache/".toPath().resolve(SpMs.application_name)
         OS.WINDOWS -> "${getenv("USERPROFILE")!!}/AppData/Local/${SpMs.application_name}/cache".toPath()
     }
+
+actual fun createLibMpv(): LibMpv {
+    val lib: LibMpv = LibMpv()
+    setlocale(
+        1, // LC_NUMERIC
+        "C"
+    )
+    return lib
+}
 
 private enum class OS {
     LINUX, WINDOWS;

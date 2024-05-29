@@ -2,7 +2,6 @@ package dev.toastbits.spms.server
 
 import dev.toastbits.spms.mpv.MpvClientImpl
 import dev.toastbits.spms.mpv.getCurrentStateJson
-import dev.toastbits.spms.mpv.LibMpv
 import dev.toastbits.spms.zmq.ZmqRouter
 import dev.toastbits.spms.zmq.ZmqMessage
 import kotlinx.coroutines.channels.Channel
@@ -22,13 +21,15 @@ import dev.toastbits.spms.socketapi.shared.*
 import dev.toastbits.spms.localisation.SpMsLocalisation
 import dev.toastbits.spms.getMachineId
 import dev.toastbits.spms.getDeviceName
+import dev.toastbits.spms.createLibMpv
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.time.*
+import gen.libmpv.LibMpv
 
 private val CLIENT_REPLY_TIMEOUT: Duration = with (Duration) { 100.milliseconds }
 
 open class SpMs(
-    val headless: Boolean = false,
+    val headless: Boolean = !LibMpv.isAvailable(),
     enable_gui: Boolean = false
 ): ZmqRouter() {
     private var item_durations: MutableMap<String, Duration> = mutableMapOf()
@@ -59,7 +60,7 @@ open class SpMs(
                 override fun onShutdown() = onPlayerShutdown()
             }
         else
-            object : MpvClientImpl(LibMpv.create(true)!!, headless = !enable_gui) {
+            object : MpvClientImpl(createLibMpv(), headless = !enable_gui) {
                 override fun canPlay(): Boolean = this@SpMs.canPlay()
                 override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
                 override fun onShutdown() = onPlayerShutdown()

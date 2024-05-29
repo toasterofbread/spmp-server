@@ -7,14 +7,12 @@ plugins {
     kotlin("plugin.serialization")
 }
 
-tasks.withType<JavaExec>() {
-    jvmArguments.add("--enable-preview")
-}
-
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(22)
 
     jvm {
+        withJava()
+
         mainRun {
             mainClass.set("dev.toastbits.spms.MainKt")
         }
@@ -52,6 +50,9 @@ kotlin {
 
                 val mediasession_version: String = extra["mediasession.version"] as String
                 implementation("dev.toastbits:mediasession:$mediasession_version")
+
+                val kjna_version: String = rootProject.extra["kjna.version"] as String
+                implementation("dev.toastbits.kjna:runtime:$kjna_version")
             }
         }
     }

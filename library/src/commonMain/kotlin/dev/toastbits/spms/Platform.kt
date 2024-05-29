@@ -3,6 +3,7 @@ package dev.toastbits.spms
 import okio.Path
 import okio.FileSystem
 import dev.toastbits.spms.PLATFORM
+import gen.libmpv.LibMpv
 
 expect val FileSystem.Companion.PLATFORM: FileSystem
 
@@ -12,6 +13,8 @@ expect fun getOSName(): String
 expect fun getTempDir(): Path
 
 expect fun getCacheDir(): Path
+
+expect fun createLibMpv(): LibMpv
 
 fun getMachineId(): String {
     val id_path: Path = getTempDir().resolve("spmp_machine_id.txt")

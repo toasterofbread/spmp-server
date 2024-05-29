@@ -5,6 +5,8 @@ import dev.toastbits.spms.zmq.ZmqSocketType
 import com.github.ajalt.clikt.core.CliktError
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
+import com.github.ajalt.clikt.core.obj
+import com.github.ajalt.clikt.core.parse
 import dev.toastbits.spms.Command
 import dev.toastbits.spms.client.ClientOptions
 import dev.toastbits.spms.client.cli.modes.Interactive
@@ -36,7 +38,7 @@ class CommandLineClient private constructor(): Command(
         currentContext.obj = context
 
         if (currentContext.invokedSubcommand == null) {
-            CommandLineClientMode.getDefault().parse(emptyList(), currentContext)
+            CommandLineClientMode.getDefault().parse(emptyList())
         }
     }
 

@@ -26,8 +26,8 @@ import dev.toastbits.spms.*
 import dev.toastbits.spms.socketapi.shared.SPMS_DEFAULT_PORT
 import dev.toastbits.spms.socketapi.shared.SpMsPlayerEvent
 import dev.toastbits.spms.mpv.LibMpvClient
-import dev.toastbits.spms.mpv.LibMpv
 import dev.toastbits.spms.mediasession.SpMsMediaSession
+import gen.libmpv.LibMpv
 
 const val PROJECT_URL: String = "https://github.com/toasterofbread/spmp-server"
 const val BUG_REPORT_URL: String = PROJECT_URL + "/issues"
@@ -92,7 +92,7 @@ class PlayerOptions: OptionGroup() {
 
 class SpMsCommand: Command(
     name = "spms",
-    help = { cli.commandHelpRoot(mpv_enabled = LibMpv.create() != null) },
+    help = { cli.commandHelpRoot(mpv_enabled = LibMpv.isAvailable()) },
     is_default = true
 ) {
     private val port: Int by option("-p", "--port").int().default(SPMS_DEFAULT_PORT).help { context.loc.server.option_help_port }
@@ -117,7 +117,7 @@ class SpMsCommand: Command(
 
         val server: SpMs =
             object : SpMs(
-                headless = headless,
+                headless = !LibMpv.isAvailable() || headless,
                 enable_gui = player_options.enable_gui
             ) {
                 override fun onPlayerEvent(event: SpMsPlayerEvent, clientless: Boolean) {

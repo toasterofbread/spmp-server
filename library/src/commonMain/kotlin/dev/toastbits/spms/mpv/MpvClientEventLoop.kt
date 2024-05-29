@@ -4,6 +4,12 @@ import kotlinx.coroutines.*
 import kotlinx.serialization.json.JsonPrimitive
 import dev.toastbits.spms.server.SpMs
 import dev.toastbits.spms.socketapi.shared.SpMsPlayerEvent
+import kjna.enum.mpv_event_id
+import kjna.struct.mpv_event
+import kjna.struct.mpv_event_start_file
+import kjna.struct.mpv_event_property
+import kjna.struct.mpv_event_hook
+import kjna.struct.mpv_event_log_message
 
 internal suspend fun MpvClientImpl.eventLoop() = withContext(Dispatchers.IO) {
     observeProperty("core-idle", Boolean::class)
@@ -12,25 +18,25 @@ internal suspend fun MpvClientImpl.eventLoop() = withContext(Dispatchers.IO) {
     var waiting_for_seek_end: Boolean = false
 
     while (true) {
-        val event: MpvEvent = waitForEvent()
+        val event: mpv_event = waitForEvent()
         when (event.event_id) {
-            MPV_EVENT_START_FILE -> {
-                val data: MpvEventStartFile = MpvEventStartFile(event.data!!)
+            mpv_event_id.MPV_EVENT_START_FILE -> {
+                val data: mpv_event_start_file = event.data!!.cast()
                 if (data.playlist_entry_id.toInt() != current_item_playlist_id) {
                     continue
                 }
 
                 onEvent(SpMsPlayerEvent.ItemTransition(current_item_index), clientless = true)
             }
-            MPV_EVENT_PLAYBACK_RESTART -> {
+            mpv_event_id.MPV_EVENT_PLAYBACK_RESTART -> {
                 onEvent(SpMsPlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
                 onEvent(SpMsPlayerEvent.PropertyChanged("duration_ms", JsonPrimitive(duration_ms)), clientless = true)
                 onEvent(SpMsPlayerEvent.SeekedToTime(current_position_ms), clientless = true)
             }
-            MPV_EVENT_END_FILE -> {
+            mpv_event_id.MPV_EVENT_END_FILE -> {
                 onEvent(SpMsPlayerEvent.PropertyChanged("state", JsonPrimitive(state.ordinal)), clientless = true)
             }
-            MPV_EVENT_FILE_LOADED -> {
+            mpv_event_id.MPV_EVENT_FILE_LOADED -> {
                 onEvent(SpMsPlayerEvent.ReadyToPlay(), clientless = true)
 
                 song_initial_seek_time?.also { time ->
@@ -38,15 +44,15 @@ internal suspend fun MpvClientImpl.eventLoop() = withContext(Dispatchers.IO) {
                     song_initial_seek_time = null
                 }
             }
-            MPV_EVENT_SHUTDOWN -> {
+            mpv_event_id.MPV_EVENT_SHUTDOWN -> {
                 onShutdown()
             }
-            MPV_EVENT_PROPERTY_CHANGE -> {
-                val data: MpvEventProperty = MpvEventProperty(event.data!!)
+            mpv_event_id.MPV_EVENT_PROPERTY_CHANGE -> {
+                val data: mpv_event_property = event.data!!.cast()
 
                 when (data.name) {
                     "core-idle" -> {
-                        val playing: Boolean = !data.data!!.toBoolean()
+                        val playing: Boolean = !data.data!!.cast<Boolean>()
                         onEvent(SpMsPlayerEvent.PropertyChanged("is_playing", JsonPrimitive(playing)), clientless = true)
                     }
                     "seeking" -> {
@@ -58,7 +64,7 @@ internal suspend fun MpvClientImpl.eventLoop() = withContext(Dispatchers.IO) {
                 }
             }
 
-            MPV_EVENT_SEEK -> {
+            mpv_event_id.MPV_EVENT_SEEK -> {
                 if (getProperty<Boolean>("seeking")) {
                     waiting_for_seek_end = true
                 }
@@ -67,20 +73,21 @@ internal suspend fun MpvClientImpl.eventLoop() = withContext(Dispatchers.IO) {
                 }
             }
 
-            MPV_EVENT_HOOK -> {
-                val data: MpvEventHook = MpvEventHook(event.data!!)
-                println("ARRRRR $event ${data.name} ${data.id}")
+            mpv_event_id.MPV_EVENT_HOOK -> {
+                val data: mpv_event_hook = event.data!!.cast()
                 launch {
                     onMpvHook(data.name, data.id)
                 }
             }
 
-            MPV_EVENT_LOG_MESSAGE -> {
+            mpv_event_id.MPV_EVENT_LOG_MESSAGE -> {
                 if (SpMs.logging_enabled) {
-                    val message: MpvEventLogMessage = MpvEventLogMessage(event.data!!)
+                    val message: mpv_event_log_message = event.data!!.cast()
                     SpMs.log("From mpv (${message.prefix}): ${message.text}")
                 }
             }
+
+            else -> {}
         }
     }
 }

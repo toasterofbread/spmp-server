@@ -22,12 +22,12 @@ abstract class Command(
     is_default: Boolean = false,
     hidden: Boolean = false,
     help_tags: Map<String, String> = emptyMap()
-): CliktCommand(
-    name = name,
-    invokeWithoutSubcommand = is_default,
-    hidden = hidden,
-    helpTags = help_tags
-) {
+): CliktCommand(name = name) {
+    override val argumentQuoteCharacterPairs: List<Pair<Char, Char>> = listOf(Pair('"', '"'))
+    override val invokeWithoutSubcommand: Boolean = is_default
+    override val hiddenFromHelp: Boolean = hidden
+    override val helpTags: Map<String, String> = help_tags
+
     protected val output_version: Boolean by option("-v", "--version").flag().help { context.loc.cli.option_help_version }
     protected val silent: Boolean by option("-s", "--silent").flag().help { context.loc.cli.option_help_silent }
     protected val language: String by option("-l", "--lang").default("").help { context.loc.cli.option_help_language }
@@ -37,8 +37,8 @@ abstract class Command(
         SpMs.log(message)
     }
 
-    override fun commandHelpEpilog(context: Context): String = context.loc.cli.bug_report_notice
-    override fun commandHelp(context: Context): String = help?.invoke(context.loc).orEmpty()
+    override fun helpEpilog(context: Context): String = context.loc.cli.bug_report_notice
+    override fun help(context: Context): String = help?.invoke(context.loc).orEmpty()
 
     override fun run() {
         SpMs.logging_enabled = !silent

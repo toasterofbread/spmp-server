@@ -1,12 +1,9 @@
 @file:Suppress("UNUSED_VARIABLE")
 
-import okio.Path.Companion.toPath
 import org.jetbrains.kotlin.gradle.internal.ensureParentDirsCreated
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.DefaultCInteropSettings
-import org.jetbrains.kotlin.gradle.plugin.mpp.Executable
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCompilation
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
+import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
 
 val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
@@ -16,18 +13,15 @@ plugins {
     kotlin("plugin.serialization")
     id("plugin.publishing")
     id("plugin.nativelibs")
-}
-
-tasks.withType<JavaCompile>() {
-    options.compilerArgs.add("--enable-preview")
+    id("dev.toastbits.kjna")
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(22)
+
+    val native_targets: MutableList<KotlinNativeTarget> = mutableListOf()
 
     for (platform in Platform.supported) {
-        val native_target: KotlinNativeTarget
-
         when (platform) {
             Platform.JVM -> {
                 jvm {
@@ -35,14 +29,24 @@ kotlin {
                 }
                 continue
             }
-            Platform.LINUX_X86 -> native_target = linuxX64()
-            Platform.LINUX_ARM64 -> native_target = linuxArm64()
-            Platform.WINDOWS -> native_target = mingwX64()
-            Platform.OSX_X86 -> native_target = macosX64()
-            Platform.OSX_ARM -> native_target = macosArm64()
+            Platform.LINUX_X86 -> native_targets.add(linuxX64().apply { configureNativeTarget(platform) })
+            Platform.LINUX_ARM64 -> native_targets.add(linuxArm64().apply { configureNativeTarget(platform) })
+            Platform.WINDOWS -> native_targets.add(mingwX64().apply { configureNativeTarget(platform) })
+            Platform.OSX_X86 -> native_targets.add(macosX64().apply { configureNativeTarget(platform) })
+            Platform.OSX_ARM -> native_targets.add(macosArm64().apply { configureNativeTarget(platform) })
         }
+    }
 
-        native_target.configureKotlinNativeTarget(platform)
+    kjna {
+        generate {
+            packages(native_targets) {
+                add("gen.libmpv") {
+                    enabled = true
+                    addHeader("mpv/client.h", "LibMpv")
+                    libraries = listOf("mpv")
+                }
+            }
+        }
     }
 
     applyDefaultHierarchyTemplate()
@@ -68,6 +72,9 @@ kotlin {
                 implementation("com.squareup.okio:okio:$okio_version")
 
                 implementation("dev.toastbits.ytmkt:ytmkt:$ytm_version")
+
+                val kjna_version: String = rootProject.extra["kjna.version"] as String
+                implementation("dev.toastbits.kjna:runtime:$kjna_version")
             }
         }
 
@@ -77,6 +84,7 @@ kotlin {
                 implementation("org.zeromq:jeromq:0.6.0")
 
                 val ktor_version: String = extra["ktor.version"] as String
+                implementation("io.ktor:ktor-client-core:$ktor_version")
                 implementation("io.ktor:ktor-client-core:$ktor_version")
                 implementation("io.ktor:ktor-client-cio:$ktor_version")
             }
@@ -210,14 +218,14 @@ enum class CinteropLibraries {
 
     fun shouldInclude(project: Project, platform: Platform): Boolean =
         when (this) {
-            LIBMPV -> !BuildFlag.DISABLE_MPV.isEnabled(project, platform)
+            LIBMPV -> false//!BuildFlag.DISABLE_MPV.isEnabled(project, platform)
             LIBAPPINDICATOR -> platform.is_linux
             else -> true
         }
 
     fun getDependentFiles(): List<String> =
         when (this) {
-            LIBMPV -> listOf("nativeMain/kotlin/dev/toastbits/spms/mpv/LibMpv.native.kt")
+            // LIBMPV -> listOf("nativeMain/kotlin/dev/toastbits/spms/mpv/LibMpv.native.kt", "nativeMain/kotlin/dev/toastbits/spms/mpv/MpvEvent.native.kt")
             else -> emptyList()
         }
 
@@ -381,7 +389,7 @@ enum class CinteropLibraries {
     }
 }
 
-fun KotlinNativeTarget.configureKotlinNativeTarget(platform: Platform) {
+fun KotlinNativeTarget.configureNativeTarget(platform: Platform) {
     val deps_directory: File = platform.getNativeDependenciesDir(project)
 
     compilations.getByName("main") {
@@ -426,7 +434,7 @@ for (platform in Platform.supported) {
 
         doLast {
             for (library in CinteropLibraries.values()) {
-                val enabled: Boolean = library.shouldInclude(project, platform)
+                val enabled: Boolean = true//library.shouldInclude(project, platform)
 
                 for (path in library.getDependentFiles()) {
                     if (path.getFile("").isFile) {
