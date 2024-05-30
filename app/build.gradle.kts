@@ -35,6 +35,10 @@ kotlin {
     }
 
     sourceSets {
+        all {
+            languageSettings.enableLanguageFeature("ExpectActualClasses")
+        }
+
         val commonMain by getting {
             dependencies {
                 implementation(project(":library"))
@@ -93,4 +97,8 @@ tasks.register("bundleIcon") {
 
 tasks.matching { it.name.startsWith("compileKotlin") }.all {
     dependsOn("bundleIcon")
+}
+
+tasks.withType<JavaExec> {
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
 }

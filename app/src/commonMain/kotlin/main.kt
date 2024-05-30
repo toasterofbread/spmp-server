@@ -1,7 +1,6 @@
 package dev.toastbits.spms
 
 import com.github.ajalt.clikt.core.subcommands
-import com.github.ajalt.clikt.core.main
 import dev.toastbits.spms.Command
 import dev.toastbits.spms.client.cli.CommandLineClient
 import dev.toastbits.spms.client.player.PlayerClient

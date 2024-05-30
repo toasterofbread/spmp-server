@@ -1,7 +1,6 @@
 package dev.toastbits.spms.server
 
 import ICON_BYTES
-import dev.toastbits.spms.indicator.createTrayIndicator
 import dev.toastbits.spms.indicator.TrayIndicator
 import com.github.ajalt.clikt.parameters.groups.OptionGroup
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
@@ -59,7 +58,8 @@ fun createIndicator(
 
     val indicator: TrayIndicator? =
         try {
-            createTrayIndicator("SpMs (port $port)", icon_path.segments)
+            if (TrayIndicator.isAvailable()) TrayIndicator("SpMs (port $port)", icon_path.segments)
+            else null
         }
         catch (e: Throwable) {
             RuntimeException("Ignoring exception while creating tray indicator", e).printStackTrace()

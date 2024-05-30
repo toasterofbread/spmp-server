@@ -5,6 +5,8 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.DefaultCInteropSettings
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
+import org.gradle.internal.os.OperatingSystem
+import dev.toastbits.kjna.c.CType
 
 val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
 
@@ -12,7 +14,6 @@ plugins {
     kotlin("multiplatform")
     kotlin("plugin.serialization")
     id("plugin.publishing")
-    id("plugin.nativelibs")
     id("dev.toastbits.kjna")
 }
 
@@ -39,11 +40,17 @@ kotlin {
 
     kjna {
         generate {
+            override_jextract_loader = true
+            
             packages(native_targets) {
                 add("gen.libmpv") {
                     enabled = true
                     addHeader("mpv/client.h", "LibMpv")
                     libraries = listOf("mpv")
+
+                    if (OperatingSystem.current().isWindows()) {
+                        overrides.overrideTypedefType("size_t", CType.Primitive.LONG)
+                    }
                 }
             }
         }
@@ -283,9 +290,12 @@ enum class CinteropLibraries {
                         break
                     }
                 }
-            }
 
-            checkNotNull(file) { "Could not find header file '$path' for platform $platform in $cflags or ${deps_directory.resolve("include")} or $default_include_dirs" }
+                if (file == null) {
+                    println("WARNING: Could not find header file '$path' for platform $platform in $cflags or ${deps_directory.resolve("include")} or $default_include_dirs")
+                    return
+                }
+            }
 
             settings.header(file)
         }
@@ -314,7 +324,9 @@ enum class CinteropLibraries {
 
         for (filename in lib_filenames) {
             val lib_file: File = libs_dir.resolve(filename)
-            check(lib_file.isFile) { "$lib_file not found" }
+            if (!lib_file.isFile) {
+                println("WARNING: Could not find library file '$lib_file' in $libs_dir")
+            }
         }
 
         val def_file: File = project.file("build/def/${name}.${platform.identifier}.def")

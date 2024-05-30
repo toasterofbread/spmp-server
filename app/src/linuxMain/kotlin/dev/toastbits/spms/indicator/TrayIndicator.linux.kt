@@ -18,21 +18,14 @@ import platform.posix.LC_NUMERIC
 import platform.posix.setlocale
 import platform.posix.getenv
 
-fun createTrayIndicator(name: String, icon_path: List<String>): TrayIndicator? {
-    if (getenv("XDG_CURRENT_DESKTOP") == null) {
-        return null
-    }
-    return TrayIndicatorImpl(name, icon_path)
-}
-
 @OptIn(ExperimentalForeignApi::class)
-class TrayIndicatorImpl(name: String, icon_path: List<String>): TrayIndicator {
+actual class TrayIndicator actual constructor(name: String, icon_path: List<String>) {
     private val mem_scope = MemScope()
     private val indicator: CPointer<AppIndicator>
     private val menu: CPointer<GtkWidget>
     private var main_loop: CPointer<GMainLoop>? = null
 
-    override fun show() {
+    actual fun show() {
         app_indicator_set_menu(indicator, menu.reinterpret())
 
         main_loop = g_main_loop_new(null, FALSE)
@@ -40,21 +33,21 @@ class TrayIndicatorImpl(name: String, icon_path: List<String>): TrayIndicator {
         main_loop = null
     }
 
-    override fun hide() {
+    actual fun hide() {
         main_loop?.also { loop ->
             g_main_loop_quit(loop)
         }
     }
 
-    override fun release() {
+    actual fun release() {
         hide()
     }
 
-    override fun addClickCallback(onClick: ClickCallback) {
+    actual fun addClickCallback(onClick: ClickCallback) {
         // TODO
     }
 
-    override fun addButton(label: String, onClick: ButtonCallback?) {
+    actual fun addButton(label: String, onClick: ButtonCallback?) {
         val item: CPointer<GtkWidget> = gtk_menu_item_new_with_label(label)!!
 
         if (onClick != null) {
@@ -75,7 +68,7 @@ class TrayIndicatorImpl(name: String, icon_path: List<String>): TrayIndicator {
         gtk_widget_show(item)
     }
 
-    override fun addScrollCallback(onScroll: (delta: Int, direction: Int) -> Unit) {
+    actual fun addScrollCallback(onScroll: (delta: Int, direction: Int) -> Unit) {
         val callback_index: CPointer<IntVar> = scroll_callbacks.addCallback(onScroll, mem_scope)
 
         g_signal_connect_data(
@@ -133,7 +126,11 @@ class TrayIndicatorImpl(name: String, icon_path: List<String>): TrayIndicator {
         setlocale(LC_NUMERIC, "C")
     }
 
-    companion object {
+    actual companion object {
+        actual fun isAvailable(): Boolean {
+            return getenv("XDG_CURRENT_DESKTOP") != null
+        }
+
         private val click_callbacks: MutableList<ClickCallback> = mutableListOf()
         private val button_callbacks: MutableList<ButtonCallback> = mutableListOf()
         private val scroll_callbacks: MutableList<ScrollCallback> = mutableListOf()
