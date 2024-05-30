@@ -3,7 +3,6 @@
 import org.jetbrains.kotlin.gradle.internal.ensureParentDirsCreated
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.DefaultCInteropSettings
-import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
 import org.gradle.internal.os.OperatingSystem
 import dev.toastbits.kjna.c.CType
@@ -41,10 +40,11 @@ kotlin {
     kjna {
         generate {
             override_jextract_loader = true
-            
+
             packages(native_targets) {
                 add("gen.libmpv") {
-                    enabled = true
+                    enabled = !BuildFlag.DISABLE_MPV.isSet(project)
+
                     addHeader("mpv/client.h", "LibMpv")
                     libraries = listOf("mpv")
 
@@ -100,9 +100,9 @@ kotlin {
 }
 
 enum class BuildFlag {
-    DISABLE_MPV;
+    DISABLE_MPV, DISABLE_APPINDICATOR;
 
-    fun isEnabled(project: Project, platform: Platform): Boolean {
+    fun isSet(project: Project): Boolean {
         return project.hasProperty(name)
     }
 }
@@ -219,28 +219,23 @@ enum class Platform {
 }
 
 enum class CinteropLibraries {
-    LIBMPV, LIBZMQ, LIBAPPINDICATOR;
+    LIBZMQ, LIBAPPINDICATOR;
 
     val identifier: String get() = name.lowercase()
 
     fun shouldInclude(project: Project, platform: Platform): Boolean =
         when (this) {
-            LIBMPV -> false//!BuildFlag.DISABLE_MPV.isEnabled(project, platform)
-            LIBAPPINDICATOR -> platform.is_linux
+            LIBAPPINDICATOR -> platform.is_linux && !BuildFlag.DISABLE_APPINDICATOR.isSet(project)
             else -> true
         }
 
     fun getDependentFiles(): List<String> =
         when (this) {
-            // LIBMPV -> listOf("nativeMain/kotlin/dev/toastbits/spms/mpv/LibMpv.native.kt", "nativeMain/kotlin/dev/toastbits/spms/mpv/MpvEvent.native.kt")
             else -> emptyList()
         }
 
     fun getBinaryDependencies(platform: Platform): List<String> =
         when (this) {
-            LIBMPV ->
-                if (platform == Platform.WINDOWS) listOf("libmpv-2.dll")
-                else emptyList()
             LIBZMQ ->
                 if (platform == Platform.WINDOWS) listOf("libzmq-mt-4_3_5.dll")
                 else emptyList()
@@ -249,7 +244,6 @@ enum class CinteropLibraries {
 
     private fun getPackageName(): String =
         when (this) {
-            LIBMPV -> "mpv"
             LIBZMQ -> "libzmq"
             LIBAPPINDICATOR -> "appindicator3-0.1"
         }
@@ -301,9 +295,6 @@ enum class CinteropLibraries {
         }
 
         when (this) {
-            LIBMPV -> {
-                addHeaderFile("mpv/client.h")
-            }
             LIBZMQ -> {
                 addHeaderFile("zmq.h")
                 addHeaderFile("zmq_utils.h")
@@ -338,7 +329,6 @@ enum class CinteropLibraries {
         val linker_opts: MutableList<String> = pkgConfig(platform, deps_directory, getPackageName(), libs = true).toMutableList()
 
         when (this) {
-            LIBMPV -> linker_opts.add("-lmpv")
             LIBZMQ -> {
                 if (!platform.is_linux) {
                     linker_opts.addAll(listOf("-lssp", "-static", "-static-libgcc", "-static-libstdc++", "-lgcc", "-lstdc++"))
@@ -446,7 +436,7 @@ for (platform in Platform.supported) {
 
         doLast {
             for (library in CinteropLibraries.values()) {
-                val enabled: Boolean = true//library.shouldInclude(project, platform)
+                val enabled: Boolean = library.shouldInclude(project, platform)
 
                 for (path in library.getDependentFiles()) {
                     if (path.getFile("").isFile) {
