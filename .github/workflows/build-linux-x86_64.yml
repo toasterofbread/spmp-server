@@ -89,29 +89,8 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradle
 
-    - name: Build linux-x86_64 binaries
-      run: ./gradlew linux-x86_64Binaries -PLINK_STATIC
-
-    - name: Strip release binary
-      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip build/bin/linux-x86_64/releaseExecutable/*.kexe
-
-    - name: Upload debug binary
-      uses: actions/upload-artifact@v3
-      with:
-        name: spms-linux-x86_64-debug
-        path: build/bin/linux-x86_64/debugExecutable/*.kexe
-
-    - name: Upload release binary
-      uses: actions/upload-artifact@v3
-      with:
-        name: spms-linux-x86_64-release
-        path: build/bin/linux-x86_64/releaseExecutable/*.kexe
-
-    - name: Clean build
-      run: ./gradlew clean
-
-    - name: Build linux-x86_64 binaries without mpv
-      run: ./gradlew linux-x86_64Binaries -PLINK_STATIC -PDISABLE_MPV
+    - name: Build Linux x86_64 binaries without mpv
+      run: ./gradlew app:linuxX64Binaries -PDISABLE_MPV
 
     - name: Strip release binary
       run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip build/bin/linux-x86_64/releaseExecutable/*.kexe
@@ -126,4 +105,25 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: spms-nompv-linux-x86_64-release
+        path: build/bin/linux-x86_64/releaseExecutable/*.kexe
+
+    - name: Clean build
+      run: ./gradlew clean
+
+    - name: Build Linux x86_64 binaries
+      run: ./gradlew app:linuxX64Binaries
+
+    - name: Strip release binary
+      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip build/bin/linux-x86_64/releaseExecutable/*.kexe
+
+    - name: Upload debug binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-linux-x86_64-debug
+        path: build/bin/linux-x86_64/debugExecutable/*.kexe
+
+    - name: Upload release binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-linux-x86_64-release
         path: build/bin/linux-x86_64/releaseExecutable/*.kexe

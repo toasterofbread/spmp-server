@@ -6,6 +6,10 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.DefaultCInteropSettings
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
 import org.gradle.internal.os.OperatingSystem
 import dev.toastbits.kjna.c.CType
+import dev.toastbits.kjna.c.CValueType
+import dev.toastbits.kjna.c.CFunctionDeclaration
+import dev.toastbits.kjna.c.CFunctionParameter
+import dev.toastbits.kjna.plugin.KJnaBuildTarget
 
 val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
 
@@ -40,6 +44,7 @@ kotlin {
     kjna {
         generate {
             override_jextract_loader = true
+            parser_include_dirs += listOf("/usr/include/linux/", "/usr/lib/gcc/x86_64-pc-linux-gnu/14.1.1/include/")
 
             packages(native_targets) {
                 add("gen.libmpv") {
@@ -47,10 +52,71 @@ kotlin {
 
                     addHeader("mpv/client.h", "LibMpv")
                     libraries = listOf("mpv")
+                    // include_dirs += listOf("/usr/include/linux/")
 
-                    if (OperatingSystem.current().isWindows()) {
-                        overrides.overrideTypedefType("size_t", CType.Primitive.LONG)
+                    jextract {
+                        macros += listOf("size_t=unsigned long")
                     }
+
+                    // cinterop {
+                    //     extra_headers += listOf("stdlib.h")
+                    // }
+
+                    // if (OperatingSystem.current().isWindows()) {
+                    //     overrides.overrideTypedefType("size_t", CType.Primitive.LONG)
+                    // }
+                }
+
+                add("gen.libappindicator") {
+                    enabled = !BuildFlag.DISABLE_APPINDICATOR.isSet(project)
+                    disabled_targets = listOf(KJnaBuildTarget.NATIVE_MINGW_X64)
+
+                    // addHeader("libappindicator3-0.1/libappindicator/app-indicator.h", "LibAppIndicator")
+                    // libraries = listOf("appindicator3")
+
+                    addHeader("libayatana-appindicator3-0.1/libayatana-appindicator/app-indicator.h", "LibAppIndicator") {
+                        // bind_all_includes = true
+                        bind_includes += listOf(
+                            "gtk-3.0/gtk/gtkmain.h",
+                            "gtk-3.0/gtk/gtkmenushell.h",
+                            "gtk-3.0/gtk/gtkmenuitem.h",
+                            "gtk-3.0/gtk/gtkwidget.h",
+                            "gtk-3.0/gtk/gtkmenu.h",
+                            "glib-2.0/glib/gmain.h",
+                            "glib-2.0/gobject/gsignal.h",
+                            "glib-2.0/glib/gmessages.h"
+                        )
+                        exclude_functions += listOf("g_clear_handle_id")
+                    }
+
+                    libraries += Static.pkgConfig(Platform.LINUX_X86, null, "ayatana-appindicator3-0.1", libs = true).mapNotNull { if (it.startsWith("-l")) it.drop(2) else null }
+
+                    for (cflag in Static.pkgConfig(Platform.LINUX_X86, null, "ayatana-appindicator3-0.1", cflags = true)) {
+                        if (cflag.startsWith("-I")) {
+                            include_dirs += listOf(cflag.drop(2))
+                        }
+                    }
+
+                    parser_ignore_headers += listOf("glib/gwin32.h", "type_traits")
+
+                    jextract {
+                        symbol_filter = listOf("^app_indicator_", "^gtk_", "^g_", "^_G", "_cairo_rectangle_int", "_AtkObject")
+                    }
+
+                    overrides.overrideTypedefType(
+                        "GCallback",
+                        CType.Function(
+                            CFunctionDeclaration(
+                                "GCallback", null, listOf(CFunctionParameter(null, CValueType(CType.Primitive.VOID, 1)))
+                            ),
+                            typedef_name = "GCallback"
+                        ),
+                        pointer_depth = 1
+                    )
+
+                    // _cairo_path_data_t
+                    overrides.overrideAnonymousStructIndex(24, 10)
+                    overrides.overrideAnonymousStructIndex(25, 11)
                 }
             }
         }
@@ -225,7 +291,7 @@ enum class CinteropLibraries {
 
     fun shouldInclude(project: Project, platform: Platform): Boolean =
         when (this) {
-            LIBAPPINDICATOR -> platform.is_linux && !BuildFlag.DISABLE_APPINDICATOR.isSet(project)
+            LIBAPPINDICATOR -> false//platform.is_linux && !BuildFlag.DISABLE_APPINDICATOR.isSet(project)
             else -> true
         }
 
@@ -254,7 +320,7 @@ enum class CinteropLibraries {
         settings: DefaultCInteropSettings,
         deps_directory: File
     ) {
-        val cflags: List<String> = pkgConfig(platform, deps_directory, getPackageName(), cflags = true)
+        val cflags: List<String> = Static.pkgConfig(platform, deps_directory, getPackageName(), cflags = true)
         settings.compilerOpts(cflags)
 
         val default_include_dirs: List<File> =
@@ -326,7 +392,7 @@ enum class CinteropLibraries {
             def_file.createNewFile()
         }
 
-        val linker_opts: MutableList<String> = pkgConfig(platform, deps_directory, getPackageName(), libs = true).toMutableList()
+        val linker_opts: MutableList<String> = Static.pkgConfig(platform, deps_directory, getPackageName(), libs = true).toMutableList()
 
         when (this) {
             LIBZMQ -> {
@@ -344,50 +410,6 @@ enum class CinteropLibraries {
         """.trimIndent())
 
         settings.defFile(def_file)
-    }
-
-    // https://gist.github.com/micolous/c00b14b2dc321fdb0eab8ad796d71b80
-    private fun pkgConfig(
-        platform: Platform,
-        deps_directory: File,
-        vararg package_names: String,
-        cflags: Boolean = false,
-        libs: Boolean = false
-    ): List<String> {
-        if (Platform.getCurrent() == Platform.WINDOWS) {
-            return emptyList()
-        }
-
-        require(cflags || libs)
-
-        val process_builder: ProcessBuilder = ProcessBuilder(
-            listOfNotNull(
-                "pkg-config",
-                if (cflags) "--cflags" else null,
-                if (libs) "--libs" else null
-            ) + package_names
-        )
-        process_builder.environment()["PKG_CONFIG_PATH"] =
-            listOfNotNull(
-                deps_directory.resolve("pkgconfig").takeIf { it.isDirectory }?.absolutePath,
-                platform.arch.PKG_CONFIG_PATH,
-                System.getenv("SPMS_LIB")?.plus("/pkgconfig")
-            ).joinToString(":")
-        process_builder.environment()["PKG_CONFIG_ALLOW_SYSTEM_LIBS"] = "1"
-
-        val process: Process = process_builder.start()
-        process.waitFor(10, TimeUnit.SECONDS)
-
-        if (process.exitValue() != 0) {
-            // println("pkg-config failed for platform $platform with package_names: ${package_names.toList()}\n" + process.errorStream.bufferedReader().use { it.readText() })
-            return emptyList()
-        }
-
-        return process.inputStream.bufferedReader().use { reader ->
-            reader.readText().split(" ").mapNotNull { it.trim().takeIf { line ->
-                line.isNotBlank() && line != "-I/usr/include/x86_64-linux-gnu" && line != "-I/usr/include/aarch64-linux-gnu"
-            } }
-        }
     }
 }
 
@@ -511,3 +533,49 @@ open class FinaliseBuild: DefaultTask() {
 fun String.capitalised(lowercase_other_chars: Boolean = false) =
     if (lowercase_other_chars) this.first().uppercase() + this.drop(1).lowercase()
     else this.first().uppercase() + this.drop(1)
+
+object Static {
+    // https://gist.github.com/micolous/c00b14b2dc321fdb0eab8ad796d71b80
+    fun pkgConfig(
+        platform: Platform,
+        deps_directory: File?,
+        vararg package_names: String,
+        cflags: Boolean = false,
+        libs: Boolean = false
+    ): List<String> {
+        if (Platform.getCurrent() == Platform.WINDOWS) {
+            return emptyList()
+        }
+
+        require(cflags || libs)
+
+        val process_builder: ProcessBuilder = ProcessBuilder(
+            listOfNotNull(
+                "pkg-config",
+                if (cflags) "--cflags" else null,
+                if (libs) "--libs" else null
+            ) + package_names
+        )
+        process_builder.environment()["PKG_CONFIG_PATH"] =
+            listOfNotNull(
+                deps_directory?.resolve("pkgconfig")?.takeIf { it.isDirectory }?.absolutePath,
+                platform.arch.PKG_CONFIG_PATH,
+                System.getenv("SPMS_LIB")?.plus("/pkgconfig")
+            ).joinToString(":")
+        process_builder.environment()["PKG_CONFIG_ALLOW_SYSTEM_LIBS"] = "1"
+
+        val process: Process = process_builder.start()
+        process.waitFor(10, TimeUnit.SECONDS)
+
+        if (process.exitValue() != 0) {
+            // println("pkg-config failed for platform $platform with package_names: ${package_names.toList()}\n" + process.errorStream.bufferedReader().use { it.readText() })
+            return emptyList()
+        }
+
+        return process.inputStream.bufferedReader().use { reader ->
+            reader.readText().split(" ").mapNotNull { it.trim().takeIf { line ->
+                line.isNotBlank() && line != "-I/usr/include/x86_64-linux-gnu" && line != "-I/usr/include/aarch64-linux-gnu"
+            } }
+        }
+    }
+}
