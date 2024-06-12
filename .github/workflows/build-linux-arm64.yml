@@ -126,39 +126,39 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradle
 
-    - name: Build linux-arm64 binaries
-      run: ./gradlew linux-arm64Binaries -PLINK_STATIC
+    - name: Build Linux Arm64 minimal binaries
+      run: ./gradlew app:linuxArm64Binaries -PMINIMAL
 
     - name: Strip release binary
-      run: $TOOLCHAIN/bin/aarch64-unknown-linux-gnu-strip build/bin/linux-arm64/releaseExecutable/*.kexe
+      run: $TOOLCHAIN/bin/aarch64-unknown-linux-gnu-strip app/build/bin/linuxArm64/releaseExecutable/*.kexe
+
+    - name: Upload debug binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-minimal-linux-arm64-debug
+        path: app/build/bin/linuxArm64/debugExecutable/*.kexe
+
+    - name: Upload release binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-minimal-linux-arm64-release
+        path: app/build/bin/linuxArm64/releaseExecutable/*.kexe
+
+    - name: Build Linux Arm64 full binaries
+      run: ./gradlew app:linuxArm64Binaries
+
+    - name: Strip release binary
+      run: $TOOLCHAIN/bin/aarch64-unknown-linux-gnu-strip app/build/bin/linuxArm64/releaseExecutable/*.kexe
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
       with:
         name: spms-linux-arm64-debug
-        path: build/bin/linux-arm64/debugExecutable/*.kexe
+        path: app/build/bin/linuxArm64/debugExecutable/*.kexe
 
     - name: Upload release binary
       uses: actions/upload-artifact@v3
       with:
         name: spms-linux-arm64-release
-        path: build/bin/linux-arm64/releaseExecutable/*.kexe
-
-    - name: Build linux-arm64 binaries without mpv
-      run: ./gradlew linux-arm64Binaries -PLINK_STATIC -PDISABLE_MPV
-
-    - name: Strip release binary
-      run: $TOOLCHAIN/bin/aarch64-unknown-linux-gnu-strip build/bin/linux-arm64/releaseExecutable/*.kexe
-
-    - name: Upload debug binary
-      uses: actions/upload-artifact@v3
-      with:
-        name: spms-nompv-linux-arm64-debug
-        path: build/bin/linux-arm64/debugExecutable/*.kexe
-
-    - name: Upload release binary
-      uses: actions/upload-artifact@v3
-      with:
-        name: spms-nompv-linux-arm64-release
-        path: build/bin/linux-arm64/releaseExecutable/*.kexe
+        path: app/build/bin/linuxArm64/releaseExecutable/*.kexe
 

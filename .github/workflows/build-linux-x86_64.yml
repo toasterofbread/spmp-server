@@ -89,41 +89,38 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradle
 
-    - name: Build Linux x86_64 binaries without mpv
-      run: ./gradlew app:linuxX64Binaries -PDISABLE_MPV
+    - name: Build Linux x86_64 minimal binaries
+      run: ./gradlew app:linuxX64Binaries -PMINIMAL
 
     - name: Strip release binary
-      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip build/bin/linux-x86_64/releaseExecutable/*.kexe
+      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip app/build/bin/linuxX64/releaseExecutable/*.kexe
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
       with:
-        name: spms-nompv-linux-x86_64-debug
-        path: build/bin/linux-x86_64/debugExecutable/*.kexe
+        name: spms-minimal-linux-x86_64-debug
+        path: app/build/bin/linuxX64/debugExecutable/*.kexe
 
     - name: Upload release binary
       uses: actions/upload-artifact@v3
       with:
-        name: spms-nompv-linux-x86_64-release
-        path: build/bin/linux-x86_64/releaseExecutable/*.kexe
+        name: spms-minimal-linux-x86_64-release
+        path: app/build/bin/linuxX64/releaseExecutable/*.kexe
 
-    - name: Clean build
-      run: ./gradlew clean
-
-    - name: Build Linux x86_64 binaries
+    - name: Build Linux x86_64 full binaries
       run: ./gradlew app:linuxX64Binaries
 
     - name: Strip release binary
-      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip build/bin/linux-x86_64/releaseExecutable/*.kexe
+      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip app/build/bin/linuxX64/releaseExecutable/*.kexe
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
       with:
         name: spms-linux-x86_64-debug
-        path: build/bin/linux-x86_64/debugExecutable/*.kexe
+        path: app/build/bin/linuxX64/debugExecutable/*.kexe
 
     - name: Upload release binary
       uses: actions/upload-artifact@v3
       with:
         name: spms-linux-x86_64-release
-        path: build/bin/linux-x86_64/releaseExecutable/*.kexe
+        path: app/build/bin/linuxX64/releaseExecutable/*.kexe

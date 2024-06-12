@@ -52,38 +52,38 @@ jobs:
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
 
-    - name: Build windows-x86_64 binaries
-      run: .\gradlew.bat windows-x86_64Binaries -PLINK_STATIC
+    - name: Build Windows x86_64 minimal binaries
+      run: .\gradlew.bat app:mingwX64Binaries -PMINIMAL
+
+    - name: Upload debug binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-minimal-windows-x86_64-debug
+        path: app\build\bin\mingwX64\debugExecutable\*.exe
+
+    - name: Upload release binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-minimal-windows-x86_64-release
+        path: app\build\bin\mingwX64\releaseExecutable\*.exe
+
+    - name: Build Windows x86_64 full binaries
+      run: .\gradlew.bat app:mingwX64Binaries
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
       with:
         name: spms-windows-x86_64-debug
-        path: build\bin\windows-x86_64\debugExecutable\*.exe
+        path: app/app\build\bin\mingwX64\debugExecutable\*.exe
 
     - name: Upload release binary
       uses: actions/upload-artifact@v3
       with:
         name: spms-windows-x86_64-release
-        path: build\bin\windows-x86_64\releaseExecutable\*.exe
-
-    - name: Build windows-x86_64 binaries without mpv
-      run: .\gradlew.bat windows-x86_64Binaries -PLINK_STATIC -PDISABLE_MPV
-
-    - name: Upload debug binary
-      uses: actions/upload-artifact@v3
-      with:
-        name: spms-nompv-windows-x86_64-debug
-        path: build\bin\windows-x86_64\debugExecutable\*.exe
-
-    - name: Upload release binary
-      uses: actions/upload-artifact@v3
-      with:
-        name: spms-nompv-windows-x86_64-release
-        path: build\bin\windows-x86_64\releaseExecutable\*.exe
+        path: app/app\build\bin\mingwX64\releaseExecutable\*.exe
 
     - name: Upload DLL dependencies
       uses: actions/upload-artifact@v3
       with:
         name: dependencies
-        path: build\bin\windows-x86_64\releaseExecutable\*.dll
+        path: app\build\bin\mingwX64\releaseExecutable\*.dll
