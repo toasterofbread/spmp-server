@@ -1,10 +1,10 @@
-@file:Suppress("INVISIBLE_MEMBER")
 package dev.toastbits.spms.indicator
 
 import dev.toastbits.kjna.runtime.KJnaTypedPointer
 import dev.toastbits.kjna.runtime.KJnaFunctionPointer
 import dev.toastbits.kjna.runtime.KJnaMemScope
 import dev.toastbits.kjna.runtime.KJnaPointer
+import dev.toastbits.kjna.runtime.KJnaUtils
 import gen.libappindicator.LibAppIndicator
 import kjna.struct._AppIndicator
 import kjna.struct._GtkMenu
@@ -14,23 +14,17 @@ import kjna.struct._GtkWidget
 import kjna.enum.GConnectFlags
 import kjna.enum.AppIndicatorCategory
 import kjna.enum.AppIndicatorStatus
-import kjna.enum.GLogWriterOutput
 import kjna.enum.GLogLevelFlags
-import java.nio.file.Paths
-import java.lang.foreign.ValueLayout
-import java.lang.foreign.FunctionDescriptor
-import java.lang.invoke.MethodHandle
-import java.lang.invoke.MethodHandles
-import java.lang.invoke.MethodType
+import kjna.enum.GLogWriterOutput
 
-actual class TrayIndicator actual constructor(name: String, icon_path: List<String>) {
+class AppIndicatorImpl(name: String, icon_path: List<String>): TrayIndicator {
     private val indicator: KJnaTypedPointer<_AppIndicator>
     private val menu: KJnaTypedPointer<_GtkMenu>
     private var main_loop: KJnaTypedPointer<_GMainLoop>? = null
 
-    private val library: LibAppIndicator
+    private val library: LibAppIndicator = LibAppIndicator()
 
-    actual fun show() {
+    override fun show() {
         library.app_indicator_set_menu(indicator, menu)
 
         main_loop = library.g_main_loop_new(null, 0)
@@ -38,21 +32,21 @@ actual class TrayIndicator actual constructor(name: String, icon_path: List<Stri
         main_loop = null
     }
 
-    actual fun hide() {
+    override fun hide() {
         main_loop?.also { loop ->
             library.g_main_loop_quit(loop)
         }
     }
 
-    actual fun release() {
+    override fun release() {
         hide()
     }
 
-    actual fun addClickCallback(onClick: ClickCallback) {
+    override fun addClickCallback(onClick: ClickCallback) {
         // TODO
     }
 
-    actual fun addButton(label: String, onClick: ButtonCallback?) {
+    override fun addButton(label: String, onClick: ButtonCallback?) {
         val item: KJnaTypedPointer<_GtkWidget> = library.gtk_menu_item_new_with_label(label)!!
 
         if (onClick != null) {
@@ -70,37 +64,43 @@ actual class TrayIndicator actual constructor(name: String, icon_path: List<Stri
         library.gtk_widget_show(item)
     }
 
-    actual fun addScrollCallback(onScroll: (delta: Int, direction: Int) -> Unit) {
-        // library.g_signal_connect_data(
-        //     indicator,
-        //     "scroll-event",
-        //     KJnaFunctionPointer(
-        //         staticCFunction { _: CPointer<*>, delta: gint, direction: guint, function: COpaquePointer ->
-        //             function.asStableRef<(Int, Int) -> Unit>().get().invoke(delta, if (direction == 1U) 1 else -1)
-        //         }.reinterpret()
-        //     ),
-        //     KJnaPointer(StableRef.create(onScroll).asCPointer()),
-        //     null,
-        //     GConnectFlags.G_CONNECT_DEFAULT
-        // )
+    class AppIndicatorScrollEvent {
+        fun invoke(p0: KJnaPointer, delta: Int, direction: UInt, function: KJnaFunctionPointer) {
+
+        }
+    }
+
+    override fun addScrollCallback(onScroll: (delta: Int, direction: Int) -> Unit) {
+        val (function, data) = getScrollEventFunction(onScroll)
+
+        library.g_signal_connect_data(
+            indicator,
+            "scroll-event",
+            function,
+            data,
+            null,
+            GConnectFlags.G_CONNECT_DEFAULT
+        )
     }
 
     init {
-        library = LibAppIndicator()
-
-        // Effectively disables GTK warnings
-        library.g_log_set_writer_func(
-            KJnaFunctionPointer.ofKotlinFunction1 { level: Int ->
-                if (level == GLogLevelFlags.G_LOG_LEVEL_ERROR.value || level == GLogLevelFlags.G_LOG_LEVEL_CRITICAL.value) {
-                    GLogWriterOutput.G_LOG_WRITER_UNHANDLED.value
+        getLogWriterFunction(
+            { level: GLogLevelFlags ->
+                if (level == GLogLevelFlags.G_LOG_LEVEL_ERROR || level == GLogLevelFlags.G_LOG_LEVEL_CRITICAL) {
+                    GLogWriterOutput.G_LOG_WRITER_UNHANDLED
                 }
                 else {
-                    GLogWriterOutput.G_LOG_WRITER_HANDLED.value
+                    GLogWriterOutput.G_LOG_WRITER_HANDLED
                 }
-            },
-            null,
-            null
-        )
+            }
+        ).also { (function, data) ->
+            // Effectively disables GTK warnings
+            library.g_log_set_writer_func(
+                function,
+                data,
+                null
+            )
+        }
 
         KJnaMemScope.confined {
             val gtk_argc: KJnaTypedPointer<Int> = alloc()
@@ -128,11 +128,12 @@ actual class TrayIndicator actual constructor(name: String, icon_path: List<Stri
         menu = library.gtk_menu_new() as KJnaTypedPointer<_GtkMenu>
     }
 
-    actual companion object {
-        actual fun isAvailable(): Boolean {
-            return true
-            // TODO
-            // return getenv("XDG_CURRENT_DESKTOP") != null
+    companion object {
+        fun isAvailable(): Boolean {
+            return KJnaUtils.getEnv("XDG_CURRENT_DESKTOP") != null
         }
     }
 }
+
+internal expect fun getScrollEventFunction(onScroll: (delta: Int, direction: Int) -> Unit): Pair<KJnaFunctionPointer, KJnaPointer?>
+internal expect fun getLogWriterFunction(handleMessage: (GLogLevelFlags) -> GLogWriterOutput): Pair<KJnaFunctionPointer, KJnaPointer?>

@@ -2,6 +2,7 @@ package dev.toastbits.spms.server
 
 import ICON_BYTES
 import dev.toastbits.spms.indicator.TrayIndicator
+import dev.toastbits.spms.createTrayIndicator
 import com.github.ajalt.clikt.parameters.groups.OptionGroup
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
 import com.github.ajalt.clikt.parameters.options.default
@@ -58,8 +59,7 @@ fun createIndicator(
 
     val indicator: TrayIndicator? =
         try {
-            if (TrayIndicator.isAvailable()) TrayIndicator("SpMs (port $port)", icon_path.segments)
-            else null
+            createTrayIndicator("SpMs (port $port)", icon_path.segments)
         }
         catch (e: Throwable) {
             RuntimeException("Ignoring exception while creating tray indicator", e).printStackTrace()
@@ -71,6 +71,7 @@ fun createIndicator(
 
         if (canOpenProcess()) {
             addButton(loc.cli.indicator_button_open_client) {
+            println("LAUNCH")
                 coroutine_scope.launch(Dispatchers.Default) {
                     openProcess("spmp", "r")
                 }
@@ -78,6 +79,7 @@ fun createIndicator(
         }
 
         addButton(loc.cli.indicator_button_stop_server) {
+            println("END")
             endProgram()
         }
     }

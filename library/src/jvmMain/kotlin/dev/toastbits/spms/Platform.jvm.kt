@@ -27,51 +27,10 @@ actual fun getCacheDir(): Path =
     }
 
 actual fun createLibMpv(): LibMpv {
-    // val working_dir: String = System.getProperty("user.dir")
-    // val lib_dirs: MutableList<String> = (listOf(working_dir) + System.getProperty("java.library.path").split(";")).toMutableList()
-
-    // val os_name: String = System.getProperty("os.name")
-    // val lib_name: String =
-    //     when {
-    //         os_name == "Linux" -> {
-    //             lib_dirs.add("/usr/lib")
-    //             "libmpv.so"
-    //         }
-    //         os_name.startsWith("Win") -> {
-    //             lib_dirs.add("C:\\mingw64\\bin")
-    //             "libmpv-2.dll"
-    //         }
-    //         os_name == "Mac OS X" -> TODO()
-    //         else -> throw NotImplementedError(os_name)
-    //     }
-
-    // var lib_found: Boolean = false
-
-    // for (dir in lib_dirs) {
-    //     val file: File = File(dir).resolve(lib_name)
-    //     if (file.isFile) {
-    //         lib_found = true
-    //         break
-    //     }
-    // }
-    // gen.libmpv.jextract.LibMpv.setLibraryLookupByNames("")
-
-    // check(lib_found) { "mpv library file '$lib_name' not found in any of the following locations: $lib_dirs" }
-
-    val lib: LibMpv = LibMpv()
-    try {
-        setlocale(
-            1, // LC_NUMERIC
-            "C"
-        )
-    }
-    catch (_: Throwable) {
-        println("WARNING: Unable to set LC_NUMERIC locale, mpv may not work")
-    }
-    return lib
+    return LibMpv()
 }
 
-private enum class OS {
+enum class OS {
     LINUX, WINDOWS;
 
     companion object {
