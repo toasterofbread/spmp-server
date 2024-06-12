@@ -84,8 +84,8 @@ jobs:
       working-directory: zeromq-4.3.5
       run: make -j$(nproc) && make install
 
-    - name: Copy libzmq into src/nativeInterop/linux-arm64
-      run: mkdir -p src/nativeInterop/linux-arm64 && cp -r libzmq/* src/nativeInterop/linux-arm64
+    - name: Copy libzmq into src/nativeInterop/linuxArm64
+      run: mkdir -p src/nativeInterop/linuxArm64 && cp -r libzmq/* src/nativeInterop/linuxArm64
 
     - name: Add arm64 architecture to dpkg
       run: dpkg --add-architecture arm64

@@ -35,7 +35,7 @@ jobs:
         github-binarycache: true
 
     - name: Copy built files
-      run: xcopy /s /i /y "${{ github.workspace }}\vcpkg\installed\x64-windows\*" "${{ github.workspace }}\src\nativeInterop\windows-x86_64"
+      run: xcopy /s /i /y "${{ github.workspace }}\vcpkg\installed\x64-windows\*" "${{ github.workspace }}\src\nativeInterop\mingwX64"
 
     - name: Download mpv
       run: curl -L https://downloads.sourceforge.net/project/mpv-player-windows/libmpv/mpv-dev-x86_64-20240114-git-bd35dc8.7z --output mpv.7z
@@ -43,13 +43,13 @@ jobs:
     - name: Extract mpv
       shell: bash
       run: |
-        "/c/Program Files/7-Zip/7z.exe" x mpv.7z -o"src\nativeInterop\windows-x86_64"
+        "/c/Program Files/7-Zip/7z.exe" x mpv.7z -o"src\nativeInterop\mingwX64"
 
     - name: Move libmpv.dll.a
-      run: move src\nativeInterop\windows-x86_64\libmpv.dll.a src\nativeInterop\windows-x86_64\lib\libmpv.dll.a
+      run: move src\nativeInterop\mingwX64\libmpv.dll.a src\nativeInterop\mingwX64\lib\libmpv.dll.a
 
     - name: Move libmpv-2.dll
-      run: move src\nativeInterop\windows-x86_64\libmpv-2.dll src\nativeInterop\windows-x86_64\bin\libmpv-2.dll
+      run: move src\nativeInterop\mingwX64\libmpv-2.dll src\nativeInterop\mingwX64\bin\libmpv-2.dll
 
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
