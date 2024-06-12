@@ -5,6 +5,15 @@ includeBuild("library/build-logic")
 include(":app")
 
 pluginManagement {
+    resolutionStrategy {
+        eachPlugin {
+            val kjna_version: String = extra["kjna.version"] as String
+            if (requested.id.toString() == "dev.toastbits.kjna") {
+                useModule("dev.toastbits.kjna:plugin:$kjna_version")
+            }
+        }
+    }
+
     repositories {
         mavenLocal()
         maven("https://jitpack.io")
@@ -25,6 +34,7 @@ pluginManagement {
 dependencyResolutionManagement {
     repositories {
         mavenLocal()
+        maven("https://jitpack.io")
         mavenCentral()
     }
 }
