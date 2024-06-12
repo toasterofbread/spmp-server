@@ -11,6 +11,6 @@ actual fun endProcess() { TODO() }
 
 actual fun createTrayIndicator(name: String, icon_path: List<String>): TrayIndicator? =
     when (OS.current) {
-        OS.LINUX -> AppIndicatorImpl(name, icon_path)
+        OS.LINUX -> if (AppIndicatorImpl.isAvailable()) AppIndicatorImpl(name, icon_path) else null
         OS.WINDOWS -> null
     }

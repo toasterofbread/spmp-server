@@ -13,4 +13,4 @@ actual fun canEndProcess(): Boolean = true
 actual fun endProcess() { kill(0, SIGTERM) }
 
 actual fun createTrayIndicator(name: String, icon_path: List<String>): TrayIndicator? =
-    AppIndicatorImpl(name, icon_path)
+    if (AppIndicatorImpl.isAvailable()) AppIndicatorImpl(name, icon_path) else null

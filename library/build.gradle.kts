@@ -11,7 +11,7 @@ import dev.toastbits.kjna.c.CFunctionDeclaration
 import dev.toastbits.kjna.c.CFunctionParameter
 import dev.toastbits.kjna.plugin.KJnaBuildTarget
 
-val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
+val GENERATED_FILE_PREFIX: String = "// Generated on build in library/build.gradle.kts\n"
 
 plugins {
     kotlin("multiplatform")
@@ -43,24 +43,18 @@ kotlin {
 
     kjna {
         generate {
-            // override_jextract_loader = true
             parser_include_dirs += listOf("/usr/include/linux/", "/usr/lib/gcc/x86_64-pc-linux-gnu/14.1.1/include/")
 
             packages(native_targets) {
                 add("gen.libmpv") {
-                    enabled = !BuildFlag.DISABLE_MPV.isSet(project)
+                    enabled = !BuildFlag.DISABLE_MPV.isSet(project) && !BuildFlag.MINIMAL.isSet(project)
 
                     addHeader("mpv/client.h", "LibMpv")
                     libraries = listOf("mpv")
-                    // include_dirs += listOf("/usr/include/linux/")
 
                     jextract {
                         macros += listOf("size_t=unsigned long")
                     }
-
-                    // cinterop {
-                    //     extra_headers += listOf("stdlib.h")
-                    // }
 
                     // if (OperatingSystem.current().isWindows()) {
                     //     overrides.overrideTypedefType("size_t", CType.Primitive.LONG)
@@ -68,14 +62,10 @@ kotlin {
                 }
 
                 add("gen.libappindicator") {
-                    enabled = !BuildFlag.DISABLE_APPINDICATOR.isSet(project)
+                    enabled = !BuildFlag.DISABLE_APPINDICATOR.isSet(project) && !BuildFlag.MINIMAL.isSet(project)
                     disabled_targets = listOf(KJnaBuildTarget.NATIVE_MINGW_X64)
 
-                    // addHeader("libappindicator3-0.1/libappindicator/app-indicator.h", "LibAppIndicator")
-                    // libraries = listOf("appindicator3")
-
                     addHeader("libayatana-appindicator3-0.1/libayatana-appindicator/app-indicator.h", "LibAppIndicator") {
-                        // bind_all_includes = true
                         bind_includes += listOf(
                             "gtk-3.0/gtk/gtkmain.h",
                             "gtk-3.0/gtk/gtkmenushell.h",
@@ -162,7 +152,7 @@ kotlin {
 }
 
 enum class BuildFlag {
-    DISABLE_MPV, DISABLE_APPINDICATOR;
+    DISABLE_MPV, DISABLE_APPINDICATOR, MINIMAL;
 
     fun isSet(project: Project): Boolean {
         return project.hasProperty(name)
@@ -281,13 +271,12 @@ enum class Platform {
 }
 
 enum class CinteropLibraries {
-    LIBZMQ, LIBAPPINDICATOR;
+    LIBZMQ;
 
     val identifier: String get() = name.lowercase()
 
     fun shouldInclude(project: Project, platform: Platform): Boolean =
         when (this) {
-            LIBAPPINDICATOR -> false//platform.is_linux && !BuildFlag.DISABLE_APPINDICATOR.isSet(project)
             else -> true
         }
 
@@ -307,7 +296,6 @@ enum class CinteropLibraries {
     private fun getPackageName(): String =
         when (this) {
             LIBZMQ -> "libzmq"
-            LIBAPPINDICATOR -> "appindicator3-0.1"
         }
 
     fun configureCinterop(
@@ -361,9 +349,6 @@ enum class CinteropLibraries {
                 addHeaderFile("zmq.h")
                 addHeaderFile("zmq_utils.h")
                 settings.compilerOpts("-DZMQ_BUILD_DRAFT_API=1")
-            }
-            LIBAPPINDICATOR -> {
-                addHeaderFile("libappindicator3-0.1/libappindicator/app-indicator.h")
             }
         }
 

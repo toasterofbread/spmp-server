@@ -130,7 +130,7 @@ class AppIndicatorImpl(name: String, icon_path: List<String>): TrayIndicator {
 
     companion object {
         fun isAvailable(): Boolean {
-            return KJnaUtils.getEnv("XDG_CURRENT_DESKTOP") != null
+            return LibAppIndicator.isAvailable() && KJnaUtils.getEnv("XDG_CURRENT_DESKTOP") != null
         }
     }
 }
