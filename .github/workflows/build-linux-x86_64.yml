@@ -21,9 +21,9 @@ jobs:
     steps:
     - run: echo "TOOLCHAIN=$GITHUB_WORKSPACE/toolchain" >> $GITHUB_ENV
 
-    - run: apt update
+    - run: apt-get update
 
-    - run: apt install -y nodejs
+    - run: apt-get install -y nodejs
       if: env.ACT
     - name: Set up JDK 21
       uses: actions/setup-java@v3
@@ -36,7 +36,7 @@ jobs:
     - name: Test Java
       run: $JAVA_HOME/bin/java --version
 
-    - run: apt install -y --reinstall git make wget pkg-config libmpv-dev libcurl4-openssl-dev libayatana-appindicator3-dev
+    - run: apt-get install -y --reinstall git make wget pkg-config libmpv-dev libcurl4-openssl-dev libayatana-appindicator3-dev
 
     - uses: actions/checkout@v3
       with:
@@ -92,7 +92,7 @@ jobs:
       run: chmod +x gradle
 
     - name: Build Linux x86_64 minimal binaries
-      run: ./gradlew app:linuxX64Binaries -PMINIMAL
+      run: ./gradlew app:linuxX64Binaries -PMINIMAL --stacktrace
 
     - name: Strip release binary
       run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip app/build/bin/linuxX64/releaseExecutable/*.kexe
@@ -110,7 +110,7 @@ jobs:
         path: app/build/bin/linuxX64/releaseExecutable/*.kexe
 
     - name: Build Linux x86_64 full binaries
-      run: ./gradlew app:linuxX64Binaries
+      run: ./gradlew app:linuxX64Binaries --stacktrace
 
     - name: Strip release binary
       run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip app/build/bin/linuxX64/releaseExecutable/*.kexe
