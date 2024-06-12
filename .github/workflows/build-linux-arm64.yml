@@ -28,8 +28,10 @@ jobs:
     - name: Set up JDK 21
       uses: actions/setup-java@v3
       with:
-        java-version: '21'
         distribution: 'temurin'
+        java-version: |
+          22
+          21
 
     - name: Test Java
       run: $JAVA_HOME/bin/java --version
