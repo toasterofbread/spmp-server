@@ -59,7 +59,6 @@ class ServerActionGetStatus: ServerAction(
     }
 
     private fun formatKeyValue(key: String, value: JsonElement): String {
-        println("KEY '$key' ${key == "queue"}")
         return when (key) {
             "queue" ->
                 buildString {

@@ -71,7 +71,6 @@ fun createIndicator(
 
         if (canOpenProcess()) {
             addButton(loc.cli.indicator_button_open_client) {
-            println("LAUNCH")
                 coroutine_scope.launch(Dispatchers.Default) {
                     openProcess("spmp", "r")
                 }
@@ -79,7 +78,6 @@ fun createIndicator(
         }
 
         addButton(loc.cli.indicator_button_stop_server) {
-            println("END")
             endProgram()
         }
     }
