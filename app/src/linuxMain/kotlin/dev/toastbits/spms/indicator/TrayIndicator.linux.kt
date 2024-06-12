@@ -13,13 +13,17 @@ import kotlinx.cinterop.ptr
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.staticCFunction
 import kotlinx.cinterop.value
+import kotlinx.cinterop.StableRef
+import kotlinx.cinterop.asStableRef
+import kotlinx.cinterop.COpaquePointer
 import platform.posix.LC_NUMERIC
 import platform.posix.setlocale
 import platform.posix.getenv
 import dev.toastbits.kjna.runtime.KJnaTypedPointer
-import dev.toastbits.kjna.runtime.KJnaFunction
+import dev.toastbits.kjna.runtime.KJnaFunctionPointer
 import dev.toastbits.kjna.runtime.KJnaUnimplementedFunctionPointer
 import dev.toastbits.kjna.runtime.KJnaMemScope
+import dev.toastbits.kjna.runtime.KJnaPointer
 import gen.libappindicator.LibAppIndicator
 import gen.libappindicator.cinterop.*
 import kjna.struct._AppIndicator
@@ -33,7 +37,6 @@ import kjna.enum.AppIndicatorStatus
 
 @OptIn(ExperimentalForeignApi::class)
 actual class TrayIndicator actual constructor(name: String, icon_path: List<String>) {
-    private val mem_scope = KJnaMemScope()
     private val indicator: KJnaTypedPointer<_AppIndicator>
     private val menu: KJnaTypedPointer<_GtkMenu>
     private var main_loop: KJnaTypedPointer<_GMainLoop>? = null
@@ -66,12 +69,11 @@ actual class TrayIndicator actual constructor(name: String, icon_path: List<Stri
         val item: KJnaTypedPointer<_GtkWidget> = library.gtk_menu_item_new_with_label(label)!!
 
         if (onClick != null) {
-            // val callback_index: CPointer<IntVar> = button_callbacks.addCallback(onClick, mem_scope)
             library.g_signal_connect_data(
                 item,
                 "activate",
-                KJnaFunction.singleParamFunction(),
-                KJnaFunction.singleParamData(onClick),
+                KJnaFunctionPointer.createDataParamFunction1(),
+                KJnaFunctionPointer.getDataParam(onClick),
                 null,
                 GConnectFlags.G_CONNECT_DEFAULT
             )
@@ -82,17 +84,15 @@ actual class TrayIndicator actual constructor(name: String, icon_path: List<Stri
     }
 
     actual fun addScrollCallback(onScroll: (delta: Int, direction: Int) -> Unit) {
-        val callback_index: KJnaTypedPointer<Int> = scroll_callbacks.addCallback(onScroll, mem_scope)
-
         library.g_signal_connect_data(
             indicator,
             "scroll-event",
-            KJnaFunction(
-                staticCFunction { _: CPointer<*>, delta: gint, direction: guint, index: CPointer<IntVar> ->
-                    scroll_callbacks.getCallback(index).invoke(delta, if (direction == 1U) 1 else -1)
+            KJnaFunctionPointer(
+                staticCFunction { _: CPointer<*>, delta: gint, direction: guint, function: COpaquePointer ->
+                    function.asStableRef<(Int, Int) -> Unit>().get().invoke(delta, if (direction == 1U) 1 else -1)
                 }.reinterpret()
             ),
-            callback_index,
+            KJnaPointer(StableRef.create(onScroll).asCPointer()),
             null,
             GConnectFlags.G_CONNECT_DEFAULT
         )
@@ -101,7 +101,7 @@ actual class TrayIndicator actual constructor(name: String, icon_path: List<Stri
     init {
         // Effectively disables GTK warnings
         library.g_log_set_writer_func(
-            KJnaFunction(
+            KJnaFunctionPointer(
                 staticCFunction { level: GLogLevelFlags ->
                     if (level == G_LOG_LEVEL_ERROR || level == G_LOG_LEVEL_CRITICAL) {
                         G_LOG_WRITER_UNHANDLED
@@ -147,19 +147,5 @@ actual class TrayIndicator actual constructor(name: String, icon_path: List<Stri
         actual fun isAvailable(): Boolean {
             return getenv("XDG_CURRENT_DESKTOP") != null
         }
-
-        // private val click_callbacks: MutableList<ClickCallback> = mutableListOf()
-        // private val button_callbacks: MutableList<ButtonCallback> = mutableListOf()
-        private val scroll_callbacks: MutableList<ScrollCallback> = mutableListOf()
-
-        private fun <T> MutableList<T>.addCallback(callback: T, mem_scope: KJnaMemScope): KJnaTypedPointer<Int> {
-            val callback_index: KJnaTypedPointer<Int> = mem_scope.alloc()
-            callback_index.set(size)
-            add(callback)
-            return callback_index
-        }
-
-        private fun <T> MutableList<T>.getCallback(index: CPointer<IntVar>): T =
-            get(index.pointed.value)
     }
 }

@@ -43,7 +43,7 @@ kotlin {
 
     kjna {
         generate {
-            override_jextract_loader = true
+            // override_jextract_loader = true
             parser_include_dirs += listOf("/usr/include/linux/", "/usr/lib/gcc/x86_64-pc-linux-gnu/14.1.1/include/")
 
             packages(native_targets) {
@@ -86,7 +86,7 @@ kotlin {
                             "glib-2.0/gobject/gsignal.h",
                             "glib-2.0/glib/gmessages.h"
                         )
-                        exclude_functions += listOf("g_clear_handle_id")
+                        exclude_functions += listOf("g_clear_handle_id", "_g_log_fallback_handler", "_g_signals_destroy")
                     }
 
                     libraries += Static.pkgConfig(Platform.LINUX_X86, null, "ayatana-appindicator3-0.1", libs = true).mapNotNull { if (it.startsWith("-l")) it.drop(2) else null }
@@ -98,10 +98,6 @@ kotlin {
                     }
 
                     parser_ignore_headers += listOf("glib/gwin32.h", "type_traits")
-
-                    jextract {
-                        symbol_filter = listOf("^app_indicator_", "^gtk_", "^g_", "^_G", "_cairo_rectangle_int", "_AtkObject")
-                    }
 
                     overrides.overrideTypedefType(
                         "GCallback",
