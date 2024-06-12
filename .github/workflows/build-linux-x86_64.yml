@@ -82,8 +82,8 @@ jobs:
       working-directory: zeromq-4.3.5
       run: make -j$(nproc) && make install
 
-    - name: Copy libzmq into src/nativeInterop/linuxX64
-      run: mkdir -p src/nativeInterop/linuxX64 && cp -r libzmq/* src/nativeInterop/linuxX64
+    - name: Copy libzmq into library/src/nativeInterop/linuxX64
+      run: mkdir -p library/src/nativeInterop/linuxX64 && cp -r libzmq/* library/src/nativeInterop/linuxX64
 
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
