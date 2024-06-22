@@ -79,9 +79,9 @@ kotlin {
                         exclude_functions += listOf("g_clear_handle_id", "_g_log_fallback_handler", "_g_signals_destroy")
                     }
 
-                    libraries += Static.pkgConfig(Platform.LINUX_X86, null, "ayatana-appindicator3-0.1", libs = true).mapNotNull { if (it.startsWith("-l")) it.drop(2) else null }
+                    libraries += Static.pkgConfig(Platform.getCurrent(), null, "ayatana-appindicator3-0.1", libs = true).mapNotNull { if (it.startsWith("-l")) it.drop(2) else null }
 
-                    for (cflag in Static.pkgConfig(Platform.LINUX_X86, null, "ayatana-appindicator3-0.1", cflags = true)) {
+                    for (cflag in Static.pkgConfig(Platform.getCurrent(), null, "ayatana-appindicator3-0.1", cflags = true)) {
                         if (cflag.startsWith("-I")) {
                             include_dirs += listOf(cflag.drop(2))
                         }
@@ -307,9 +307,10 @@ enum class CinteropLibraries {
         val cflags: List<String> = Static.pkgConfig(platform, deps_directory, getPackageName(), cflags = true)
         settings.compilerOpts(cflags)
 
-        val default_include_dirs: List<File> =
+        val default_include_dirs: List<File> = (
             if (platform.is_linux) listOf("/usr/include", "/usr/include/${platform.arch.libdir_name}").map { File(it) }
             else emptyList()
+        ) + System.getenv("CMAKE_INCLUDE_PATH").orEmpty().split(":").map { File(it) }
 
         fun addHeaderFile(path: String) {
             var file: File? = null
@@ -352,7 +353,8 @@ enum class CinteropLibraries {
             }
         }
 
-        val libs_dir: File = deps_directory.resolve("lib")
+        val deps_libs_dir: File = deps_directory.resolve("lib")
+        val lib_dirs: List<File> = listOf(deps_libs_dir) + System.getenv("LD_LIBRARY_PATH").orEmpty().split(":").map { File(it) }
 
         val lib_filenames: List<String> =
             when (this) {
@@ -361,9 +363,8 @@ enum class CinteropLibraries {
             }
 
         for (filename in lib_filenames) {
-            val lib_file: File = libs_dir.resolve(filename)
-            if (!lib_file.isFile) {
-                println("WARNING: Could not find library file '$lib_file' in $libs_dir")
+            if (lib_dirs.none { it.resolve(filename).isFile }) {
+                println("WARNING: Could not find library file '$filename' in $deps_libs_dir or LD_LIBRARY_PATH")
             }
         }
 
@@ -386,7 +387,7 @@ enum class CinteropLibraries {
 
         def_file.writeText("""
             staticLibraries = ${lib_filenames.joinToString(" ")}
-            libraryPaths = ${libs_dir.absolutePath}
+            libraryPaths = ${lib_dirs.map { it.absolutePath }.joinToString(" ")}
             linkerOpts = ${linker_opts.joinToString(" ")}
         """.trimIndent())
 
@@ -532,17 +533,19 @@ object Static {
 
         val process_builder: ProcessBuilder = ProcessBuilder(
             listOfNotNull(
-                "pkg-config",
+                findExecutable("pkg-config"),
                 if (cflags) "--cflags" else null,
                 if (libs) "--libs" else null
             ) + package_names
         )
-        process_builder.environment()["PKG_CONFIG_PATH"] =
+        process_builder.environment()["PKG_CONFIG_PATH"] = (
+            System.getenv("PKG_CONFIG_PATH").orEmpty() +
             listOfNotNull(
                 deps_directory?.resolve("pkgconfig")?.takeIf { it.isDirectory }?.absolutePath,
                 platform.arch.PKG_CONFIG_PATH,
                 System.getenv("SPMS_LIB")?.plus("/pkgconfig")
             ).joinToString(":")
+        )
         process_builder.environment()["PKG_CONFIG_ALLOW_SYSTEM_LIBS"] = "1"
 
         val process: Process = process_builder.start()
@@ -558,5 +561,16 @@ object Static {
                 line.isNotBlank() && line != "-I/usr/include/x86_64-linux-gnu" && line != "-I/usr/include/aarch64-linux-gnu"
             } }
         }
+    }
+
+    private fun findExecutable(name: String): String {
+        for (dir in System.getenv("PATH")?.split(":").orEmpty()) {
+            val file: File = File(dir).resolve(name)
+            if (file.isFile) {
+                return file.absolutePath
+            }
+        }
+
+        return name
     }
 }

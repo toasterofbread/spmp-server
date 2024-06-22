@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.targets.jvm.tasks.KotlinJvmRun
+import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
 
 val GENERATED_FILE_PREFIX: String = "// Generated on build in build.gradle.kts\n"
 
@@ -101,4 +102,24 @@ tasks.matching { it.name.startsWith("compileKotlin") }.all {
 
 tasks.withType<JavaExec> {
     jvmArgs("--enable-native-access=ALL-UNNAMED")
+}
+
+tasks.withType<KotlinNativeLink> {
+    val link_task: KotlinNativeLink = this
+
+    finalizedBy( tasks.create("${name}Finalise") {
+        doFirst {
+            val patch_command: String = System.getenv("KOTLIN_BINARY_PATCH_COMMAND")?.takeIf { it.isNotBlank() } ?: return@doFirst
+
+            for (dir in link_task.outputs.files) {
+                for (file in dir.listFiles().orEmpty()) {
+                    if (!file.isFile) {
+                        continue
+                    }
+
+                    Runtime.getRuntime().exec(arrayOf(patch_command, file.absolutePath)).waitFor()
+                }
+            }
+        }
+    } )
 }
