@@ -16,25 +16,27 @@ jobs:
 
     env:
       TOOLCHAIN_VERSION: x86_64-unknown-linux-gnu-gcc-8.3.0-glibc-2.19-kernel-4.9-2
-      JAVA_HOME: /usr/lib/jvm/java-17-openjdk/
+      JAVA_HOME: /usr/lib/jvm/java-21-openjdk/
 
     steps:
     - run: echo "TOOLCHAIN=$GITHUB_WORKSPACE/toolchain" >> $GITHUB_ENV
 
-    - run: apt update
+    - run: apt-get update
 
-    - run: apt install -y nodejs
+    - run: apt-get install -y nodejs
       if: env.ACT
-    - name: Set up JDK 17
+    - name: Set up JDK 21
       uses: actions/setup-java@v3
       with:
-        java-version: '17'
         distribution: 'temurin'
+        java-version: |
+          22
+          21
 
     - name: Test Java
       run: $JAVA_HOME/bin/java --version
 
-    - run: apt install -y --reinstall git make wget pkg-config libmpv-dev libcurl4-openssl-dev libappindicator3-dev
+    - run: apt-get install -y --reinstall git make wget pkg-config libmpv-dev libcurl4-openssl-dev libayatana-appindicator3-dev
 
     - uses: actions/checkout@v3
       with:
@@ -80,50 +82,44 @@ jobs:
       working-directory: zeromq-4.3.5
       run: make -j$(nproc) && make install
 
-    - name: Copy libzmq into src/nativeInterop/linux-x86_64
-      run: mkdir -p src/nativeInterop/linux-x86_64 && cp -r libzmq/* src/nativeInterop/linux-x86_64
+    - name: Copy libzmq into library/src/nativeInterop/linuxX64
+      run: mkdir -p library/src/nativeInterop/linuxX64 && cp -r libzmq/* library/src/nativeInterop/linuxX64
 
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradle
-
-    - name: Build linux-x86_64 binaries
-      run: ./gradlew linux-x86_64Binaries -PLINK_STATIC
+    - name: Build Linux x86_64 minimal binaries
+      run: ./gradlew app:linuxX64Binaries -PMINIMAL --stacktrace
 
     - name: Strip release binary
-      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip build/bin/linux-x86_64/releaseExecutable/*.kexe
+      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip app/build/bin/linuxX64/releaseExecutable/*.kexe
+
+    - name: Upload debug binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-minimal-linux-x86_64-debug
+        path: app/build/bin/linuxX64/debugExecutable/*.kexe
+
+    - name: Upload release binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-minimal-linux-x86_64-release
+        path: app/build/bin/linuxX64/releaseExecutable/*.kexe
+
+    - name: Build Linux x86_64 full binaries
+      run: ./gradlew app:linuxX64Binaries --stacktrace
+
+    - name: Strip release binary
+      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip app/build/bin/linuxX64/releaseExecutable/*.kexe
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
       with:
         name: spms-linux-x86_64-debug
-        path: build/bin/linux-x86_64/debugExecutable/*.kexe
+        path: app/build/bin/linuxX64/debugExecutable/*.kexe
 
     - name: Upload release binary
       uses: actions/upload-artifact@v3
       with:
         name: spms-linux-x86_64-release
-        path: build/bin/linux-x86_64/releaseExecutable/*.kexe
-
-    - name: Clean build
-      run: ./gradlew clean
-
-    - name: Build linux-x86_64 binaries without mpv
-      run: ./gradlew linux-x86_64Binaries -PLINK_STATIC -PDISABLE_MPV
-
-    - name: Strip release binary
-      run: $TOOLCHAIN/bin/x86_64-unknown-linux-gnu-strip build/bin/linux-x86_64/releaseExecutable/*.kexe
-
-    - name: Upload debug binary
-      uses: actions/upload-artifact@v3
-      with:
-        name: spms-nompv-linux-x86_64-debug
-        path: build/bin/linux-x86_64/debugExecutable/*.kexe
-
-    - name: Upload release binary
-      uses: actions/upload-artifact@v3
-      with:
-        name: spms-nompv-linux-x86_64-release
-        path: build/bin/linux-x86_64/releaseExecutable/*.kexe
+        path: app/build/bin/linuxX64/releaseExecutable/*.kexe

@@ -16,20 +16,23 @@ jobs:
 
     env:
       TOOLCHAIN_VERSION: aarch64-unknown-linux-gnu-gcc-8.3.0-glibc-2.25-kernel-4.9-2
-      JAVA_HOME: /usr/lib/jvm/java-17-openjdk/
+      JAVA_HOME: /usr/lib/jvm/java-21-openjdk/
 
     steps:
     - run: echo "TOOLCHAIN=$GITHUB_WORKSPACE/toolchain" >> $GITHUB_ENV
+    - run: echo "SPMS_ARCH=arm64" >> $GITHUB_ENV
 
     - run: apt update
     - run: apt install -y nodejs
       if: env.ACT
 
-    - name: Set up JDK 17
+    - name: Set up JDK 21
       uses: actions/setup-java@v3
       with:
-        java-version: '17'
         distribution: 'temurin'
+        java-version: |
+          22
+          21
 
     - name: Test Java
       run: $JAVA_HOME/bin/java --version
@@ -82,8 +85,8 @@ jobs:
       working-directory: zeromq-4.3.5
       run: make -j$(nproc) && make install
 
-    - name: Copy libzmq into src/nativeInterop/linux-arm64
-      run: mkdir -p src/nativeInterop/linux-arm64 && cp -r libzmq/* src/nativeInterop/linux-arm64
+    - name: Copy libzmq into library/src/nativeInterop/linuxArm64
+      run: mkdir -p library/src/nativeInterop/linuxArm64 && cp -r libzmq/* library/src/nativeInterop/linuxArm64
 
     - name: Add arm64 architecture to dpkg
       run: dpkg --add-architecture arm64
@@ -117,48 +120,45 @@ jobs:
 
     - name: Install arm64 development libraries
       run: |
-        apt update
-        apt install -y libmpv-dev:arm64 libappindicator3-dev:arm64
+        apt-get update
+        apt-get install -y libmpv-dev:arm64 libayatana-appindicator3-dev:arm64
 
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradle
-
-    - name: Build linux-arm64 binaries
-      run: ./gradlew linux-arm64Binaries -PLINK_STATIC
+    - name: Build Linux Arm64 minimal binaries
+      run: ./gradlew app:linuxArm64Binaries -PMINIMAL --stacktrace
 
     - name: Strip release binary
-      run: $TOOLCHAIN/bin/aarch64-unknown-linux-gnu-strip build/bin/linux-arm64/releaseExecutable/*.kexe
+      run: $TOOLCHAIN/bin/aarch64-unknown-linux-gnu-strip app/build/bin/linuxArm64/releaseExecutable/*.kexe
+
+    - name: Upload debug binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-minimal-linux-arm64-debug
+        path: app/build/bin/linuxArm64/debugExecutable/*.kexe
+
+    - name: Upload release binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: spms-minimal-linux-arm64-release
+        path: app/build/bin/linuxArm64/releaseExecutable/*.kexe
+
+    - name: Build Linux Arm64 full binaries
+      run: ./gradlew app:linuxArm64Binaries --stacktrace
+
+    - name: Strip release binary
+      run: $TOOLCHAIN/bin/aarch64-unknown-linux-gnu-strip app/build/bin/linuxArm64/releaseExecutable/*.kexe
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
       with:
         name: spms-linux-arm64-debug
-        path: build/bin/linux-arm64/debugExecutable/*.kexe
+        path: app/build/bin/linuxArm64/debugExecutable/*.kexe
 
     - name: Upload release binary
       uses: actions/upload-artifact@v3
       with:
         name: spms-linux-arm64-release
-        path: build/bin/linux-arm64/releaseExecutable/*.kexe
-
-    - name: Build linux-arm64 binaries without mpv
-      run: ./gradlew linux-arm64Binaries -PLINK_STATIC -PDISABLE_MPV
-
-    - name: Strip release binary
-      run: $TOOLCHAIN/bin/aarch64-unknown-linux-gnu-strip build/bin/linux-arm64/releaseExecutable/*.kexe
-
-    - name: Upload debug binary
-      uses: actions/upload-artifact@v3
-      with:
-        name: spms-nompv-linux-arm64-debug
-        path: build/bin/linux-arm64/debugExecutable/*.kexe
-
-    - name: Upload release binary
-      uses: actions/upload-artifact@v3
-      with:
-        name: spms-nompv-linux-arm64-release
-        path: build/bin/linux-arm64/releaseExecutable/*.kexe
+        path: app/build/bin/linuxArm64/releaseExecutable/*.kexe
 
