@@ -185,19 +185,7 @@ enum class Arch {
             }
 
         fun getCurrent(): Arch =
-            byName(System.getProperty("os.arch"))
-
-        fun getTarget(project: Project): Arch {
-            val target_override: String? =
-                project.findProperty("SPMS_ARCH")?.toString()
-                ?: System.getenv("SPMS_ARCH")
-
-            if (target_override == null) {
-                return getCurrent()
-            }
-
-            return byName(target_override)
-        }
+            byName(System.getenv("SPMS_ARCH") ?: System.getProperty("os.arch"))
     }
 }
 
@@ -253,20 +241,7 @@ enum class Platform {
             else throw GradleException("Unsupported host OS and architecture '$name' ($arch)")
 
         fun getCurrent(arch: Arch = Arch.getCurrent()): Platform =
-            byName(System.getProperty("os.name"), arch)
-
-        fun getTarget(project: Project): Platform {
-            val arch: Arch = Arch.getTarget(project)
-            val target_override: String? =
-                project.findProperty("SPMS_OS")?.toString()
-                ?: System.getenv("SPMS_OS")
-
-            if (target_override == null) {
-                return getCurrent(arch)
-            }
-
-            return byName(target_override, arch)
-        }
+            byName(System.getenv("SPMS_PLATFORM") ?: System.getProperty("os.name"), arch)
     }
 }
 
@@ -494,19 +469,19 @@ open class FinaliseBuild: DefaultTask() {
 
     @TaskAction
     fun execute() {
-        val platform: Platform = Platform.getTarget(project)
+        for (platform in Platform.supported) {
+            val bin_directory: File = platform.getNativeDependenciesDir(project).resolve("bin")
+            val target_directory: File = binary_output_directory.get().asFile
 
-        val bin_directory: File = platform.getNativeDependenciesDir(project).resolve("bin")
-        val target_directory: File = binary_output_directory.get().asFile
+            for (library in CinteropLibraries.values()) {
+                for (filename in library.getBinaryDependencies(platform)) {
+                    val file: File = bin_directory.resolve(filename)
+                    if (!file.isFile)  {
+                        continue
+                    }
 
-        for (library in CinteropLibraries.values()) {
-            for (filename in library.getBinaryDependencies(platform)) {
-                val file: File = bin_directory.resolve(filename)
-                if (!file.isFile)  {
-                    continue
+                    file.copyTo(target_directory.resolve(filename), overwrite = true)
                 }
-
-                file.copyTo(target_directory.resolve(filename), overwrite = true)
             }
         }
     }
@@ -539,7 +514,7 @@ object Static {
             ) + package_names
         )
         process_builder.environment()["PKG_CONFIG_PATH"] = (
-            System.getenv("PKG_CONFIG_PATH").orEmpty() +
+            System.getenv("PKG_CONFIG_PATH")?.plus(":").orEmpty() +
             listOfNotNull(
                 deps_directory?.resolve("pkgconfig")?.takeIf { it.isDirectory }?.absolutePath,
                 platform.arch.PKG_CONFIG_PATH,

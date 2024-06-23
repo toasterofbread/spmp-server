@@ -20,6 +20,7 @@ jobs:
 
     steps:
     - run: echo "TOOLCHAIN=$GITHUB_WORKSPACE/toolchain" >> $GITHUB_ENV
+    - run: echo "SPMS_ARCH=arm64" >> $GITHUB_ENV
 
     - run: apt update
     - run: apt install -y nodejs
@@ -124,9 +125,6 @@ jobs:
 
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
-
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradle
 
     - name: Build Linux Arm64 minimal binaries
       run: ./gradlew app:linuxArm64Binaries -PMINIMAL --stacktrace

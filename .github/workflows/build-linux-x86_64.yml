@@ -88,9 +88,6 @@ jobs:
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradle
-
     - name: Build Linux x86_64 minimal binaries
       run: ./gradlew app:linuxX64Binaries -PMINIMAL --stacktrace
 
