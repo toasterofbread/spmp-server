@@ -240,7 +240,7 @@ enum class Platform {
 
     companion object {
         val supported: List<Platform> = listOf(
-            JVM, LINUX_X86, LINUX_ARM64, WINDOWS
+            JVM, LINUX_X86, LINUX_ARM64
         )
 
         fun byName(name: String, arch: Arch): Platform =

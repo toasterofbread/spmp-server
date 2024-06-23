@@ -3,42 +3,46 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
-    custom_nixpkgs.url = "github:toasterofbread/nixpkgs/2fce494a8413016b5630cb593ffb9a0a1867274a";
+    custom_nixpkgs.url = "github:toasterofbread/nixpkgs/4df73973bda897522847e03e0820067c053bccad";
   };
 
   outputs = { self, nixpkgs, custom_nixpkgs, ... }:
     let
-      system = "x86_64-linux";
+      x86_system = "x86_64-linux";
+      arm_system = "aarch64-linux";
     in
     {
-      devShells."${system}".default =
+      devShells."${x86_system}".default =
         let
           pkgs = import nixpkgs {
-            inherit system;
+            system = x86_system;
+          };
+          arm_pkgs = import nixpkgs {
+            system = arm_system;
           };
           custom_pkgs = import custom_nixpkgs {
-            inherit system;
+            system = x86_system;
           };
         in
         pkgs.mkShell {
           packages = with pkgs; [
-            fish
             jdk21
             jdk22
             pkg-config
             cmake
             jextract
-            (custom_pkgs.zeromq-kotlin-native.override { enableDrafts = true; })
             mpv
             libayatana-appindicator
+            arm_pkgs.libayatana-appindicator
             gtk3
             curl
-            (custom_pkgs.kotlin-native-toolchain-env.override { x86 = true; })
-            git
+            (custom_pkgs.zeromq-kotlin-native.override { enableDrafts = true; })
+            (custom_pkgs.kotlin-native-toolchain-env.override { x86_64 = true; aarch64 = true; })
 
             # Runtime
             patchelf
             glibc
+            glibc_multi
             libgcc.lib
           ];
 
@@ -55,16 +59,14 @@
             lib_paths_str=$(IFS=:; echo "''${lib_paths[*]}")
             export LD_LIBRARY_PATH="$lib_paths_str:$LD_LIBRARY_PATH"
 
-            # Add glibc/include to C_INCLUDE_PATH
-            export C_INCLUDE_PATH="${pkgs.glibc.dev}/include:$C_INCLUDE_PATH"
-
-            echo "Using KJna development environment"
-            echo "JAVA_HOME=$JAVA_HOME"
+            # Add glibc and glibc_multi to C_INCLUDE_PATH
+            export C_INCLUDE_PATH="${pkgs.glibc.dev}/include:${pkgs.glibc_multi.dev}/include:$C_INCLUDE_PATH"
 
             export KONAN_DATA_DIR=$(pwd)/.konan
 
             mkdir -p $KONAN_DATA_DIR
             cp -asfT ${custom_pkgs.kotlin-native-toolchain-env} $KONAN_DATA_DIR
+            chmod -R u+w $KONAN_DATA_DIR
 
             mkdir $KONAN_DATA_DIR/bin
             export PATH="$KONAN_DATA_DIR/bin:$PATH"

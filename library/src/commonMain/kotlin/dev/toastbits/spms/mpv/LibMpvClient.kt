@@ -9,6 +9,7 @@ import kjna.struct.mpv_event
 import kjna.enum.mpv_format
 import dev.toastbits.kjna.runtime.KJnaTypedPointer
 import dev.toastbits.kjna.runtime.KJnaMemScope
+import dev.toastbits.kjna.runtime.KJnaUtils
 
 abstract class LibMpvClient(
     val libmpv: LibMpv,
@@ -20,6 +21,16 @@ abstract class LibMpvClient(
     protected val ctx: KJnaTypedPointer<mpv_handle>
 
     init {
+        try {
+            KJnaUtils.setLocale(
+                1, // LC_NUMERIC
+                "C"
+            )
+        }
+        catch (e: Throwable) {
+            RuntimeException("WARNING: Unable to set LC_NUMERIC locale", e).printStackTrace()
+        }
+
         ctx = libmpv.mpv_create()
             ?: throw NullPointerException("Creating mpv client failed")
 

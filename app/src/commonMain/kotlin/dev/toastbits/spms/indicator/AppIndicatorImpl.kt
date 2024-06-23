@@ -22,7 +22,21 @@ class AppIndicatorImpl(name: String, icon_path: List<String>): TrayIndicator {
     private val menu: KJnaTypedPointer<_GtkMenu>
     private var main_loop: KJnaTypedPointer<_GMainLoop>? = null
 
-    private val library: LibAppIndicator = LibAppIndicator()
+    private val library: LibAppIndicator
+
+    init {
+        try {
+            KJnaUtils.setLocale(
+                1, // LC_NUMERIC
+                "C"
+            )
+        }
+        catch (e: Throwable) {
+            RuntimeException("WARNING: Unable to set LC_NUMERIC locale", e).printStackTrace()
+        }
+
+        library = LibAppIndicator()
+    }
 
     override fun show() {
         library.app_indicator_set_menu(indicator, menu)
