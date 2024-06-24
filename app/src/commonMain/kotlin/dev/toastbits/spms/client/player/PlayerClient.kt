@@ -14,6 +14,7 @@ import dev.toastbits.spms.client.cli.SpMsCommandLineClientError
 import dev.toastbits.spms.localisation.loc
 import dev.toastbits.spms.server.PlayerOptions
 import dev.toastbits.spms.server.SpMs
+import dev.toastbits.spms.server.CLIENT_HEARTBEAT_TARGET_PERIOD
 import dev.toastbits.spms.socketapi.parseSocketMessage
 import dev.toastbits.spms.socketapi.player.PlayerAction
 import dev.toastbits.spms.socketapi.shared.*
@@ -24,8 +25,6 @@ import kotlin.time.*
 import gen.libmpv.LibMpv
 
 private val SERVER_REPLY_TIMEOUT: Duration = with (Duration) { 2.seconds }
-private val SERVER_EVENT_TIMEOUT: Duration = with (Duration) { 11.seconds }
-private val POLL_INTERVAL: Duration = with (Duration) { 100.milliseconds }
 private val CLIENT_REPLY_TIMEOUT: Duration = with (Duration) { 1.seconds }
 
 private fun getClientName(): String =
@@ -198,8 +197,6 @@ class PlayerClient private constructor(val libmpv: LibMpv): Command(
 
         while (!shutdown) {
             try {
-                delay(POLL_INTERVAL)
-
                 // We don't actually care about the client handshake, it's just for consistency with the main server api
 //                val handshake_message: List<String> =
                 socket.recvStringMultipart(CLIENT_REPLY_TIMEOUT) ?: continue
@@ -271,10 +268,9 @@ class PlayerClient private constructor(val libmpv: LibMpv): Command(
         log("Initial state: ${server_handshake.server_state}")
 
         val message: MutableList<String> = mutableListOf()
+        var last_heartbeat: TimeMark = TimeSource.Monotonic.markNow()
 
         while (!shutdown) {
-//            delay(POLL_INTERVAL)
-
             val events: List<SpMsPlayerEvent> = socket.pollEvents()
             for (event in events) {
                 println("Processing event $event")
@@ -287,42 +283,31 @@ class PlayerClient private constructor(val libmpv: LibMpv): Command(
                     message.add(Json.encodeToString(queued.second))
                 }
                 queued_messages.clear()
-
-                log("Sending messages: $message")
             }
-            else {
+            else if (last_heartbeat.elapsedNow() >= CLIENT_HEARTBEAT_TARGET_PERIOD) {
                 message.add(" ")
             }
+            else {
+                continue
+            }
 
+            log("Sending messages: $message")
             socket.sendStringMultipart(message)
             message.clear()
+
+            last_heartbeat = TimeSource.Monotonic.markNow()
         }
     }
 
     private fun ZmqSocket.pollEvents(): List<SpMsPlayerEvent> {
-        val wait_start: TimeMark = TimeSource.Monotonic.markNow()
-        var events: List<SpMsPlayerEvent>? = null
-
-        while (events == null && wait_start.elapsedNow() < SERVER_EVENT_TIMEOUT) {
-            val message: List<String>? = with (Duration) {
-                recvStringMultipart(
-                    (SERVER_EVENT_TIMEOUT - wait_start.elapsedNow()).inWholeMilliseconds.coerceAtLeast(1L).milliseconds
-                )
+        val events: List<SpMsPlayerEvent>? = recvStringMultipart(null)?.mapNotNull {
+            try {
+                Json.decodeFromString<SpMsPlayerEvent?>(it)
             }
-
-            events = message?.mapNotNull {
-                try {
-                    Json.decodeFromString<SpMsPlayerEvent?>(it)
-                }
-                catch (e: Throwable) {
-                    RuntimeException("Parsing SpMsPlayerEvent failed $it", e).printStackTrace()
-                    return emptyList()
-                }
+            catch (e: Throwable) {
+                RuntimeException("Parsing SpMsPlayerEvent failed $it", e).printStackTrace()
+                return emptyList()
             }
-        }
-
-        if (events == null) {
-            throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotSendEvents(SERVER_EVENT_TIMEOUT))
         }
 
         return events.orEmpty()

@@ -8,6 +8,7 @@ import dev.toastbits.spms.client.cli.CommandLineClientMode
 import dev.toastbits.spms.client.cli.SpMsCommandLineClientError
 import dev.toastbits.spms.localisation.loc
 import dev.toastbits.spms.socketapi.shared.SpMsSocketApi
+import dev.toastbits.spms.server.CLIENT_HEARTBEAT_TARGET_PERIOD
 import kotlin.time.*
 
 private val SERVER_EVENT_TIMEOUT: Duration = with (Duration) { 10000.milliseconds }
@@ -22,35 +23,27 @@ class Poll: CommandLineClientMode("poll", { "TODO" }) {
 
             log(currentContext.loc.cli.poll_polling_server_for_events)
 
+            var last_heartbeat: TimeMark = TimeSource.Monotonic.markNow()
+
             while (true) {
-                delay(POLL_INTERVAL)
-
-                val wait_start: TimeMark = TimeSource.Monotonic.markNow()
-                var events: List<JsonElement>? = null
-
-                while (events == null && wait_start.elapsedNow() < SERVER_EVENT_TIMEOUT) {
-                    val message: List<String>? = with (Duration) {
-                        socket.recvStringMultipart(
-                            (SERVER_EVENT_TIMEOUT - wait_start.elapsedNow()).inWholeMilliseconds.coerceAtLeast(1L).milliseconds
-                        )?.let {
-                            SpMsSocketApi.decode(it)
-                        }
+                val message: List<String>? =
+                    socket.recvStringMultipart(null)?.let {
+                        SpMsSocketApi.decode(it)
                     }
 
-                    events = message?.map {
-                        Json.decodeFromString(it)
+                val events: List<JsonElement> =
+                    message.orEmpty().map { part ->
+                        Json.decodeFromString(part)
                     }
-                }
-
-                if (events == null) {
-                    throw SpMsCommandLineClientError(currentContext.loc.cli.errServerDidNotSendEvents(SERVER_EVENT_TIMEOUT))
-                }
 
                 if (events.isNotEmpty()) {
                     println(events)
                 }
 
-                socket.sendStringMultipart(listOf(""))
+                if (last_heartbeat.elapsedNow() > CLIENT_HEARTBEAT_TARGET_PERIOD) {
+                    socket.sendStringMultipart(listOf(""))
+                    last_heartbeat = TimeSource.Monotonic.markNow()
+                }
             }
         }
 

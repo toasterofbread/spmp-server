@@ -28,5 +28,4 @@ interface CliLocalisation {
     val poll_polling_server_for_events: String
 
     fun errServerDidNotRespond(timeout: Duration): String
-    fun errServerDidNotSendEvents(timeout: Duration): String
 }

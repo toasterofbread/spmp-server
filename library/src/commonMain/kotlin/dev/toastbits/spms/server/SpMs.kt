@@ -22,11 +22,13 @@ import dev.toastbits.spms.localisation.SpMsLocalisation
 import dev.toastbits.spms.getMachineId
 import dev.toastbits.spms.getDeviceName
 import dev.toastbits.spms.createLibMpv
+import dev.toastbits.spms.ReentrantLock
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.time.*
 import gen.libmpv.LibMpv
 
-private val CLIENT_REPLY_TIMEOUT: Duration = with (Duration) { 100.milliseconds }
+val CLIENT_HEARTBEAT_MAX_PERIOD: Duration = with (Duration) { 10.seconds }
+val CLIENT_HEARTBEAT_TARGET_PERIOD: Duration = with (Duration) { 5.seconds }
 
 open class SpMs(
     val headless: Boolean = !LibMpv.isAvailable(),
@@ -34,10 +36,12 @@ open class SpMs(
 ): ZmqRouter() {
     private var item_durations: MutableMap<String, Duration> = mutableMapOf()
     private val item_durations_channel: Channel<Unit> = Channel()
+    private val time_source: TimeSource = TimeSource.Monotonic
 
     private var executing_client_id: Int? = null
     private var player_event_inc: Int = 0
     private val player_events: MutableList<SpMsPlayerEvent> = mutableListOf()
+    private val player_events_lock: ReentrantLock = ReentrantLock()
     private val clients: MutableList<SpMsClient> = mutableListOf()
     private var playback_waiting_for_clients: Boolean = false
 
@@ -88,10 +92,10 @@ open class SpMs(
 
     fun poll(client_reply_attempts: Int) {
 
-        // Process stray messages (hopefully client handshakes)
+        // Process stray messages (client handshakes or events)
         while (true) {
             val message: ZmqMessage = recvMultipart(null) ?: break
-            println("Got stray message before polling")
+            // println("Got stray message before polling")
             onClientMessage(message)
         }
 
@@ -100,75 +104,74 @@ open class SpMs(
         while (client_i >= 0) {
             val client: SpMsClient = clients[client_i--]
 
-            val message_parts: MutableList<String> = mutableListOf()
-
             val events: List<SpMsPlayerEvent> = getEventsForClient(client)
-            if (events.isEmpty()) {
-                message_parts.add("null")
-            }
-            else {
-                // Add events to message, then consume
-                for (event in events) {
-                    message_parts.add(Json.encodeToString(event))
+            if (events.isNotEmpty()) {
+                val message_parts: List<String> = events.map { event ->
+                    val encoded_event: String = Json.encodeToString(event)
                     client.event_head = maxOf(event.event_id, client.event_head)
 
                     event.onConsumedByClient()
                     if (event.pending_client_amount <= 0) {
-                        player_events.remove(event)
+                        player_events_lock.withLock {
+                            player_events.remove(event)
+                        }
                     }
+
+                    return@map encoded_event
                 }
-            }
 
-            sendMultipart(client.createMessage(message_parts))
-
-            if (events.isNotEmpty()) {
+                sendMultipart(client.createMessage(message_parts))
                 println("Sent events $events to client $client")
             }
 
-            // Wait for client to reply
-            val wait_start: TimeMark = TimeSource.Monotonic.markNow()
-            var client_reply: ZmqMessage? = null
-
-            while (true) {
-                val remaining: Duration = CLIENT_REPLY_TIMEOUT - wait_start.elapsedNow()
-                if (remaining <= Duration.ZERO) {
-                    break
-                }
-
-                val message: ZmqMessage = recvMultipart(remaining) ?: continue
-
-                if (message.client_id.contentHashCode() == client.id) {
-                    client_reply = message
-                    break
-                }
-                else {
-                    // Handle connections from other clients
-                    println("Got stray message during polling")
-                    onClientMessage(message)
-                }
+            if (client.last_heartbeat.elapsedNow() > CLIENT_HEARTBEAT_MAX_PERIOD) {
+                onClientTimedOut(client, CLIENT_HEARTBEAT_MAX_PERIOD)
             }
 
-            // Client did not reply to message within timeout
-            if (client_reply == null) {
-                if (++client.failed_connection_attempts >= client_reply_attempts) {
-                    onClientTimedOut(client, client_reply_attempts)
-                }
-                continue
-            }
+            // // Wait for client to reply
+            // val wait_start: TimeMark = time_source.markNow()
+            // var client_reply: ZmqMessage? = null
 
-            client.failed_connection_attempts = 0
+            // while (true) {
+            //     val remaining: Duration = CLIENT_REPLY_TIMEOUT - wait_start.elapsedNow()
+            //     if (remaining <= Duration.ZERO) {
+            //         break
+            //     }
 
-            check(executing_client_id == null)
-            executing_client_id = client.id
+            //     val message: ZmqMessage = recvMultipart(remaining) ?: continue
 
-            try {
-                processClientMessage(client_reply, client)
-            }
-            catch (e: Throwable) {
-                RuntimeException("Exception while processing reply from $client", e).printStackTrace()
-            }
+            //     if (message.client_id.contentHashCode() == client.id) {
+            //         client_reply = message
+            //         break
+            //     }
+            //     else {
+            //         // Handle connections from other clients
+            //         println("Got stray message during polling")
+            //         onClientMessage(message)
+            //     }
+            // }
 
-            executing_client_id = null
+            // // Client did not reply to message within timeout
+            // if (client_reply == null) {
+            //     if (++client.failed_connection_attempts >= client_reply_attempts) {
+            //         onClientTimedOut(client, client_reply_attempts)
+            //     }
+            //     continue
+            // }
+
+            // client.failed_connection_attempts = 0
+
+            // check(executing_client_id == null)
+            // executing_client_id = client.id
+
+            // try {
+            //     processClientMessage(client_reply, client)
+            // }
+            // catch (e: Throwable) {
+            //     RuntimeException("Exception while processing reply from $client", e).printStackTrace()
+            // }
+
+            // executing_client_id = null
         }
     }
 
@@ -198,9 +201,14 @@ open class SpMs(
     }
 
     private fun processClientMessage(message: ZmqMessage, client: SpMsClient) {
+        println("GOT MSG FROM CLIENT ${message.parts.toList()}")
         val reply: List<SpMsActionReply> = processClientActions(message.parts, client)
 
-        if (reply.isNotEmpty()) {
+        println("Sending reply to client: $reply")
+        if (reply.isEmpty()) {
+            sendMultipart(client.createMessage(listOf("REPLY TO ${message.parts.toList()}")))
+        }
+        else {
             sendMultipart(client.createMessage(listOf(Json.encodeToString(reply))))
         }
     }
@@ -291,15 +299,17 @@ open class SpMs(
             client_amount = clients.count { it.type.receivesEvents() }
         )
 
-        val i: MutableIterator<SpMsPlayerEvent> = player_events.iterator()
-        while (i.hasNext()) {
-            val other: SpMsPlayerEvent = i.next()
-            if (event.overrides(other)) {
-                i.remove()
+        player_events_lock.withLock {
+            val i: MutableIterator<SpMsPlayerEvent> = player_events.iterator()
+            while (i.hasNext()) {
+                val other: SpMsPlayerEvent = i.next()
+                if (event.overrides(other)) {
+                    i.remove()
+                }
             }
-        }
 
-        player_events.add(event)
+            player_events.add(event)
+        }
     }
 
     protected open fun onPlayerShutdown() {}
@@ -321,7 +331,18 @@ open class SpMs(
 
         var client: SpMsClient? = clients.firstOrNull { it.id == id }
         if (client != null) {
-            println("Got stray message from connected client $client, ignoring: ${message.parts.toList()}")
+            check(executing_client_id == null)
+            executing_client_id = client.id
+            client.last_heartbeat = time_source.markNow()
+
+            try {
+                processClientMessage(message, client)
+            }
+            catch (e: Throwable) {
+                RuntimeException("Exception while processing reply from $client", e).printStackTrace()
+            }
+
+            executing_client_id = null
             return
         }
         else if (content == null) {
@@ -347,7 +368,8 @@ open class SpMs(
                 machine_id = client_handshake.machine_id,
                 player_port = client_handshake.player_port
             ),
-            player_event_inc
+            player_event_inc,
+            last_heartbeat = time_source.markNow()
         )
 
         val action_replies: List<SpMsActionReply>?
@@ -390,9 +412,9 @@ open class SpMs(
         }
     }
 
-    private fun onClientTimedOut(client: SpMsClient, attempts: Int) {
+    private fun onClientTimedOut(client: SpMsClient, timeout: Duration) {
         clients.remove(client)
-        println("$client failed to respond after $attempts attempts")
+        println("$client failed to provide heartbeat after $timeout")
 
         if (
             client.type.playsAudio()

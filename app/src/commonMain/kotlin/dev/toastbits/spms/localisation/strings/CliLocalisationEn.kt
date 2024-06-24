@@ -36,6 +36,4 @@ class CliLocalisationEn: CliLocalisation {
 
     override fun errServerDidNotRespond(timeout: Duration): String =
         "Server did not respond within timeout ($timeout)"
-    override fun errServerDidNotSendEvents(timeout: Duration): String =
-        "Server did not send events within timeout ($timeout)"
 }
