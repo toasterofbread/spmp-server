@@ -426,10 +426,11 @@ open class SpMs(
         }
     }
 
-    private fun getEventsForClient(client: SpMsClient): List<SpMsPlayerEvent> =
+    private fun getEventsForClient(client: SpMsClient): List<SpMsPlayerEvent> = player_events_lock.withLock {
         player_events.filter { event ->
             event.event_id >= client.event_head && (event.shouldSendToInstigatingClient() || event.client_id != client.id)
         }
+    }
 
     private fun SpMsClient.createMessage(parts: List<String>): ZmqMessage =
         ZmqMessage(id_bytes, parts)
