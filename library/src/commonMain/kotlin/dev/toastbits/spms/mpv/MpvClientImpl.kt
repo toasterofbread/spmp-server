@@ -22,7 +22,6 @@ abstract class MpvClientImpl(
     playlist_auto_progress: Boolean = true
 ): LibMpvClient(libmpv, headless = headless, playlist_auto_progress = playlist_auto_progress) {
     private val coroutine_scope = CoroutineScope(Job())
-    private var auth_headers: Map<String, String>? = null
     private val local_files: MutableMap<String, String> = mutableMapOf()
 
     internal var song_initial_seek_time: TimeMark? = null
@@ -232,7 +231,7 @@ abstract class MpvClientImpl(
     }
 
     fun setAuthHeaders(headers: Map<String, String>?) {
-        auth_headers = headers
+        VideoInfoProvider.setAuthHeaders(headers)
     }
 
     fun clearLocalFiles() {
@@ -277,7 +276,7 @@ abstract class MpvClientImpl(
                     else {
                         stream_url =
                             try {
-                                VideoInfoProvider.getVideoStreamUrl(video_id, auth_headers.orEmpty())
+                                VideoInfoProvider.getVideoStreamUrl(video_id)
                             }
                             catch (e: Throwable) {
                                 RuntimeException("Getting video stream url for $video_id failed", e).printStackTrace()

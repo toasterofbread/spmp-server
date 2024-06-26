@@ -16,9 +16,9 @@ pluginManagement {
 
     repositories {
         mavenLocal()
-        maven("https://jitpack.io")
         mavenCentral()
         gradlePluginPortal()
+        maven("https://jitpack.io")
     }
 
     plugins {

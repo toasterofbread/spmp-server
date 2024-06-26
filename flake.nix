@@ -26,7 +26,7 @@
         in
         pkgs.mkShell {
           packages = with pkgs; [
-            jdk21
+            jdk21_headless
             jdk22
             pkg-config
             cmake

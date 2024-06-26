@@ -144,7 +144,6 @@ kotlin {
 
                 val ktor_version: String = extra["ktor.version"] as String
                 implementation("io.ktor:ktor-client-core:$ktor_version")
-                implementation("io.ktor:ktor-client-core:$ktor_version")
                 implementation("io.ktor:ktor-client-cio:$ktor_version")
             }
         }
