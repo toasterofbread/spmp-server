@@ -80,14 +80,15 @@
           ] ++ build_packages;
           buildInputs = runtime_packages;
 
-          JAVA_21_HOME = "${pkgs.jdk21_headless}/lib/openjdk";
-          JAVA_22_HOME = "${pkgs.jdk22}/lib/openjdk";
-          JAVA_HOME = "${pkgs.jdk21_headless}/lib/openjdk";
-          JEXTRACT_PATH = "${pkgs.jextract}/bin/jextract";
-          KOTLIN_BINARY_PATCH_COMMAND = "patchkotlinbinary";
 
           buildPhase = ''
             ${build_shell_hook}
+
+            export JAVA_21_HOME = "${pkgs.jdk21_headless}/lib/openjdk";
+            export JAVA_22_HOME = "${pkgs.jdk22}/lib/openjdk";
+            export JAVA_HOME = "${pkgs.jdk21_headless}/lib/openjdk";
+            export JEXTRACT_PATH = "${pkgs.jextract}/bin/jextract";
+            export KOTLIN_BINARY_PATCH_COMMAND = "patchkotlinbinary";
 
             gradle app:linuxX64Binaries
           '';
