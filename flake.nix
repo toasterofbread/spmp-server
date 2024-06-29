@@ -109,6 +109,10 @@
             export JEXTRACT_PATH="${pkgs.jextract}/bin/jextract";
             export KOTLIN_BINARY_PATCH_COMMAND="${kotlin_binary_patch_command}";
 
+            ls $JAVA_22_HOME
+            $JAVA_22_HOME/bin/java -version
+            exit 1
+
             gradle app:linuxX64Binaries
           '';
 
