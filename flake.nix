@@ -75,7 +75,9 @@
           name = "spmp-server";
           src = ./.;
 
-          nativeBuildInputs = build_packages;
+          nativeBuildInputs = with pkgs; [
+            gradle
+          ] ++ build_packages;
           buildInputs = runtime_packages;
 
           JAVA_21_HOME = "${pkgs.jdk21_headless}/lib/openjdk";
@@ -87,7 +89,7 @@
           buildPhase = ''
             ${build_shell_hook}
 
-            ./gradlew app:linuxX64Binaries
+            gradle app:linuxX64Binaries
           '';
 
           installPhase = ''
