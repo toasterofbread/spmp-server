@@ -103,11 +103,11 @@
             ${build_shell_hook}
           echo bbbbbbbbb
 
-            export JAVA_21_HOME = "${pkgs.jdk21_headless}/lib/openjdk";
-            export JAVA_22_HOME = "${pkgs.jdk22}/lib/openjdk";
-            export JAVA_HOME = "${pkgs.jdk21_headless}/lib/openjdk";
-            export JEXTRACT_PATH = "${pkgs.jextract}/bin/jextract";
-            export KOTLIN_BINARY_PATCH_COMMAND = "${kotlin_binary_patch_command}";
+            export JAVA_21_HOME="${pkgs.jdk21_headless}/lib/openjdk";
+            export JAVA_22_HOME="${pkgs.jdk22}/lib/openjdk";
+            export JAVA_HOME="${pkgs.jdk21_headless}/lib/openjdk";
+            export JEXTRACT_PATH="${pkgs.jextract}/bin/jextract";
+            export KOTLIN_BINARY_PATCH_COMMAND="${kotlin_binary_patch_command}";
 
             gradle app:linuxX64Binaries
           '';
