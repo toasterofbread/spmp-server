@@ -284,7 +284,7 @@ enum class CinteropLibraries {
         val default_include_dirs: List<File> = (
             if (platform.is_linux) listOf("/usr/include", "/usr/include/${platform.arch.libdir_name}").map { File(it) }
             else emptyList()
-        ) + System.getenv("CMAKE_INCLUDE_PATH").orEmpty().split(":").map { File(it) }
+        ) + System.getenv("C_INCLUDE_PATH").orEmpty().split(":").map { File(it) }
 
         fun addHeaderFile(path: String) {
             var file: File? = null

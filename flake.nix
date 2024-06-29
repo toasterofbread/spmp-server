@@ -26,8 +26,13 @@
         lib_paths_str=$(IFS=:; echo "''${lib_paths[*]}")
         export LD_LIBRARY_PATH="$lib_paths_str:$LD_LIBRARY_PATH"
 
-        # Set C_INCLUDE_PATH
-        export C_INCLUDE_PATH="${custom_pkgs.zeromq-kotlin-native}/include:${pkgs.glibc.dev}/include:${pkgs.glibc_multi.dev}/include:$C_INCLUDE_PATH"
+        # Add include paths in NIX_CFLAGS_COMPILE to C_INCLUDE_PATH
+        IFS=' ' read -r -a flags <<< "$NIX_CFLAGS_COMPILE"
+        for (( i=0; i<''${#flags[@]}; i++ )); do
+          if [ "''${flags[$i]}" == "-isystem" ] && [ $((i+1)) -lt ''${#flags[@]} ]; then
+            export C_INCLUDE_PATH="''${C_INCLUDE_PATH}:''${flags[$((i+1))]}"
+          fi
+        done
 
         export KONAN_DATA_DIR=$(pwd)/.konan
 
