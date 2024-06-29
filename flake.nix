@@ -82,7 +82,9 @@
 
 
           buildPhase = ''
+          echo aaaaaaaa
             ${build_shell_hook}
+          echo bbbbbbbbb
 
             export JAVA_21_HOME = "${pkgs.jdk21_headless}/lib/openjdk";
             export JAVA_22_HOME = "${pkgs.jdk22}/lib/openjdk";
