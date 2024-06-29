@@ -84,9 +84,9 @@
 
           nativeBuildInputs = with pkgs; [
             #gradle
+            autoPatchelfHook
           ] ++ build_packages;
           buildInputs = runtime_packages;
-
 
           buildPhase = ''
             ${build_shell_hook}
