@@ -96,6 +96,10 @@
             mkdir -p $out/bin/spms
             install -Dm755 app/build/bin/linuxX64/debugExecutable/*.kexe $out/bin/spms
           '';
+
+          outputHashAlgo = "sha256";
+          outputHashMode = "recursive";
+          outputHash = "sha256-Om4BcXK76QrExnKcDzw574l+h75C8yK/EbccpbcvLsQ=";
         };
 
       devShells."${x86_system}".default =
