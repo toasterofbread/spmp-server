@@ -92,9 +92,6 @@
             export JEXTRACT_PATH="${pkgs.jextract}/bin/jextract";
             export KOTLIN_BINARY_PATCH_COMMAND="${kotlin_binary_patch_command}";
 
-            ls ${custom_pkgs.zeromq-kotlin-native}/include
-            exit 1
-
             ./gradlew app:linuxX64Binaries -Dorg.gradle.java.installations.paths="$JAVA_21_HOME,$JAVA_22_HOME"
           '';
 
