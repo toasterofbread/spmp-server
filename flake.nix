@@ -47,7 +47,7 @@
         jdk21_headless
         jdk22
         pkg-config
-        cmake
+        #cmake
         jextract
         mpv
         libayatana-appindicator
