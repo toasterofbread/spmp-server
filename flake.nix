@@ -92,7 +92,7 @@
             export JEXTRACT_PATH="${pkgs.jextract}/bin/jextract";
             export KOTLIN_BINARY_PATCH_COMMAND="${kotlin_binary_patch_command}";
 
-            gradle app:linuxX64Binaries -Dorg.gradle.java.installations.fromEnv="JAVA_21_HOME,JAVA_22_HOME"
+            gradle app:linuxX64Binaries -Dorg.gradle.java.installations.paths="$JAVA_21_HOME,$JAVA_22_HOME"
           '';
 
           installPhase = ''
