@@ -26,8 +26,8 @@
         lib_paths_str=$(IFS=:; echo "''${lib_paths[*]}")
         export LD_LIBRARY_PATH="$lib_paths_str:$LD_LIBRARY_PATH"
 
-        # Add glibc and glibc_multi to C_INCLUDE_PATH
-        export C_INCLUDE_PATH="${pkgs.glibc.dev}/include:${pkgs.glibc_multi.dev}/include:$C_INCLUDE_PATH"
+        # Set C_INCLUDE_PATH
+        export C_INCLUDE_PATH="${custom_pkgs.zeromq-kotlin-native}/include:${pkgs.glibc.dev}/include:${pkgs.glibc_multi.dev}/include:$C_INCLUDE_PATH"
 
         export KONAN_DATA_DIR=$(pwd)/.konan
 
@@ -91,6 +91,9 @@
             export JAVA_HOME="${pkgs.jdk21_headless}/lib/openjdk";
             export JEXTRACT_PATH="${pkgs.jextract}/bin/jextract";
             export KOTLIN_BINARY_PATCH_COMMAND="${kotlin_binary_patch_command}";
+
+            ls ${custom_pkgs.zeromq-kotlin-native}/include
+            exit 1
 
             ./gradlew app:linuxX64Binaries -Dorg.gradle.java.installations.paths="$JAVA_21_HOME,$JAVA_22_HOME"
           '';
