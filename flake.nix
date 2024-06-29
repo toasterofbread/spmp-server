@@ -18,6 +18,8 @@
         system = x86_system;
       };
 
+      kotlin_binary_patch_command = "patchkotlinbinary";
+
       build_shell_hook = ''
       echo 1
         # Add NIX_LDFLAGS to LD_LIBRARY_PATH
@@ -49,9 +51,9 @@
 
         PATCH_KOTLIN_BINARY_SCRIPT="patchelf --set-interpreter \$(cat \$NIX_CC/nix-support/dynamic-linker) --set-rpath $KONAN_DATA_DIR/dependencies/x86_64-unknown-linux-gnu-gcc-8.3.0-glibc-2.19-kernel-4.9-2/x86_64-unknown-linux-gnu/sysroot/lib64 \$1"
       echo 12
-        echo "$PATCH_KOTLIN_BINARY_SCRIPT" > $KONAN_DATA_DIR/bin/$KOTLIN_BINARY_PATCH_COMMAND
+        echo "$PATCH_KOTLIN_BINARY_SCRIPT" > $KONAN_DATA_DIR/bin/${kotlin_binary_patch_command}
       echo 13
-        chmod +x $KONAN_DATA_DIR/bin/$KOTLIN_BINARY_PATCH_COMMAND
+        chmod +x $KONAN_DATA_DIR/bin/${kotlin_binary_patch_command}
       echo 14
 
         chmod -R u+w $KONAN_DATA_DIR
@@ -105,7 +107,7 @@
             export JAVA_22_HOME = "${pkgs.jdk22}/lib/openjdk";
             export JAVA_HOME = "${pkgs.jdk21_headless}/lib/openjdk";
             export JEXTRACT_PATH = "${pkgs.jextract}/bin/jextract";
-            export KOTLIN_BINARY_PATCH_COMMAND = "patchkotlinbinary";
+            export KOTLIN_BINARY_PATCH_COMMAND = "${kotlin_binary_patch_command}";
 
             gradle app:linuxX64Binaries
           '';
@@ -140,7 +142,7 @@
           JAVA_HOME = "${pkgs.jdk21_headless}/lib/openjdk";
           JEXTRACT_PATH = "${pkgs.jextract}/bin/jextract";
 
-          KOTLIN_BINARY_PATCH_COMMAND = "patchkotlinbinary";
+          KOTLIN_BINARY_PATCH_COMMAND = kotlin_binary_patch_command;
 
           shellHook = build_shell_hook;
         };
