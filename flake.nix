@@ -81,11 +81,11 @@
       runtime_packages = with pkgs; [
         curlMinimal
         mpv
+        libayatana-appindicator
 
         #glibc
         #glibc_multi
         #libgcc.lib
-        #libayatana-appindicator
         #libxcrypt-legacy.out
       ];
     in
