@@ -107,6 +107,8 @@
                 exit 1
               fi
 
+              version="${version:1}"
+
               wget https://github.com/toasterofbread/spmp-server/releases/download/$version/spms-$version-${getReleaseSystem system}.kexe -O spms.kexe
             '';
 
