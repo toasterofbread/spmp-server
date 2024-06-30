@@ -95,6 +95,7 @@
 
             nativeBuildInputs = with pkgs; [
               wget
+              cacert
               autoPatchelfHook
             ];
             buildInputs = runtime_packages;
