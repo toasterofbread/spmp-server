@@ -107,14 +107,14 @@
                 exit 1
               fi
 
-              version="${version:1}"
+              version="''${version:1}"
 
               wget https://github.com/toasterofbread/spmp-server/releases/download/$version/spms-$version-${getReleaseSystem system}.kexe -O spms.kexe
             '';
 
             installPhase = ''
               mkdir -p $out/bin/spms
-              install -Dm755 app/build/bin/linuxX64/debugExecutable/*.kexe $out/bin/spms
+              install -Dm755 spms.kexe $out/bin/spms
             '';
 
             outputHashAlgo = "sha256";
