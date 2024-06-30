@@ -43,7 +43,7 @@
         mkdir $KONAN_DATA_DIR/bin
         export PATH="$KONAN_DATA_DIR/bin:$PATH"
 
-        PATCH_KOTLIN_BINARY_SCRIPT="patchelf --set-interpreter \$(cat \$NIX_CC/nix-support/dynamic-linker) --set-rpath $KONAN_DATA_DIR/dependencies/x86_64-unknown-linux-gnu-gcc-8.3.0-glibc-2.19-kernel-4.9-2/x86_64-unknown-linux-gnu/sysroot/lib64 \$1"
+        PATCH_KOTLIN_BINARY_SCRIPT="patchelf --set-interpreter \$(cat \$NIX_CC/nix-support/dynamic-linker) --set-rpath ${custom_pkgs.kotlin-native-toolchain-env}/dependencies/x86_64-unknown-linux-gnu-gcc-8.3.0-glibc-2.19-kernel-4.9-2/x86_64-unknown-linux-gnu/sysroot/lib64 \$1"
         echo "$PATCH_KOTLIN_BINARY_SCRIPT" > $KONAN_DATA_DIR/bin/${kotlin_binary_patch_command}
         chmod +x $KONAN_DATA_DIR/bin/${kotlin_binary_patch_command}
 
@@ -64,7 +64,6 @@
         glibc_multi
         libgcc.lib
         (custom_pkgs.zeromq-kotlin-native.override { enableDrafts = true; })
-        (custom_pkgs.kotlin-native-toolchain-env.override { x86_64 = true; aarch64 = true; })
       ];
 
       runtime_packages = with pkgs; [
@@ -74,6 +73,7 @@
         glibc_multi
         libgcc.lib
 
+        (custom_pkgs.kotlin-native-toolchain-env.override { x86_64 = true; aarch64 = true; })
         libayatana-appindicator
         libxcrypt-legacy.out
       ];
@@ -98,6 +98,10 @@
             export JAVA_HOME="${pkgs.jdk21_headless}/lib/openjdk";
             export JEXTRACT_PATH="${pkgs.jextract}/bin/jextract";
             export KOTLIN_BINARY_PATCH_COMMAND="${kotlin_binary_patch_command}";
+
+            echo ${custom_pkgs.kotlin-native-toolchain-env}
+            ls ${custom_pkgs.kotlin-native-toolchain-env}
+            exit 1
 
             ./gradlew app:linuxX64Binaries -Dorg.gradle.java.installations.paths="$JAVA_21_HOME,$JAVA_22_HOME"
           '';
