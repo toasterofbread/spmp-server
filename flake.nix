@@ -79,11 +79,14 @@
       ];
 
       runtime_packages = with pkgs; [
-        glibc
-        glibc_multi
-        libgcc.lib
-        libayatana-appindicator
-        libxcrypt-legacy.out
+        curlMinimal
+        mpv
+
+        #glibc
+        #glibc_multi
+        #libgcc.lib
+        #libayatana-appindicator
+        #libxcrypt-legacy.out
       ];
     in
     {
