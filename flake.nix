@@ -18,6 +18,17 @@
         system = x86_system;
       };
 
+      systems = [
+        x86_system
+        arm_system
+      ];
+      eachSystem = pkgs.lib.genAttrs systems;
+
+      getReleaseSystem = system: {
+        x86_system = "linux-x86_64";
+        arm_system = "linux-arm64";
+      }.${system};
+
       kotlin_binary_patch_command = "patchkotlinbinary";
 
       build_shell_hook = ''
@@ -64,53 +75,50 @@
         glibc_multi
         libgcc.lib
         (custom_pkgs.zeromq-kotlin-native.override { enableDrafts = true; })
+        (custom_pkgs.kotlin-native-toolchain-env.override { x86_64 = true; aarch64 = true; })
       ];
 
       runtime_packages = with pkgs; [
-        jdk22
-        patchelf
         glibc
         glibc_multi
         libgcc.lib
-
-        (custom_pkgs.kotlin-native-toolchain-env.override { x86_64 = true; aarch64 = true; })
         libayatana-appindicator
         libxcrypt-legacy.out
       ];
     in
     {
-      packages."${x86_system}".default =
-        pkgs.stdenv.mkDerivation {
-          name = "spmp-server";
-          src = ./.;
+      packages = eachSystem (system: {
+        default =
+          pkgs.stdenv.mkDerivation {
+            name = "spmp-server";
+            src = ./.;
 
-          nativeBuildInputs = with pkgs; [
-            #gradle
-            autoPatchelfHook
-          ] ++ build_packages;
-          buildInputs = runtime_packages;
+            nativeBuildInputs = with pkgs; [
+              wget
+              autoPatchelfHook
+            ];
+            buildInputs = runtime_packages;
 
-          buildPhase = ''
-            ${build_shell_hook}
+            buildPhase = ''
+              version=$(grep -m 1 '^project.version=' gradle.properties | sed 's/^project.version=//')
+              if [[ -z "$version" ]]; then
+                echo "project.version not found in gradle.properties"
+                exit 1
+              fi
 
-            export JAVA_21_HOME="${pkgs.jdk21_headless}/lib/openjdk";
-            export JAVA_22_HOME="${pkgs.jdk22}/lib/openjdk";
-            export JAVA_HOME="${pkgs.jdk21_headless}/lib/openjdk";
-            export JEXTRACT_PATH="${pkgs.jextract}/bin/jextract";
-            export KOTLIN_BINARY_PATCH_COMMAND="${kotlin_binary_patch_command}";
+              wget https://github.com/toasterofbread/spmp-server/releases/download/$version/spms-$version-${getReleaseSystem system}.kexe -O spms.kexe
+            '';
 
-            ./gradlew app:linuxX64Binaries -Dorg.gradle.java.installations.paths="$JAVA_21_HOME,$JAVA_22_HOME"
-          '';
+            installPhase = ''
+              mkdir -p $out/bin/spms
+              install -Dm755 app/build/bin/linuxX64/debugExecutable/*.kexe $out/bin/spms
+            '';
 
-          installPhase = ''
-            mkdir -p $out/bin/spms
-            install -Dm755 app/build/bin/linuxX64/debugExecutable/*.kexe $out/bin/spms
-          '';
-
-          outputHashAlgo = "sha256";
-          outputHashMode = "recursive";
-          outputHash = "sha256-Om4BcXK76QrExnKcDzw574l+h75C8yK/EbccpbcvLsQ=";
-        };
+            outputHashAlgo = "sha256";
+            outputHashMode = "recursive";
+            outputHash = "sha256-Om4BcXK76QrExnKcDzw574l+h75C8yK/EbccpbcvLsQ=";
+          };
+      });
 
       devShells."${x86_system}".default =
         let
