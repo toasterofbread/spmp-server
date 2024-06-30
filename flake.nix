@@ -25,8 +25,8 @@
       eachSystem = pkgs.lib.genAttrs systems;
 
       getReleaseSystem = system: {
-        x86_system = "linux-x86_64";
-        arm_system = "linux-arm64";
+        "x86_64-linux" = "linux-x86_64";
+        "aarch64-linux" = "linux-arm64";
       }.${system};
 
       kotlin_binary_patch_command = "patchkotlinbinary";
