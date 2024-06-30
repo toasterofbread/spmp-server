@@ -82,11 +82,11 @@
         curlMinimal
         mpv
         libayatana-appindicator
+        libxcrypt-legacy.out
 
         #glibc
         #glibc_multi
         #libgcc.lib
-        #libxcrypt-legacy.out
       ];
     in
     {
