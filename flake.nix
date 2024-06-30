@@ -57,7 +57,6 @@
         #cmake
         jextract
         mpv
-        libayatana-appindicator
         gtk3
         curl
         patchelf
@@ -74,6 +73,9 @@
         glibc
         glibc_multi
         libgcc.lib
+
+        libayatana-appindicator
+        libxcrypt-legacy.out
       ];
     in
     {
