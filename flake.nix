@@ -25,13 +25,13 @@
       eachSystem = pkgs.lib.genAttrs systems;
 
       getReleaseSourceUrl = system: {
-        "x86_64-linux" = "https://github.com/toasterofbread/spmp-server/releases/download/v0.4.0-beta1/spms-v0.4.0-beta1-linux-arm64.kexe";
+        "x86_64-linux" = "https://github.com/toasterofbread/spmp-server/releases/download/v0.4.0-beta1/spms-v0.4.0-beta1-linux-x86_64.kexe";
         "aarch64-linux" = "https://github.com/toasterofbread/spmp-server/releases/download/v0.4.0-beta1/spms-v0.4.0-beta1-linux-arm64.kexe";
       }.${system};
 
       getReleaseSourceHash = system: {
-        "x86_64-linux" = "sha256-lTfyxzJNQeMdu1IVdovNMtgn77jRIhSybLdMbTkf2Wx=";
-        "aarch64-linux" = "sha256-lTfyxzJNQeMdu1IVdovNMtgn77jRIhSybLdMbTkf2Ww==";
+        "x86_64-linux" = "sha256-lTfyxzJNQeMdu1IVdovNMtgn77jRIhSybLdMbTkf2Ww==";
+        "aarch64-linux" = "sha256-tx73+QQUJX0jsUg4EanhWflLeZH1cV4L4QRHsXNQg5w=";
       }.${system};
 
       kotlin_binary_patch_command = "patchkotlinbinary";
