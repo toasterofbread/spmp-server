@@ -30,7 +30,7 @@
       }.${system};
 
       getReleaseSourceHash = system: {
-        "x86_64-linux" = "sha256-lTfyxzJNQeMdu1IVdovNMtgn77jRIhSybLdMbTkf2Ww==";
+        "x86_64-linux" = "sha256-3dX07W0IFWTsxwbP9Krkf6fgK969mZxOa3ZiKzaY9SU=";
         "aarch64-linux" = "sha256-tx73+QQUJX0jsUg4EanhWflLeZH1cV4L4QRHsXNQg5w=";
       }.${system};
 
