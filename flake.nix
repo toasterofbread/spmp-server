@@ -74,7 +74,6 @@
         jextract
         mpv
         gtk3
-        curl
         patchelf
         glibc
         glibc_multi
