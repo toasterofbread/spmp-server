@@ -83,7 +83,7 @@
       ];
 
       runtime_packages = with pkgs; [
-        (curlMinimal.overrideAttrs (old: {
+        (curl.overrideAttrs (old: {
             configureFlags = old.configureFlags ++ ["--enable-versioned-symbols"];
         }))
 
