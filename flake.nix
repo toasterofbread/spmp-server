@@ -83,10 +83,7 @@
       ];
 
       runtime_packages = with pkgs; [
-        #(curl.overrideAttrs (old: {
-            #configureFlags = old.configureFlags ++ ["--enable-versioned-symbols"];
-        #}))
-
+        curlMinimal
         mpv
         libayatana-appindicator
         libxcrypt-legacy.out
