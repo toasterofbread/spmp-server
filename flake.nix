@@ -112,11 +112,7 @@
 
             installPhase = ''
               mkdir -p $out/bin
-              echo $src
-              ls $src
-              file $src
-              exit 1
-              #install -Dm755 spms.kexe $out/bin/spms
+              install -Dm755 $src $out/bin/spms
             '';
           };
       });
