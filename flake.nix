@@ -103,6 +103,7 @@
               url = getReleaseSourceUrl system;
               hash = getReleaseSourceHash system;
             };
+            dontUnpack = true;
 
             nativeBuildInputs = with pkgs; [
               autoPatchelfHook
