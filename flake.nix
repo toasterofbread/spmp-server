@@ -24,9 +24,14 @@
       ];
       eachSystem = pkgs.lib.genAttrs systems;
 
-      getReleaseSystem = system: {
-        "x86_64-linux" = "linux-x86_64";
-        "aarch64-linux" = "linux-arm64";
+      getReleaseSourceUrl = system: {
+        "x86_64-linux" = "https://github.com/toasterofbread/spmp-server/releases/download/v0.4.0-beta1/spms-v0.4.0-beta1-linux-x86_64.kexe";
+        "aarch64-linux" = "https://github.com/toasterofbread/spmp-server/releases/download/v0.4.0-beta1/spms-v0.4.0-beta1-linux-arm64.kexe";
+      }.${system};
+
+      getReleaseSourceHash = system: {
+        "x86_64-linux" = "sha256-lTfyxzJNQeMdu1IVdovNMtgn77jRIhSybLdMbTkf2Wx=";
+        "aarch64-linux" = "sha256-lTfyxzJNQeMdu1IVdovNMtgn77jRIhSybLdMbTkf2Wx=";
       }.${system};
 
       kotlin_binary_patch_command = "patchkotlinbinary";
@@ -94,33 +99,23 @@
         default =
           pkgs.stdenv.mkDerivation {
             name = "spmp-server";
-            src = ./.;
+            src = pkgs.fetchurl {
+              url = getReleaseSourceUrl system;
+              hash = getReleaseSourceHash system;
+            };
 
             nativeBuildInputs = with pkgs; [
-              wget
-              cacert
               autoPatchelfHook
             ];
             buildInputs = runtime_packages;
 
-            buildPhase = ''
-              version=$(grep -m 1 '^project.version=' gradle.properties | sed 's/^project.version=//')
-              if [[ -z "$version" ]]; then
-                echo "project.version not found in gradle.properties"
-                exit 1
-              fi
-
-              wget https://github.com/toasterofbread/spmp-server/releases/download/v$version/spms-v$version-${getReleaseSystem system}.kexe -O spms.kexe
-            '';
-
             installPhase = ''
               mkdir -p $out/bin
-              install -Dm755 spms.kexe $out/bin/spms
+              pwd
+              ls
+              exit 1
+              #install -Dm755 spms.kexe $out/bin/spms
             '';
-
-            outputHashAlgo = "sha256";
-            outputHashMode = "recursive";
-            outputHash = "sha256-Om4BcXK76QrExnKcDzw574l+h75C8yK/EbccpbcvLsQ=";
           };
       });
 
