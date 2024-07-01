@@ -84,9 +84,9 @@
       ];
 
       runtime_packages = with pkgs; [
-        curlMinimal.overrideAttrs (old: {
+        (curlMinimal.overrideAttrs (old: {
             configureFlags = old.configureFlags ++ ["--enable-versioned-symbols"];
-        })
+        }))
 
         mpv
         libayatana-appindicator
