@@ -3,18 +3,13 @@ package dev.toastbits.spms.zmq
 import dev.toastbits.spms.socketapi.shared.SpMsSocketApi
 import dev.toastbits.spms.socketapi.shared.SPMS_MESSAGE_MAX_SIZE
 import kotlin.time.Duration
-// import org.zeromq.ZContext
-// import org.zeromq.ZMQ.SNDMORE
-// import org.zeromq.ZMQ.Msg
-// import org.zeromq.SocketType as ZSocketType
-// import org.zeromq.ZMQ.Socket as ZSocket
-// import org.zeromq.ZMQ.Poller as ZPoller
 import org.zeromq.*
 
 actual class ZmqSocket actual constructor(type: ZmqSocketType, val is_binder: Boolean) {
     private val context: ZContext = ZContext()
     private val socket: ZMQ.Socket = context.createSocket(
         when (type) {
+            ZmqSocketType.REQ -> SocketType.REQ
             ZmqSocketType.REP -> SocketType.REP
             ZmqSocketType.DEALER -> SocketType.DEALER
             ZmqSocketType.ROUTER -> SocketType.ROUTER

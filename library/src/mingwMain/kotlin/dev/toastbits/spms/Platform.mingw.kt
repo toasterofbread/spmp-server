@@ -7,7 +7,7 @@ import platform.posix.gethostname
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.*
 
-actual fun getTempDir(): Path = "${getenv("USERPROFILE")!!.toKString()}/AppData/Local/Temp/".toPath()
+actual fun getTempDir(): Path? = "${getenv("USERPROFILE")!!.toKString()}/AppData/Local/Temp/".toPath()
 
 @OptIn(ExperimentalForeignApi::class)
 actual fun getHostname(): String =

@@ -5,7 +5,7 @@ import okio.Path.Companion.toPath
 import kotlinx.cinterop.*
 import platform.posix.gethostname
 
-actual fun getTempDir(): Path = "/tmp/".toPath()
+actual fun getTempDir(): Path? = "/tmp/".toPath()
 
 @OptIn(ExperimentalForeignApi::class)
 actual fun getHostname(): String =

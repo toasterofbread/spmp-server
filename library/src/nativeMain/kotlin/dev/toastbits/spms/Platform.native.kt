@@ -9,7 +9,7 @@ import okio.Path.Companion.toPath
 import okio.FileSystem
 import gen.libmpv.LibMpv
 
-actual val FileSystem.Companion.PLATFORM: FileSystem get() = FileSystem.SYSTEM
+actual val FileSystem.Companion.PLATFORM: FileSystem? get() = FileSystem.SYSTEM
 
 actual fun getOSName(): String {
     val os: String =
@@ -36,11 +36,11 @@ actual fun getOSName(): String {
     return "$os ($architecture)"
 }
 
-actual fun getCacheDir(): Path =
+actual fun getCacheDir(): Path? =
     when (Platform.osFamily) {
         OsFamily.LINUX -> "/home/${getenv("USER")!!.toKString()}/.cache/".toPath().resolve(SpMs.application_name)
         OsFamily.WINDOWS -> "${getenv("USERPROFILE")!!.toKString()}/AppData/Local/${SpMs.application_name}/cache".toPath()
         else -> throw NotImplementedError(Platform.osFamily.name)
     }
 
-actual fun createLibMpv(): LibMpv = LibMpv()
+actual fun createLibMpv(): LibMpv? = LibMpv()

@@ -270,7 +270,7 @@ abstract class MpvClientImpl(
                     val stream_url: String
 
                     val local_file_path: String? = local_files[video_id]
-                    if (local_file_path != null && FileSystem.PLATFORM.exists(local_file_path.toPath())) {
+                    if (local_file_path != null && FileSystem.PLATFORM?.exists(local_file_path.toPath()) == true) {
                         stream_url = "file://" + local_file_path
                     }
                     else {

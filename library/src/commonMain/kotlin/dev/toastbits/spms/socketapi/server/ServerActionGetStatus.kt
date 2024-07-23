@@ -4,7 +4,6 @@ import dev.toastbits.spms.mpv.getCurrentStateJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import dev.toastbits.spms.server.SpMs
@@ -28,30 +27,28 @@ class ServerActionGetStatus: ServerAction(
 
     override fun formatResult(result: JsonElement, localisation: SpMsLocalisation): String {
         val string: StringBuilder = StringBuilder("--- ${localisation.server_actions.status_output_start} ---\n")
-        runBlocking {
-            val entries: Map<String, String> =
-                result.jsonObject.entries.associate { entry ->
-                    val key: String =
-                        with (localisation.server_actions) {
-                            when (entry.key) {
-                                "queue" -> status_key_queue
-                                "state" -> status_key_state
-                                "is_playing" -> status_key_is_playing
-                                "current_item_index" -> status_key_current_item_index
-                                "current_position_ms" -> status_key_current_position
-                                "duration_ms" -> status_key_duration
-                                "repeat_mode" -> status_key_repeat_mode
-                                else -> entry.key.replaceFirstChar { it.uppercaseChar() }.replace('_', ' ')
-                            }
+        val entries: Map<String, String> =
+            result.jsonObject.entries.associate { entry ->
+                val key: String =
+                    with (localisation.server_actions) {
+                        when (entry.key) {
+                            "queue" -> status_key_queue
+                            "state" -> status_key_state
+                            "is_playing" -> status_key_is_playing
+                            "current_item_index" -> status_key_current_item_index
+                            "current_position_ms" -> status_key_current_position
+                            "duration_ms" -> status_key_duration
+                            "repeat_mode" -> status_key_repeat_mode
+                            else -> entry.key.replaceFirstChar { it.uppercaseChar() }.replace('_', ' ')
                         }
-                    val value: String = formatKeyValue(entry.key, entry.value)
+                    }
 
-                    key to value
-                }
-
-            for ((key, value) in entries) {
-                string.append("$key: $value\n")
+                val value: String = formatKeyValue(entry.key, entry.value)
+                key to value
             }
+
+        for ((key, value) in entries) {
+            string.append("$key: $value\n")
         }
         string.append("---------------------")
 

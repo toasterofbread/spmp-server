@@ -19,7 +19,6 @@ import dev.toastbits.spms.socketapi.player.PlayerAction
 import dev.toastbits.spms.socketapi.server.ServerAction
 import dev.toastbits.spms.socketapi.shared.*
 import dev.toastbits.spms.localisation.SpMsLocalisation
-import dev.toastbits.spms.getMachineId
 import dev.toastbits.spms.getDeviceName
 import dev.toastbits.spms.createLibMpv
 import dev.toastbits.spms.ReentrantLock
@@ -31,6 +30,7 @@ val CLIENT_HEARTBEAT_MAX_PERIOD: Duration = with (Duration) { 10.seconds }
 val CLIENT_HEARTBEAT_TARGET_PERIOD: Duration = with (Duration) { 5.seconds }
 
 open class SpMs(
+    private val machine_id: String,
     val headless: Boolean = !LibMpv.isAvailable(),
     enable_gui: Boolean = false
 ): ZmqRouter() {
@@ -47,28 +47,15 @@ open class SpMs(
 
     val player: Player =
         if (headless)
-            object : HeadlessPlayer() {
-                override fun getCachedItemDuration(item_id: String): Duration? = item_durations[item_id]
-
-                override suspend fun loadItemDuration(item_id: String): Duration {
-                    var cached: Duration? = item_durations[item_id]
-                    while (cached == null) {
-                        item_durations_channel.receive()
-                        cached = item_durations[item_id]
-                    }
-                    return cached
-                }
-
-                override fun canPlay(): Boolean = this@SpMs.canPlay()
-                override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
-                override fun onShutdown() = onPlayerShutdown()
-            }
+            createHeadlessPlayer()
         else
-            object : MpvClientImpl(createLibMpv(), headless = !enable_gui) {
-                override fun canPlay(): Boolean = this@SpMs.canPlay()
-                override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
-                override fun onShutdown() = onPlayerShutdown()
-            }
+            createLibMpv()?.let { libmpv ->
+                object : MpvClientImpl(libmpv, headless = !enable_gui) {
+                    override fun canPlay(): Boolean = this@SpMs.canPlay()
+                    override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
+                    override fun onShutdown() = onPlayerShutdown()
+                }
+            } ?: createHeadlessPlayer()
 
     private fun canPlay(): Boolean {
         if (playback_waiting_for_clients) {
@@ -85,7 +72,7 @@ open class SpMs(
                 application_name,
                 SpMsClientType.SERVER,
                 SpMsLanguage.EN,
-                getMachineId(),
+                machine_id,
                 player_port = if (headless) null else bound_port
             )
         ) + clients.map { it.info.copy(is_caller = it.id == caller) }
@@ -386,7 +373,7 @@ open class SpMs(
                 device_name = getDeviceName(),
                 spms_api_version = SPMS_API_VERSION,
                 server_state = player.getCurrentStateJson(),
-                machine_id = getMachineId(),
+                machine_id = machine_id,
                 action_replies = action_replies
             )
 
@@ -434,6 +421,24 @@ open class SpMs(
 
     private fun SpMsClient.createMessage(parts: List<String>): ZmqMessage =
         ZmqMessage(id_bytes, parts)
+
+    private fun createHeadlessPlayer(): HeadlessPlayer =
+        object : HeadlessPlayer() {
+            override fun getCachedItemDuration(item_id: String): Duration? = item_durations[item_id]
+
+            override suspend fun loadItemDuration(item_id: String): Duration {
+                var cached: Duration? = item_durations[item_id]
+                while (cached == null) {
+                    item_durations_channel.receive()
+                    cached = item_durations[item_id]
+                }
+                return cached
+            }
+
+            override fun canPlay(): Boolean = this@SpMs.canPlay()
+            override fun onEvent(event: SpMsPlayerEvent, clientless: Boolean) = onPlayerEvent(event, clientless)
+            override fun onShutdown() = onPlayerShutdown()
+        }
 
     override fun toString(): String =
         "SpMs(player=$player)"

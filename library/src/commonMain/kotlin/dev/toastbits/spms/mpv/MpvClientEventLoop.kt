@@ -11,7 +11,7 @@ import kjna.struct.mpv_event_property
 import kjna.struct.mpv_event_hook
 import kjna.struct.mpv_event_log_message
 
-internal suspend fun MpvClientImpl.eventLoop() = withContext(Dispatchers.IO) {
+internal suspend fun MpvClientImpl.eventLoop() = coroutineScope {
     observeProperty("core-idle", Boolean::class)
     observeProperty("seeking", Boolean::class)
 

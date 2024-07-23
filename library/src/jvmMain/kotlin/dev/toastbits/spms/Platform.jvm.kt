@@ -9,24 +9,24 @@ import dev.toastbits.spms.server.SpMs
 import gen.libmpv.LibMpv
 import java.io.File
 
-actual val FileSystem.Companion.PLATFORM: FileSystem get() = FileSystem.SYSTEM
+actual val FileSystem.Companion.PLATFORM: FileSystem? get() = FileSystem.SYSTEM
 
 actual fun getHostname(): String = InetAddress.getLocalHost().hostName
 actual fun getOSName(): String = System.getProperty("os.name")
 
-actual fun getTempDir(): Path =
+actual fun getTempDir(): Path? =
     when (OS.current) {
         OS.LINUX -> "/tmp/".toPath()
         OS.WINDOWS -> "${getenv("USERPROFILE")!!}/AppData/Local/Temp/".toPath()
     }
 
-actual fun getCacheDir(): Path =
+actual fun getCacheDir(): Path? =
     when (OS.current) {
         OS.LINUX -> "/home/${getenv("USER")!!}/.cache/".toPath().resolve(SpMs.application_name)
         OS.WINDOWS -> "${getenv("USERPROFILE")!!}/AppData/Local/${SpMs.application_name}/cache".toPath()
     }
 
-actual fun createLibMpv(): LibMpv {
+actual fun createLibMpv(): LibMpv? {
     return LibMpv()
 }
 

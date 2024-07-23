@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.internal.ensureParentDirsCreated
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.DefaultCInteropSettings
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
+import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 import org.gradle.internal.os.OperatingSystem
 import dev.toastbits.kjna.c.CType
 import dev.toastbits.kjna.c.CValueType
@@ -33,6 +34,12 @@ kotlin {
                 }
                 continue
             }
+            Platform.WASM -> {
+                @OptIn(ExperimentalWasmDsl::class)
+                wasmJs {
+                    browser()
+                }
+            }
             Platform.LINUX_X86 -> native_targets.add(linuxX64().apply { configureNativeTarget(platform) })
             Platform.LINUX_ARM64 -> native_targets.add(linuxArm64().apply { configureNativeTarget(platform) })
             Platform.WINDOWS -> native_targets.add(mingwX64().apply { configureNativeTarget(platform) })
@@ -44,6 +51,7 @@ kotlin {
     kjna {
         generate {
             parser_include_dirs += listOf("/usr/include/linux/", "/usr/lib/gcc/x86_64-pc-linux-gnu/14.1.1/include/")
+            build_targets += listOf(KJnaBuildTarget.WASM)
 
             packages(native_targets) {
                 add("gen.libmpv") {
@@ -124,8 +132,8 @@ kotlin {
 
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0-RC")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
 
                 val okio_version: String = extra["okio.version"] as String
                 implementation("com.squareup.okio:okio:$okio_version")
@@ -188,12 +196,14 @@ enum class Arch {
     }
 }
 
+// TODO | Remove
 enum class Platform {
-    JVM, LINUX_X86, LINUX_ARM64, WINDOWS, OSX_X86, OSX_ARM;
+    JVM, WASM, LINUX_X86, LINUX_ARM64, WINDOWS, OSX_X86, OSX_ARM;
 
     val identifier: String get() =
         when (this) {
             JVM -> "jvm"
+            WASM -> "wasmJs"
             LINUX_X86 -> "linuxX64"
             LINUX_ARM64 -> "linuxArm64"
             WINDOWS -> "mingwX64"
@@ -204,6 +214,7 @@ enum class Platform {
     val gen_file_extension: String
         get() = when (this) {
             JVM -> "jvm"
+            WASM -> "wasmJs"
             LINUX_X86, LINUX_ARM64 -> "linux"
             WINDOWS -> "windows"
             OSX_X86, OSX_ARM -> "osx"
@@ -211,7 +222,7 @@ enum class Platform {
 
     val arch: Arch
         get() = when (this) {
-            JVM -> Arch.X86_64
+            JVM, WASM -> Arch.X86_64
             LINUX_X86, WINDOWS, OSX_X86 -> Arch.X86_64
             LINUX_ARM64, OSX_ARM -> Arch.ARM64
         }
@@ -227,7 +238,7 @@ enum class Platform {
 
     companion object {
         val supported: List<Platform> = listOf(
-            JVM, LINUX_X86, LINUX_ARM64
+            JVM, WASM, LINUX_X86, LINUX_ARM64
         )
 
         fun byName(name: String, arch: Arch): Platform =
