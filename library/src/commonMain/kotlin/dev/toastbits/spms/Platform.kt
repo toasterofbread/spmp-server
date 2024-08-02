@@ -7,7 +7,7 @@ import gen.libmpv.LibMpv
 
 expect val FileSystem.Companion.PLATFORM: FileSystem
 
-expect fun getHostname(): String
+expect fun getHostname(): String?
 expect fun getOSName(): String
 
 expect fun getTempDir(): Path
@@ -43,4 +43,4 @@ fun getMachineId(): String {
 }
 
 fun getDeviceName(): String =
-    "${getHostname()} on ${getOSName()}"
+    "${getHostname() ?: "Unknown"} on ${getOSName()}"

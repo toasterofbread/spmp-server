@@ -11,7 +11,13 @@ import java.io.File
 
 actual val FileSystem.Companion.PLATFORM: FileSystem get() = FileSystem.SYSTEM
 
-actual fun getHostname(): String = InetAddress.getLocalHost().hostName
+actual fun getHostname(): String? =
+    try {
+        InetAddress.getLocalHost().hostName
+    }
+    catch (_: Throwable) {
+        null
+    }
 actual fun getOSName(): String = System.getProperty("os.name")
 
 actual fun getTempDir(): Path =

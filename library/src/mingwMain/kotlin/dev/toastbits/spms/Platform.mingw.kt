@@ -10,7 +10,7 @@ import kotlinx.cinterop.*
 actual fun getTempDir(): Path = "${getenv("USERPROFILE")!!.toKString()}/AppData/Local/Temp/".toPath()
 
 @OptIn(ExperimentalForeignApi::class)
-actual fun getHostname(): String =
+actual fun getHostname(): String? =
     memScoped {
         val str: CPointer<ByteVarOf<Byte>> = allocArray(1024)
         gethostname(str, 1023)
