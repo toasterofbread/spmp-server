@@ -265,7 +265,7 @@ abstract class MpvClientImpl(
     internal suspend fun onMpvHook(hook_name: String?, hook_id: ULong) {
         try {
             when (hook_name) {
-                "on_load" -> {
+                "on_load", "" -> {
                     val video_id: String = urlToId(getProperty<String>("stream-open-filename")) ?: return
                     val stream_url: String
 
@@ -290,7 +290,7 @@ abstract class MpvClientImpl(
             }
         }
         catch (e: Throwable) {
-            RuntimeException("Processing mpv hook $hook_name failed", e).printStackTrace()
+            RuntimeException("Processing mpv hook with name '$hook_name' and id '$hook_id' failed", e).printStackTrace()
         }
         finally {
             continueHook(hook_id)
