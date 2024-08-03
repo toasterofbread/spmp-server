@@ -8,6 +8,9 @@
 
   outputs = { self, nixpkgs, custom_nixpkgs, ... }:
     let
+      pname = "spmp-server";
+      version = "0.4.0-beta1";
+
       x86_system = "x86_64-linux";
       arm_system = "aarch64-linux";
 
@@ -25,8 +28,8 @@
       eachSystem = pkgs.lib.genAttrs systems;
 
       getReleaseSourceUrl = system: {
-        "x86_64-linux" = "https://github.com/toasterofbread/spmp-server/releases/download/v0.4.0-beta1/spms-v0.4.0-beta1-linux-x86_64.kexe";
-        "aarch64-linux" = "https://github.com/toasterofbread/spmp-server/releases/download/v0.4.0-beta1/spms-v0.4.0-beta1-linux-arm64.kexe";
+        "x86_64-linux" = "https://github.com/toasterofbread/spmp-server/releases/download/v${version}/spms-v${version}-linux-x86_64.kexe";
+        "aarch64-linux" = "https://github.com/toasterofbread/spmp-server/releases/download/v${version}/spms-v${version}-linux-arm64.kexe";
       }.${system};
 
       getReleaseSourceHash = system: {
@@ -88,12 +91,11 @@
         libayatana-appindicator
         libxcrypt-legacy.out
       ];
-    in
-    {
+
       packages = eachSystem (system: {
         default =
           pkgs.stdenv.mkDerivation {
-            name = "spmp-server";
+            inherit pname version;
             src = pkgs.fetchurl {
               url = getReleaseSourceUrl system;
               hash = getReleaseSourceHash system;
@@ -111,6 +113,9 @@
             '';
           };
       });
+    in
+    {
+      inherit packages;
 
       devShells."${x86_system}".default =
         let
@@ -125,7 +130,10 @@
           };
         in
         pkgs.mkShell {
-          packages = build_packages ++ runtime_packages;
+          packages = [
+            # For testing new releases
+            #packages."${x86_system}".default
+          ] ++ build_packages ++ runtime_packages;
 
           JAVA_21_HOME = "${pkgs.jdk21_headless}/lib/openjdk";
           JAVA_22_HOME = "${pkgs.jdk22}/lib/openjdk";
