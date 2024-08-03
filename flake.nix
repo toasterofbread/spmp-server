@@ -63,7 +63,9 @@
         export PATH="$KONAN_DATA_DIR/bin:$PATH"
 
         PATCH_KOTLIN_BINARY_SCRIPT="patchelf --set-interpreter \$(cat \$NIX_CC/nix-support/dynamic-linker) --set-rpath ${custom_pkgs.kotlin-native-toolchain-env}/dependencies/x86_64-unknown-linux-gnu-gcc-8.3.0-glibc-2.19-kernel-4.9-2/x86_64-unknown-linux-gnu/sysroot/lib64 \$1"
-        echo "$PATCH_KOTLIN_BINARY_SCRIPT" > $KONAN_DATA_DIR/bin/${kotlin_binary_patch_command}
+        echo '[ "''${NO_PATCH:-0}" -eq 1 ] && exit 1' > $KONAN_DATA_DIR/bin/${kotlin_binary_patch_command}
+        echo "$PATCH_KOTLIN_BINARY_SCRIPT" >> $KONAN_DATA_DIR/bin/${kotlin_binary_patch_command}
+
         chmod +x $KONAN_DATA_DIR/bin/${kotlin_binary_patch_command}
 
         chmod -R u+w $KONAN_DATA_DIR
