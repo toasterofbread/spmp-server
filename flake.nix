@@ -9,7 +9,7 @@
   outputs = { self, nixpkgs, custom_nixpkgs, ... }:
     let
       pname = "spmp-server";
-      version = "0.4.0-beta1";
+      version = "0.4.0-beta2";
 
       x86_system = "x86_64-linux";
       arm_system = "aarch64-linux";
@@ -33,8 +33,8 @@
       }.${system};
 
       getReleaseSourceHash = system: {
-        "x86_64-linux" = "sha256-3dX07W0IFWTsxwbP9Krkf6fgK969mZxOa3ZiKzaY9SU=";
-        "aarch64-linux" = "sha256-tx73+QQUJX0jsUg4EanhWflLeZH1cV4L4QRHsXNQg5w=";
+        "x86_64-linux" = "sha256-+Oa98EtotoGlFXSsY19xI54mFg9W+lBnUO5yUKPcZtw=";
+        "aarch64-linux" = "sha256-DATr4vfT7I+useeYUyIy6r1EfnWt4IQxIhcH8L4KEpE=";
       }.${system};
 
       kotlin_binary_patch_command = "patchkotlinbinary";
