@@ -1,6 +1,5 @@
+# This flake's package is tied to SpMs release binaries. It does not build from source.
 {
-  description = "SpMp server development environment";
-
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     custom_nixpkgs.url = "github:toasterofbread/nixpkgs/4df73973bda897522847e03e0820067c053bccad";
@@ -9,7 +8,7 @@
   outputs = { self, nixpkgs, custom_nixpkgs, ... }:
     let
       pname = "spmp-server";
-      version = "0.4.0-beta2";
+      version = "0.4.0";
 
       x86_system = "x86_64-linux";
       arm_system = "aarch64-linux";
