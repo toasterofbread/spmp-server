@@ -24,6 +24,7 @@ kotlin {
     jvmToolchain(22)
 
     val native_targets: MutableList<KotlinNativeTarget> = mutableListOf()
+    val current_platform: Platform = Platform.getCurrent()
 
     for (platform in Platform.supported) {
         when (platform) {
@@ -31,7 +32,6 @@ kotlin {
                 jvm {
                     withJava()
                 }
-                continue
             }
             Platform.LINUX_X86 -> native_targets.add(linuxX64().apply { configureNativeTarget(platform) })
             Platform.LINUX_ARM64 -> native_targets.add(linuxArm64().apply { configureNativeTarget(platform) })
@@ -43,12 +43,12 @@ kotlin {
 
     kjna {
         generate {
-            include_dirs += listOf(Platform.getCurrent().getNativeDependenciesDir(project).resolve("include").absolutePath)
+            include_dirs += listOf(current_platform.getNativeDependenciesDir(project).resolve("include").absolutePath)
             parser_include_dirs += listOf("/usr/include/linux/", "/usr/lib/gcc/x86_64-pc-linux-gnu/14.1.1/include/")
 
             packages(native_targets) {
                 add("gen.libmpv") {
-                    enabled = !BuildFlag.DISABLE_MPV.isSet(project) && !BuildFlag.MINIMAL.isSet(project)
+                    enabled = !BuildFlag.MINIMAL.isSet(project)
 
                     addHeader("mpv/client.h", "LibMpv")
                     libraries = listOf("mpv")
@@ -63,7 +63,7 @@ kotlin {
                 }
 
                 add("gen.libappindicator") {
-                    enabled = !BuildFlag.DISABLE_APPINDICATOR.isSet(project) && !BuildFlag.MINIMAL.isSet(project)
+                    enabled = !BuildFlag.MINIMAL.isSet(project)
                     disabled_targets = listOf(KJnaBuildTarget.NATIVE_MINGW_X64)
 
                     addHeader("libayatana-appindicator3-0.1/libayatana-appindicator/app-indicator.h", "LibAppIndicator") {
@@ -152,7 +152,7 @@ kotlin {
 }
 
 enum class BuildFlag {
-    DISABLE_MPV, DISABLE_APPINDICATOR, MINIMAL;
+    MINIMAL;
 
     fun isSet(project: Project): Boolean {
         return project.hasProperty(name)

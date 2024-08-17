@@ -55,7 +55,7 @@ jobs:
       uses: gradle/gradle-build-action@v3
 
     - name: Build Windows x86_64 minimal binaries
-      run: .\gradlew.bat mingwX64Binaries -PDISABLE_MPV
+      run: .\gradlew.bat mingwX64Binaries -PMINIMAL
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
