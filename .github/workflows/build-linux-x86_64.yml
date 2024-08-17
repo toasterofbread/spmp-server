@@ -25,7 +25,7 @@ jobs:
 
     - run: apt-get install -y nodejs
       if: env.ACT
-    - name: Set up JDK 21
+    - name: Set up JDK 21 and 22
       uses: actions/setup-java@v3
       with:
         distribution: 'temurin'
