@@ -22,7 +22,7 @@ kotlin {
     val native_targets = listOf(
         linuxX64(),
         linuxArm64(),
-        mingwX64()
+//        mingwX64()
     )
 
     applyDefaultHierarchyTemplate()
