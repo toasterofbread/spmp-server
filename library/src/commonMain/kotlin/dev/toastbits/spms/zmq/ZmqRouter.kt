@@ -50,7 +50,7 @@ open class ZmqRouter {
 
     fun sendMultipart(message: ZmqMessage) {
         socket.sendMultipart(
-            listOf(message.client_id) + SpMsSocketApi.encode(message.parts).map { it.encodeToByteArray() }
+            listOf(message.client_id) + SpMsSocketApi.encode(message.parts)
         )
     }
 }

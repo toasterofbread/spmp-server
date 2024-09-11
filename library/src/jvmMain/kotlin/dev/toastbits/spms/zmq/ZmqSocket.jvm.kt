@@ -101,7 +101,7 @@ actual class ZmqSocket actual constructor(type: ZmqSocketType, val is_binder: Bo
     }
 
     actual fun sendStringMultipart(parts: List<String>) =
-        sendMultipart(SpMsSocketApi.encode(parts).map { it.encodeToByteArray() })
+        sendMultipart(SpMsSocketApi.encode(parts))
 
     actual fun sendMultipart(parts: List<ByteArray>) {
         if (parts.isEmpty()) {

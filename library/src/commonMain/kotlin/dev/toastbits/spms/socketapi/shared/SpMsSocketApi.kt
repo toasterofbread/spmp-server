@@ -10,11 +10,13 @@ private const val SPMS_MESSAGE_TERMINATOR: Char = '\u0003'
 private val ZMQ_MESSAGE_TERMINATOR: Char = '\u0000'
 
 object SpMsSocketApi {
-    fun encode(message_parts: List<String>): List<String> =
+    fun encode(message_parts: List<String>): List<ByteArray> =
         message_parts.flatMap { part ->
-            val chunks: List<String> = part.chunked(SPMS_MESSAGE_MAX_SIZE - 8)
+            val bytes: ByteArray = part.encodeToByteArray()
+            val chunks: List<IntRange> = bytes.indices.chunked(SPMS_MESSAGE_MAX_SIZE - 8).map { it.first() .. it.last() }
             chunks.mapIndexed { i, chunk ->
-                if (i + 1 == chunks.size) chunk + SPMS_MESSAGE_TERMINATOR else chunk
+                val chunkBytes: ByteArray = bytes.sliceArray(chunk)
+                return@mapIndexed if (i + 1 == chunks.size) chunkBytes + SPMS_MESSAGE_TERMINATOR.toByte() else chunkBytes
             }
         }
 
