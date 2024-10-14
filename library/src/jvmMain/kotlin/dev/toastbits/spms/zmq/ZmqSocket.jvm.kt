@@ -15,6 +15,7 @@ actual class ZmqSocket actual constructor(type: ZmqSocketType, val is_binder: Bo
     private val context: ZContext = ZContext()
     private val socket: ZMQ.Socket = context.createSocket(
         when (type) {
+            ZmqSocketType.REQ -> SocketType.REQ
             ZmqSocketType.REP -> SocketType.REP
             ZmqSocketType.DEALER -> SocketType.DEALER
             ZmqSocketType.ROUTER -> SocketType.ROUTER
