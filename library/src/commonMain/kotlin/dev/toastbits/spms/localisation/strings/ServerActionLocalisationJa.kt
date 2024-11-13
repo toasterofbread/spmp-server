@@ -63,6 +63,7 @@ class ServerActionLocalisationJa: ServerActionLocalisation {
     override val seek_to_next_help: String = "一つ後のアイテムへシーク"
     override val seek_to_previous_name: String = "前にシーク"
     override val seek_to_previous_help: String = "一つ前のアイテムへシーク"
+    override val seek_to_previous_param_repeat_threshold_ms: String = "シークの変わりにアイテムを繰り返し再生するしきい値（ミリ秒）"
 
     override val seek_to_time_name: String = "時間にシーク"
     override val seek_to_time_help: String = "再生中のアイテムの選択された時間へシーク"

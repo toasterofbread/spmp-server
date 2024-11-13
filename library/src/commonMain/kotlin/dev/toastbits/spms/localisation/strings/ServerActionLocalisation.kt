@@ -57,6 +57,7 @@ interface ServerActionLocalisation {
     val seek_to_next_help: String
     val seek_to_previous_name: String
     val seek_to_previous_help: String
+    val seek_to_previous_param_repeat_threshold_ms: String
 
     val seek_to_time_name: String
     val seek_to_time_help: String

@@ -63,6 +63,7 @@ class ServerActionLocalisationEn: ServerActionLocalisation {
     override val seek_to_next_help: String = "Seek to the next queue item"
     override val seek_to_previous_name: String = "Seek to previous"
     override val seek_to_previous_help: String = "Seek to the previous queue item"
+    override val seek_to_previous_param_repeat_threshold_ms: String = "Threshold in ms beyond which seeking will repeat the item"
 
     override val seek_to_time_name: String = "Seek to time"
     override val seek_to_time_help: String = "Seek to the specified position within the playing item"
