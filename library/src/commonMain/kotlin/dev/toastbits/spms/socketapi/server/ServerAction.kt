@@ -22,26 +22,26 @@ sealed class ServerAction(
 
     companion object {
         private val ALL: List<ServerAction> = listOf(
-            ServerActionGetStatus(),
-            ServerActionGetClients(),
-            ServerActionGetProperty(),
+            ServerActionGetStatus,
+            ServerActionGetClients,
+            ServerActionGetProperty,
 
-            ServerActionPause(),
-            ServerActionPlay(),
-            ServerActionPlayPause(),
+            ServerActionPause,
+            ServerActionPlay,
+            ServerActionPlayPause,
 
-            ServerActionSeekToItem(),
-            ServerActionSeekToNext(),
-            ServerActionSeekToPrevious(),
-            ServerActionSeekToTime(),
-            ServerActionSetRepeatMode(),
+            ServerActionSeekToItem,
+            ServerActionSeekToNext,
+            ServerActionSeekToPrevious,
+            ServerActionSeekToTime,
+            ServerActionSetRepeatMode,
 
-            ServerActionAddItem(),
-            ServerActionMoveItem(),
-            ServerActionRemoveItem(),
-            ServerActionClearQueue(),
+            ServerActionAddItem,
+            ServerActionMoveItem,
+            ServerActionRemoveItem,
+            ServerActionClearQueue,
 
-            ServerActionReadyToPlay()
+            ServerActionReadyToPlay
         )
 
         fun getAll(): List<ServerAction> = ALL

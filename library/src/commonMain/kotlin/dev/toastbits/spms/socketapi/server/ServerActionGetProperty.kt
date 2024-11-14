@@ -4,7 +4,7 @@ import kotlinx.serialization.json.JsonElement
 import dev.toastbits.spms.server.SpMs
 import dev.toastbits.spms.socketapi.shared.SpMsClientID
 
-class ServerActionGetProperty: ServerAction(
+object ServerActionGetProperty: ServerAction(
     identifier = "getProperty",
     name = { "TODO" },
     help = { "TODO" },

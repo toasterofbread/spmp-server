@@ -5,8 +5,9 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import dev.toastbits.spms.server.SpMs
 import dev.toastbits.spms.socketapi.shared.SpMsClientID
+import dev.toastbits.spms.player.Player
 
-class ServerActionRemoveItem: ServerAction(
+object ServerActionRemoveItem: ServerAction(
     identifier = "removeItem",
     name = { server_actions.remove_item_name },
     help = { server_actions.remove_item_help },
@@ -21,7 +22,11 @@ class ServerActionRemoveItem: ServerAction(
 ) {
     override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement? {
         val from: Int = context.getParameterValue("from")!!.jsonPrimitive.int
-        server.player.removeItem(from)
+        execute(server.player, from)
         return null
+    }
+
+    fun execute(player: Player, from: Int) {
+        player.removeItem(from)
     }
 }

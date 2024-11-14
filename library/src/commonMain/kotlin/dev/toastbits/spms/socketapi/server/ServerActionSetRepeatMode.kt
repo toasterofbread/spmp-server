@@ -6,8 +6,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import dev.toastbits.spms.server.SpMs
 import dev.toastbits.spms.socketapi.shared.SpMsClientID
 import dev.toastbits.spms.socketapi.shared.SpMsPlayerRepeatMode
+import dev.toastbits.spms.player.Player
 
-class ServerActionSetRepeatMode: ServerAction(
+object ServerActionSetRepeatMode: ServerAction(
     identifier = "setRepeatMode",
     name = { server_actions.set_repeat_mode_name },
     help = { server_actions.set_repeat_mode_help },
@@ -22,7 +23,14 @@ class ServerActionSetRepeatMode: ServerAction(
 ) {
     override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement? {
         val repeat_mode_index: Int = context.getParameterValue("repeat_mode")!!.jsonPrimitive.int
-        server.player.setRepeatMode(SpMsPlayerRepeatMode.entries[repeat_mode_index])
+        val repeat_mode: SpMsPlayerRepeatMode = SpMsPlayerRepeatMode.entries[repeat_mode_index]
+
+        execute(server.player, repeat_mode)
+
         return null
+    }
+
+    fun execute(player: Player, repeat_mode: SpMsPlayerRepeatMode) {
+        player.setRepeatMode(repeat_mode)
     }
 }

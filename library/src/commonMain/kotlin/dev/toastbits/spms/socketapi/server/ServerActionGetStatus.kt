@@ -14,16 +14,21 @@ import dev.toastbits.spms.socketapi.shared.SpMsPlayerState
 import dev.toastbits.spms.getCacheDir
 import dev.toastbits.spms.localisation.SpMsLocalisation
 import dev.toastbits.spms.PLATFORM
+import dev.toastbits.spms.player.Player
 import kotlin.time.Duration
 
-class ServerActionGetStatus: ServerAction(
+object ServerActionGetStatus: ServerAction(
     identifier = "status",
     name = { server_actions.status_name },
     help = { server_actions.status_help },
     parameters = emptyList()
 ) {
     override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement {
-        return Json.encodeToJsonElement(server.player.getCurrentStateJson())
+        return execute(server.player)
+    }
+
+    fun execute(player: Player): JsonElement {
+        return Json.encodeToJsonElement(player.getCurrentStateJson())
     }
 
     override fun formatResult(result: JsonElement, localisation: SpMsLocalisation): String {

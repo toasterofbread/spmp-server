@@ -7,8 +7,9 @@ import kotlinx.serialization.json.long
 import dev.toastbits.spms.server.SpMs
 import dev.toastbits.spms.socketapi.shared.SpMsClientID
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
-class ServerActionReadyToPlay: ServerAction(
+object ServerActionReadyToPlay: ServerAction(
     identifier = "readyToPlay",
     name = { server_actions.ready_to_play_name },
     help = { server_actions.ready_to_play_help },
@@ -35,14 +36,21 @@ class ServerActionReadyToPlay: ServerAction(
     )
 ) {
     override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement? {
+        val item_index: Int = context.getParameterValue("item_index")!!.jsonPrimitive.int
+        val item_id: String = context.getParameterValue("item_id")!!.jsonPrimitive.content
+        val item_duration: Duration = context.getParameterValue("item_duration_ms")!!.jsonPrimitive.long.milliseconds
+
+        execute(server, client, item_index, item_id, item_duration)
+
+        return null
+    }
+
+    fun execute(server: SpMs, client: SpMsClientID, item_index: Int, item_id: String, item_duration: Duration) {
         server.onClientReadyToPlay(
             client,
-            context.getParameterValue("item_index")!!.jsonPrimitive.int,
-            context.getParameterValue("item_id")!!.jsonPrimitive.content,
-            with (Duration) {
-                context.getParameterValue("item_duration_ms")!!.jsonPrimitive.long.milliseconds
-            }
+            item_index,
+            item_id,
+            item_duration
         )
-        return null
     }
 }

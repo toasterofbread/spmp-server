@@ -3,6 +3,8 @@ package dev.toastbits.spms.player
 import dev.toastbits.spms.socketapi.shared.SpMsPlayerEvent
 import dev.toastbits.spms.socketapi.shared.SpMsPlayerRepeatMode
 import dev.toastbits.spms.socketapi.shared.SpMsPlayerState
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 data class PlayerStreamInfo(
     val url: String,
@@ -32,7 +34,7 @@ interface Player {
     fun seekToTime(position_ms: Long)
     fun seekToItem(index: Int, position_ms: Long = 0)
     fun seekToNext(): Boolean
-    fun seekToPrevious(): Boolean
+    fun seekToPrevious(repeat_threshold: Duration? = null): Boolean
     fun setRepeatMode(repeat_mode: SpMsPlayerRepeatMode)
 
     fun getItem(): String?
@@ -45,3 +47,10 @@ interface Player {
 
     fun setVolume(value: Double)
 }
+
+fun Player.shouldRepeatOnSeekToPrevious(repeat_threshold: Duration?): Boolean =
+    repeat_threshold != null
+    && (
+        repeat_threshold == Duration.ZERO
+        || current_position_ms.milliseconds >= repeat_threshold
+    )

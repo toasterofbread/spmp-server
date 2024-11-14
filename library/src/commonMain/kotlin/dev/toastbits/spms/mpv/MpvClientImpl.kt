@@ -6,6 +6,7 @@ import okio.FileSystem
 import okio.Path.Companion.toPath
 import dev.toastbits.spms.socketapi.shared.SpMsPlayerEvent
 import dev.toastbits.spms.player.VideoInfoProvider
+import dev.toastbits.spms.player.shouldRepeatOnSeekToPrevious
 import dev.toastbits.spms.server.SpMs
 import dev.toastbits.spms.socketapi.shared.SpMsPlayerRepeatMode
 import dev.toastbits.spms.socketapi.shared.SpMsPlayerState
@@ -13,6 +14,7 @@ import dev.toastbits.spms.PLATFORM
 import gen.libmpv.LibMpv
 import kotlin.math.roundToInt
 import kotlin.time.*
+import kotlin.time.Duration
 
 private const val URL_PREFIX: String = "spmp://"
 
@@ -128,12 +130,18 @@ abstract class MpvClientImpl(
         return false
     }
 
-    override fun seekToPrevious(): Boolean {
-        if (runCommand("playlist-prev", check_result = false) == 0) {
-            onEvent(SpMsPlayerEvent.ItemTransition(current_item_index))
+    override fun seekToPrevious(repeat_threshold: Duration?): Boolean {
+        if (shouldRepeatOnSeekToPrevious(repeat_threshold)) {
+            seekToTime(0)
             return true
         }
-        return false
+        else {
+            if (runCommand("playlist-prev", check_result = false) == 0) {
+                onEvent(SpMsPlayerEvent.ItemTransition(current_item_index))
+                return true
+            }
+            return false
+        }
     }
 
     override fun setRepeatMode(repeat_mode: SpMsPlayerRepeatMode) {

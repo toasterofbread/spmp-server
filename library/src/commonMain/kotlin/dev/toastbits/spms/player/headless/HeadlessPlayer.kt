@@ -12,6 +12,7 @@ import dev.toastbits.spms.socketapi.shared.SpMsPlayerState
 import dev.toastbits.spms.player.*
 import dev.toastbits.spms.ReentrantLock
 import kotlin.time.*
+import kotlin.time.Duration
 
 abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Player {
     protected abstract fun getCachedItemDuration(item_id: String): Duration?
@@ -260,18 +261,23 @@ abstract class HeadlessPlayer(private val enable_logging: Boolean = true): Playe
         }
     }
 
-    override fun seekToPrevious(): Boolean {
+    override fun seekToPrevious(repeat_threshold: Duration?): Boolean {
         withLock {
             log("seekToPrevious()")
-            if (current_item_index == 0) {
+
+            if (shouldRepeatOnSeekToPrevious(repeat_threshold)) {
+                seekToTime(0)
+                return true
+            }
+            else if (current_item_index == 0) {
                 return false
             }
+            else {
+                performSeekToItem(current_item_index - 1)
+                onItemTransition(current_item_index)
 
-            performSeekToItem(current_item_index - 1)
-
-            onItemTransition(current_item_index)
-
-            return true
+                return true
+            }
         }
     }
 

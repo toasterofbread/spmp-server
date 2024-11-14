@@ -5,8 +5,9 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import dev.toastbits.spms.server.SpMs
 import dev.toastbits.spms.socketapi.shared.SpMsClientID
+import dev.toastbits.spms.player.Player
 
-class ServerActionMoveItem: ServerAction(
+object ServerActionMoveItem: ServerAction(
     identifier = "moveItem",
     name = { server_actions.move_item_name },
     help = { server_actions.move_item_help },
@@ -29,7 +30,12 @@ class ServerActionMoveItem: ServerAction(
         val from: Int = context.getParameterValue("from")!!.jsonPrimitive.int
         val to: Int = context.getParameterValue("to")!!.jsonPrimitive.int
 
-        server.player.moveItem(from, to)
+        execute(server.player, from, to)
+
         return null
+    }
+
+    fun execute(player: Player, from: Int, to: Int) {
+        player.moveItem(from, to)
     }
 }

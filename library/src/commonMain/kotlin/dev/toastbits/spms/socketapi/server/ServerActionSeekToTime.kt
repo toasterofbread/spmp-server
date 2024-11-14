@@ -5,8 +5,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import dev.toastbits.spms.server.SpMs
 import dev.toastbits.spms.socketapi.shared.SpMsClientID
+import dev.toastbits.spms.player.Player
 
-class ServerActionSeekToTime: ServerAction(
+object ServerActionSeekToTime: ServerAction(
     identifier = "seekToTime",
     name = { server_actions.seek_to_time_name },
     help = { server_actions.seek_to_time_help },
@@ -21,7 +22,13 @@ class ServerActionSeekToTime: ServerAction(
 ) {
     override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement? {
         val position_ms: Long = context.getParameterValue("position_ms")!!.jsonPrimitive.long
-        server.player.seekToTime(position_ms)
+
+        execute(server.player, position_ms)
+
         return null
+    }
+
+    fun execute(player: Player, position_ms: Long) {
+        player.seekToTime(position_ms)
     }
 }

@@ -5,8 +5,9 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import dev.toastbits.spms.server.SpMs
 import dev.toastbits.spms.socketapi.shared.SpMsClientID
+import dev.toastbits.spms.player.Player
 
-class ServerActionAddItem: ServerAction(
+object ServerActionAddItem: ServerAction(
     identifier = "addItem",
     name = { server_actions.add_item_name },
     help = { server_actions.add_item_help },
@@ -29,7 +30,12 @@ class ServerActionAddItem: ServerAction(
         val item_id: String = context.getParameterValue("item_id")!!.jsonPrimitive.content
         val index: Int = context.getParameterValue("index")?.jsonPrimitive?.int ?: -1
 
-        server.player.addItem(item_id, index)
+        execute(server.player, item_id, index)
+
         return null
+    }
+
+    fun execute(player: Player, item_id: String, index: Int) {
+        player.addItem(item_id, index)
     }
 }

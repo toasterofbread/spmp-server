@@ -3,8 +3,9 @@ package dev.toastbits.spms.socketapi.server
 import kotlinx.serialization.json.*
 import dev.toastbits.spms.server.SpMs
 import dev.toastbits.spms.socketapi.shared.SpMsClientID
+import dev.toastbits.spms.player.Player
 
-class ServerActionSeekToItem: ServerAction(
+object ServerActionSeekToItem: ServerAction(
     identifier = "seekToItem",
     name = { server_actions.seek_to_item_name },
     help = { server_actions.seek_to_item_help },
@@ -26,7 +27,13 @@ class ServerActionSeekToItem: ServerAction(
     override fun execute(server: SpMs, client: SpMsClientID, context: ActionContext): JsonElement? {
         val index: Int = context.getParameterValue("index")!!.jsonPrimitive.int
         val position_ms: Long? = context.getParameterValue("position_ms")?.jsonPrimitive?.longOrNull
-        server.player.seekToItem(index, position_ms ?: 0)
+
+        execute(server.player, index, position_ms)
+
         return null
+    }
+
+    fun execute(player: Player, index: Int, position_ms: Long? = null) {
+        player.seekToItem(index, position_ms ?: 0)
     }
 }
