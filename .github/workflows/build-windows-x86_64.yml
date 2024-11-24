@@ -55,7 +55,7 @@ jobs:
       uses: egor-tensin/setup-cygwin@v4
       with:
         install-dir: C:\cygwin
-        packages: libayatana-appindicator3-devel
+        packages: libayatana-appindicator3-devel cygwin-devel
 
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
