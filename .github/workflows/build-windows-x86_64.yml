@@ -54,7 +54,7 @@ jobs:
     - name: Download reference Linux packages
       uses: egor-tensin/setup-cygwin@v4
       with:
-        install-dir: C:\cygwin64
+        install-dir: C:\cygwin
         packages: libayatana-appindicator3-devel
 
     - name: Set up Gradle
