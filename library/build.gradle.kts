@@ -43,7 +43,9 @@ kotlin {
 
     kjna {
         generate {
-            include_dirs += listOf(current_platform.getNativeDependenciesDir(project).resolve("include").absolutePath)
+            include_dirs += listOf(
+                current_platform.getNativeDependenciesDir(project).resolve("include").absolutePath.replace("\\", "/")
+                )
             parser_include_dirs += listOf(
                 "/usr/include/linux/",
                 "/usr/lib/gcc/x86_64-pc-linux-gnu/14.1.1/include/"
@@ -112,7 +114,7 @@ kotlin {
 
                     if (OperatingSystem.current().isWindows()) {
                         include_dirs += File("C:\\cygwin\\lib").listFiles().orEmpty().mapNotNull { file ->
-                            file.resolve("include").takeIf { it.isDirectory }?.absolutePath
+                            file.resolve("include").takeIf { it.isDirectory }?.absolutePath?.replace("\\", "/")
                         }
                     }
                 }
