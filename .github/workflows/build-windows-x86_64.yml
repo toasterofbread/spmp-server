@@ -30,13 +30,13 @@ jobs:
       uses: johnwason/vcpkg-action@v6
       with:
         pkgs: zeromq[draft]
-        triplet: x64-windows-static
+        triplet: x64-windows
         token: ${{ github.token }}
         github-binarycache: true
-        #revision: "5d2a0a9814db499f6ba2e847ca7ab5912badcdbf"
+        revision: "62c0f522f7035c91fa9ab84bc33ad77d12b5fe14"
 
     - name: Copy built files
-      run: xcopy /s /i /y "${{ github.workspace }}\vcpkg\installed\x64-windows-static\*" "${{ github.workspace }}\library\src\nativeInterop\mingwX64"
+      run: xcopy /s /i /y "${{ github.workspace }}\vcpkg\installed\x64-windows\*" "${{ github.workspace }}\library\src\nativeInterop\mingwX64"
 
     - name: Download mpv
       run: curl -L https://downloads.sourceforge.net/project/mpv-player-windows/libmpv/mpv-dev-x86_64-20240114-git-bd35dc8.7z --output mpv.7z
