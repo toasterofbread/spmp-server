@@ -544,11 +544,20 @@ object Static {
             return emptyList()
         }
 
-        return process.inputStream.bufferedReader().use { reader ->
-            reader.readText().split(" ").mapNotNull { it.trim().takeIf { line ->
-                line.isNotBlank() && line != "-I/usr/include/x86_64-linux-gnu" && line != "-I/usr/include/aarch64-linux-gnu"
-            } }
+        var ret: List<String> =
+            process.inputStream.bufferedReader().use { reader ->
+                reader.readText().split(" ").mapNotNull { it.trim().takeIf { line ->
+                    line.isNotBlank() && line != "-I/usr/include/x86_64-linux-gnu" && line != "-I/usr/include/aarch64-linux-gnu"
+                } }
+            }
+
+        if (Platform.getCurrent() == Platform.WINDOWS) {
+            ret = ret.map {
+                it.replace("/usr/include", "C:/cygwin/usr/include")
+            }
         }
+
+        return ret
     }
 
     private fun findExecutable(name: String): String {
