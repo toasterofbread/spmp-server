@@ -43,12 +43,15 @@ kotlin {
 
     kjna {
         generate {
-            include_dirs += listOf(current_platform.getNativeDependenciesDir(project).resolve("include").absolutePath.replace("\\", "/"))
+            include_dirs +=
+                listOf(
+                    current_platform.getNativeDependenciesDir(project).resolve("include").absolutePath.replace("\\", "/"),
+                    "C:\\cygwin\\usr\\include\\gtk-3.0"
+                )
             parser_include_dirs +=
                 listOf(
                     "/usr/include/linux/",
-                    "/usr/lib/gcc/x86_64-pc-linux-gnu/14.1.1/include/",
-                    "C:\\cygwin\\usr\\include\\gtk-3.0"
+                    "/usr/lib/gcc/x86_64-pc-linux-gnu/14.1.1/include/"
                 )
 
             packages(native_targets) {
