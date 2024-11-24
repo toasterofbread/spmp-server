@@ -112,8 +112,7 @@ kotlin {
 
                     if (OperatingSystem.current().isWindows()) {
                         include_dirs += File("C:\\cygwin\\lib").listFiles().orEmpty().mapNotNull { file ->
-                            if (file.resolve("include").isDirectory) file.absolutePath
-                            else null
+                            file.resolve("include").takeIf { it.isDirectory }?.absolutePath
                         }
                     }
                 }
