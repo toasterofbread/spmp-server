@@ -27,7 +27,7 @@ jobs:
         distribution: 'temurin'
 
     - name: Build libzmq
-      uses: toasterofbread/vcpkg-action@test
+      uses: johnwason/vcpkg-action@v6
       with:
         pkgs: zeromq[draft]
         triplet: x64-windows
