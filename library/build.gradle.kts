@@ -360,11 +360,16 @@ enum class CinteropLibraries {
             else -> {}
         }
 
-        def_file.writeText("""
-            staticLibraries = ${lib_filenames.joinToString(" ")}
-            libraryPaths = ${lib_dirs.map { it.absolutePath.replace("\\", "/") }.joinToString(" ")}
-            linkerOpts = ${linker_opts.joinToString(" ")}
-        """.trimIndent())
+        val def_file_text: String =
+            """
+                staticLibraries = ${lib_filenames.joinToString(" ")}
+                libraryPaths = ${lib_dirs.map { it.absolutePath.replace("\\", "/") }.joinToString(" ")}
+                linkerOpts = ${linker_opts.joinToString(" ")}
+            """.trimIndent()
+
+        println("DEF FILE TEXT:\n$def_file_text")
+
+        def_file.writeText(def_file_text)
 
         settings.defFile(def_file)
     }
