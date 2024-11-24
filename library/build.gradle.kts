@@ -43,7 +43,10 @@ kotlin {
 
     kjna {
         generate {
-            include_dirs += listOf(current_platform.getNativeDependenciesDir(project).resolve("include").absolutePath)
+            include_dirs += listOf(
+                current_platform.getNativeDependenciesDir(project).resolve("hello").absolutePath,
+                current_platform.getNativeDependenciesDir(project).resolve("include").absolutePath
+            ).also { println("ADDED INCLUDE DIRS $it") }
             parser_include_dirs += listOf("/usr/include/linux/", "/usr/lib/gcc/x86_64-pc-linux-gnu/14.1.1/include/")
 
             packages(native_targets) {
