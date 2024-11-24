@@ -68,44 +68,44 @@ kotlin {
                     enabled = !BuildFlag.MINIMAL.isSet(project)
                     disabled_targets = listOf(KJnaBuildTarget.NATIVE_MINGW_X64)
 
-                    // addHeader("libayatana-appindicator3-0.1/libayatana-appindicator/app-indicator.h", "LibAppIndicator") {
-                    //     bind_includes += listOf(
-                    //         "gtk-3.0/gtk/gtkmain.h",
-                    //         "gtk-3.0/gtk/gtkmenushell.h",
-                    //         "gtk-3.0/gtk/gtkmenuitem.h",
-                    //         "gtk-3.0/gtk/gtkwidget.h",
-                    //         "gtk-3.0/gtk/gtkmenu.h",
-                    //         "glib-2.0/glib/gmain.h",
-                    //         "glib-2.0/gobject/gsignal.h",
-                    //         "glib-2.0/glib/gmessages.h"
-                    //     )
-                    //     exclude_functions += listOf("g_clear_handle_id", "_g_log_fallback_handler", "_g_signals_destroy")
-                    // }
+                    addHeader("libayatana-appindicator3-0.1/libayatana-appindicator/app-indicator.h", "LibAppIndicator") {
+                        bind_includes += listOf(
+                            "gtk-3.0/gtk/gtkmain.h",
+                            "gtk-3.0/gtk/gtkmenushell.h",
+                            "gtk-3.0/gtk/gtkmenuitem.h",
+                            "gtk-3.0/gtk/gtkwidget.h",
+                            "gtk-3.0/gtk/gtkmenu.h",
+                            "glib-2.0/glib/gmain.h",
+                            "glib-2.0/gobject/gsignal.h",
+                            "glib-2.0/glib/gmessages.h"
+                        )
+                        exclude_functions += listOf("g_clear_handle_id", "_g_log_fallback_handler", "_g_signals_destroy")
+                    }
 
-                    // libraries += Static.pkgConfig(Platform.getCurrent(), null, "ayatana-appindicator3-0.1", libs = true).mapNotNull { if (it.startsWith("-l")) it.drop(2) else null }
+                    libraries += Static.pkgConfig(Platform.getCurrent(), null, "ayatana-appindicator3-0.1", libs = true).mapNotNull { if (it.startsWith("-l")) it.drop(2) else null }
 
-                    // for (cflag in Static.pkgConfig(Platform.getCurrent(), null, "ayatana-appindicator3-0.1", cflags = true)) {
-                    //     if (cflag.startsWith("-I")) {
-                    //         include_dirs += listOf(cflag.drop(2))
-                    //     }
-                    // }
+                    for (cflag in Static.pkgConfig(Platform.getCurrent(), null, "ayatana-appindicator3-0.1", cflags = true)) {
+                        if (cflag.startsWith("-I")) {
+                            include_dirs += listOf(cflag.drop(2))
+                        }
+                    }
 
-                    // parser_ignore_headers += listOf("glib/gwin32.h", "type_traits")
+                    parser_ignore_headers += listOf("glib/gwin32.h", "type_traits")
 
-                    // overrides.overrideTypedefType(
-                    //     "GCallback",
-                    //     CType.Function(
-                    //         CFunctionDeclaration(
-                    //             "GCallback", null, listOf(CFunctionParameter(null, CValueType(CType.Primitive.VOID, 1)))
-                    //         ),
-                    //         typedef_name = "GCallback"
-                    //     ),
-                    //     pointer_depth = 1
-                    // )
+                    overrides.overrideTypedefType(
+                        "GCallback",
+                        CType.Function(
+                            CFunctionDeclaration(
+                                "GCallback", null, listOf(CFunctionParameter(null, CValueType(CType.Primitive.VOID, 1)))
+                            ),
+                            typedef_name = "GCallback"
+                        ),
+                        pointer_depth = 1
+                    )
 
-                    // // _cairo_path_data_t
-                    // overrides.overrideAnonymousStructIndex(24, 10)
-                    // overrides.overrideAnonymousStructIndex(25, 11)
+                    // _cairo_path_data_t
+                    overrides.overrideAnonymousStructIndex(24, 10)
+                    overrides.overrideAnonymousStructIndex(25, 11)
                 }
             }
         }

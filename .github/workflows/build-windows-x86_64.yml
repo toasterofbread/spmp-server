@@ -26,6 +26,11 @@ jobs:
           21
         distribution: 'temurin'
 
+    - name: Download reference Linux packages
+      uses: egor-tensin/setup-cygwin@v4
+      with:
+        packages: libayatana-appindicator3-devel
+
     - name: Build libzmq
       uses: johnwason/vcpkg-action@v6
       with:
