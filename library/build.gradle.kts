@@ -553,7 +553,7 @@ object Static {
 
         if (Platform.getCurrent() == Platform.WINDOWS) {
             ret = ret.map {
-                it.replace("/usr/include", "C:/cygwin/usr/include")
+                it.replace("/usr/", "C:/cygwin/usr/")
             }
         }
 
