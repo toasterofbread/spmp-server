@@ -26,11 +26,6 @@ jobs:
           21
         distribution: 'temurin'
 
-    - name: Download reference Linux packages
-      uses: egor-tensin/setup-cygwin@v4
-      with:
-        packages: libayatana-appindicator3-devel
-
     - name: Build libzmq
       uses: johnwason/vcpkg-action@v6
       with:
@@ -55,6 +50,11 @@ jobs:
 
     - name: Move libmpv-2.dll
       run: move library\src\nativeInterop\mingwX64\libmpv-2.dll library\src\nativeInterop\mingwX64\bin\libmpv-2.dll
+
+    - name: Download reference Linux packages
+      uses: egor-tensin/setup-cygwin@v4
+      with:
+        packages: libayatana-appindicator3-devel
 
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
