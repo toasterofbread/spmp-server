@@ -33,7 +33,7 @@ jobs:
         triplet: x64-windows
         token: ${{ github.token }}
         github-binarycache: true
-        revision: "51beb92ce4a74064f596a72ea4273e7c66d5b03c"
+        revision: "7ced8fb441cc1c0c30f95fc03e58623684c4693d"
 
     - name: Copy built files
       run: xcopy /s /i /y "${{ github.workspace }}\vcpkg\installed\x64-windows\*" "${{ github.workspace }}\library\src\nativeInterop\mingwX64"
