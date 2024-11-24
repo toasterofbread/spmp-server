@@ -16,6 +16,7 @@ pluginManagement {
 
     repositories {
         mavenLocal()
+        maven("https://maven.toastbits.dev/")
         mavenCentral()
         gradlePluginPortal()
         maven("https://jitpack.io")
@@ -34,6 +35,7 @@ pluginManagement {
 dependencyResolutionManagement {
     repositories {
         mavenLocal()
+        maven("https://maven.toastbits.dev/")
         maven("https://jitpack.io")
         mavenCentral()
     }

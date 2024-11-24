@@ -54,7 +54,9 @@ kotlin {
                     libraries = listOf("mpv")
 
                     jextract {
-                        // macros += listOf("size_t=unsigned long")
+                        if (!OperatingSystem.current().isWindows()) {
+                            macros += listOf("size_t=unsigned long")
+                        }
                     }
 
                     // if (OperatingSystem.current().isWindows()) {
@@ -360,16 +362,13 @@ enum class CinteropLibraries {
             else -> {}
         }
 
-        val def_file_text: String =
+        def_file.writeText(
             """
                 staticLibraries = ${lib_filenames.joinToString(" ")}
                 libraryPaths = ${lib_dirs.map { it.absolutePath.replace("\\", "/") }.joinToString(" ")}
                 linkerOpts = ${linker_opts.joinToString(" ")}
             """.trimIndent()
-
-        println("DEF FILE TEXT:\n$def_file_text")
-
-        def_file.writeText(def_file_text)
+        )
 
         settings.defFile(def_file)
     }
