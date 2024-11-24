@@ -54,7 +54,7 @@ kotlin {
                     libraries = listOf("mpv")
 
                     jextract {
-                        macros += listOf("size_t=unsigned long")
+                        // macros += listOf("size_t=unsigned long")
                     }
 
                     // if (OperatingSystem.current().isWindows()) {
