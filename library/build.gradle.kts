@@ -43,7 +43,7 @@ kotlin {
 
     kjna {
         generate {
-            include_dirs += listOf(current_platform.getNativeDependenciesDir(project).resolve("include").safeAbsolutePath)
+            include_dirs += listOf(current_platform.getNativeDependenciesDir(project).resolve("include").absolutePath.replace("\\", "/"))
             parser_include_dirs += listOf("/usr/include/linux/", "/usr/lib/gcc/x86_64-pc-linux-gnu/14.1.1/include/")
 
             packages(native_targets) {
@@ -362,7 +362,7 @@ enum class CinteropLibraries {
 
         def_file.writeText("""
             staticLibraries = ${lib_filenames.joinToString(" ")}
-            libraryPaths = ${lib_dirs.map { it.safeAbsolutePath }.joinToString(" ")}
+            libraryPaths = ${lib_dirs.map { it.absolutePath.replace("\\", "/") }.joinToString(" ")}
             linkerOpts = ${linker_opts.joinToString(" ")}
         """.trimIndent())
 
@@ -548,10 +548,4 @@ object Static {
 
         return name
     }
-
-    val File.safeAbsolutePath: String
-        get() = absolutePath.replace("\\", "/")
 }
-
-val File.safeAbsolutePath: String
-    get() = with (Static) { absolutePath }
