@@ -548,7 +548,10 @@ object Static {
 
         return name
     }
+
+    val File.safeAbsolutePath: String
+        get() = absolutePath.replace("\\", "/")
 }
 
 val File.safeAbsolutePath: String
-    get() = absolutePath.replace("\\", "/")
+    get() = with (Static) { absolutePath }

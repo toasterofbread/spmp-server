@@ -55,7 +55,7 @@ jobs:
       uses: gradle/gradle-build-action@v3
 
     - name: Build Windows x86_64 minimal binaries
-      run: .\gradlew.bat mingwX64Binaries -PMINIMAL
+      run: .\gradlew.bat mingwX64Binaries -PMINIMAL --stacktrace
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
@@ -70,7 +70,7 @@ jobs:
         path: app\build\bin\mingwX64\releaseExecutable\*.exe
 
     - name: Build Windows x86_64 full binaries
-      run: .\gradlew.bat mingwX64Binaries
+      run: .\gradlew.bat mingwX64Binaries --stacktrace
 
     - name: Upload debug binary
       uses: actions/upload-artifact@v3
