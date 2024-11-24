@@ -110,9 +110,12 @@ kotlin {
                     overrides.overrideAnonymousStructIndex(24, 10)
                     overrides.overrideAnonymousStructIndex(25, 11)
 
-                    // if (OperatingSystem.current().isWindows()) {
-                    //     include_dirs += File("C:\\cygwin\\usr\\include").listFiles().orEmpty().map { it.absolutePath }
-                    // }
+                    if (OperatingSystem.current().isWindows()) {
+                        include_dirs += File("C:\\cygwin\\lib").listFiles().orEmpty().mapNotNull { file ->
+                            if (file.resolve("include").isDirectory) file.absolutePath
+                            else null
+                        }
+                    }
                 }
             }
         }
