@@ -110,9 +110,9 @@ kotlin {
                     overrides.overrideAnonymousStructIndex(24, 10)
                     overrides.overrideAnonymousStructIndex(25, 11)
 
-                    if (OperatingSystem.current().isWindows()) {
-                        include_dirs += File("C:\\cygwin\\usr\\include").listFiles().orEmpty().map { it.absolutePath }
-                    }
+                    // if (OperatingSystem.current().isWindows()) {
+                    //     include_dirs += File("C:\\cygwin\\usr\\include").listFiles().orEmpty().map { it.absolutePath }
+                    // }
                 }
             }
         }
@@ -513,15 +513,11 @@ object Static {
         cflags: Boolean = false,
         libs: Boolean = false
     ): List<String> {
-        if (Platform.getCurrent() == Platform.WINDOWS) {
-            return emptyList()
-        }
-
         require(cflags || libs)
 
         val process_builder: ProcessBuilder = ProcessBuilder(
             listOfNotNull(
-                findExecutable("pkg-config"),
+                findExecutable("pkg-config", "pkgconf.exe"),
                 if (cflags) "--cflags" else null,
                 if (libs) "--libs" else null
             ) + package_names
@@ -551,14 +547,22 @@ object Static {
         }
     }
 
-    private fun findExecutable(name: String): String {
-        for (dir in System.getenv("PATH")?.split(":").orEmpty()) {
-            val file: File = File(dir).resolve(name)
-            if (file.isFile) {
-                return file.absolutePath
+    private fun findExecutable(vararg names: String): String {
+        require(names.isNotEmpty())
+
+        val path_split: Char =
+            if (Platform.getCurrent() == Platform.WINDOWS) ';'
+            else ':'
+
+        for (dir in System.getenv("PATH")?.split(path_split).orEmpty()) {
+            for (name in names) {
+                val file: File = File(dir).resolve(name)
+                if (file.isFile) {
+                    return file.absolutePath
+                }
             }
         }
 
-        return name
+        return names.first()
     }
 }
