@@ -289,6 +289,8 @@ enum class CinteropLibraries {
             else emptyList()
         ) + System.getenv("C_INCLUDE_PATH").orEmpty().split(":").map { File(it) }
 
+        println("DEFAULT DIRS ${System.getenv("C_INCLUDE_PATH")}")
+
         fun addHeaderFile(path: String) {
             var file: File? = null
 
