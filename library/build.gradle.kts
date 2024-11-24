@@ -335,7 +335,9 @@ enum class CinteropLibraries {
 
         val lib_filenames: List<String> =
             when (this) {
-                LIBZMQ -> listOf("libzmq.a")
+                LIBZMQ ->
+                    if (platform.is_linux) listOf("libzmq.a")
+                    else emptyList()
                 else -> emptyList()
             }
 
