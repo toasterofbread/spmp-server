@@ -22,8 +22,8 @@ jobs:
     - run: echo "TOOLCHAIN=$GITHUB_WORKSPACE/toolchain" >> $GITHUB_ENV
     - run: echo "SPMS_ARCH=arm64" >> $GITHUB_ENV
 
-    - run: apt update
-    - run: apt install -y nodejs
+    - run: sudo apt-get update
+    - run: sudo apt install -y nodejs
       if: env.ACT
 
     - name: Set up JDK 21
