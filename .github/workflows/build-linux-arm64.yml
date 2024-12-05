@@ -89,7 +89,7 @@ jobs:
       run: mkdir -p library/src/nativeInterop/linuxArm64 && cp -r libzmq/* library/src/nativeInterop/linuxArm64
 
     - name: Add arm64 architecture to dpkg
-      run: dpkg --add-architecture arm64
+      run: sudo dpkg --add-architecture arm64
 
     - name: Add arm64 apt sources
       run: |
