@@ -11,7 +11,7 @@ on:
 jobs:
   build-spms:
     runs-on: ubuntu-22.04
-    # container: ubuntu:24.04
+    container: ubuntu:23.04
     if: ${{ github.event.pull_request.draft == false && (github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'noci')) }}
 
     env:
