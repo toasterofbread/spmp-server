@@ -11,7 +11,7 @@ on:
 jobs:
   build-spms:
     runs-on: ubuntu-22.04
-    container: ubuntu:23.04
+    container: ubuntu:24.04
     if: ${{ github.event.pull_request.draft == false && (github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'noci')) }}
 
     env:
@@ -94,28 +94,28 @@ jobs:
     - name: Add arm64 apt sources
       run: |
         cat > /etc/apt/sources.list.d/arm64-sources.list <<EOF
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar main restricted
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main restricted
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar universe
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates universe
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar multiverse
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates multiverse
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar-backports main restricted universe multiverse
+        deb [arch=arm64] http://ports.ubuntu.com/ noble main restricted
+        deb [arch=arm64] http://ports.ubuntu.com/ noble-updates main restricted
+        deb [arch=arm64] http://ports.ubuntu.com/ noble universe
+        deb [arch=arm64] http://ports.ubuntu.com/ noble-updates universe
+        deb [arch=arm64] http://ports.ubuntu.com/ noble multiverse
+        deb [arch=arm64] http://ports.ubuntu.com/ noble-updates multiverse
+        deb [arch=arm64] http://ports.ubuntu.com/ noble-backports main restricted universe multiverse
         EOF
 
     - name: Restrict main apt sources to amd64
       run: |
         cat > /etc/apt/sources.list <<EOF
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar main restricted
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar-updates main restricted
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar universe
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar-updates universe
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar multiverse
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar-updates multiverse
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar-backports main restricted universe multiverse
-        deb [arch=amd64] http://security.ubuntu.com/ubuntu/ lunar-security main restricted
-        deb [arch=amd64] http://security.ubuntu.com/ubuntu/ lunar-security universe
-        deb [arch=amd64] http://security.ubuntu.com/ubuntu/ lunar-security multiverse
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble main restricted
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates main restricted
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble universe
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates universe
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble multiverse
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates multiverse
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse
+        deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security main restricted
+        deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security universe
+        deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security multiverse
         EOF
 
     - name: Install arm64 development libraries
