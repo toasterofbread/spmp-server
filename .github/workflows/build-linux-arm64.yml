@@ -94,29 +94,29 @@ jobs:
     - name: Add arm64 apt sources
       run: |
         cat > ~/arm64-sources.list <<EOF
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar main restricted
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main restricted
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar universe
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates universe
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar multiverse
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates multiverse
-        deb [arch=arm64] http://ports.ubuntu.com/ lunar-backports main restricted universe multiverse
+        deb [arch=arm64] http://ports.ubuntu.com/ noble main restricted
+        deb [arch=arm64] http://ports.ubuntu.com/ noble-updates main restricted
+        deb [arch=arm64] http://ports.ubuntu.com/ noble universe
+        deb [arch=arm64] http://ports.ubuntu.com/ noble-updates universe
+        deb [arch=arm64] http://ports.ubuntu.com/ noble multiverse
+        deb [arch=arm64] http://ports.ubuntu.com/ noble-updates multiverse
+        deb [arch=arm64] http://ports.ubuntu.com/ noble-backports main restricted universe multiverse
         EOF
         sudo mv ~/arm64-sources.list /etc/apt/sources.list.d/arm64-sources.list
 
     - name: Restrict main apt sources to amd64
       run: |
         cat > ~/sources.list <<EOF
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar main restricted
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar-updates main restricted
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar universe
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar-updates universe
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar multiverse
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar-updates multiverse
-        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar-backports main restricted universe multiverse
-        deb [arch=amd64] http://security.ubuntu.com/ubuntu/ lunar-security main restricted
-        deb [arch=amd64] http://security.ubuntu.com/ubuntu/ lunar-security universe
-        deb [arch=amd64] http://security.ubuntu.com/ubuntu/ lunar-security multiverse
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble main restricted
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates main restricted
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble universe
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates universe
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble multiverse
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates multiverse
+        deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-backports main restricted universe multiverse
+        deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security main restricted
+        deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security universe
+        deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security multiverse
         EOF
         sudo mv ~/sources.list /etc/apt/sources.list
 
