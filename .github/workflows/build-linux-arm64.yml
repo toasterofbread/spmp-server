@@ -93,7 +93,7 @@ jobs:
 
     - name: Add arm64 apt sources
       run: |
-        cat > /etc/apt/sources.list.d/arm64-sources.list <<EOF
+        sudo cat > /etc/apt/sources.list.d/arm64-sources.list <<EOF
         deb [arch=arm64] http://ports.ubuntu.com/ lunar main restricted
         deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main restricted
         deb [arch=arm64] http://ports.ubuntu.com/ lunar universe
@@ -105,7 +105,7 @@ jobs:
 
     - name: Restrict main apt sources to amd64
       run: |
-        cat > /etc/apt/sources.list <<EOF
+        sudo cat > /etc/apt/sources.list <<EOF
         deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar main restricted
         deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar-updates main restricted
         deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ lunar universe
