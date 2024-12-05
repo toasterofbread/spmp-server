@@ -22,8 +22,8 @@ jobs:
     - run: echo "TOOLCHAIN=$GITHUB_WORKSPACE/toolchain" >> $GITHUB_ENV
     - run: echo "SPMS_ARCH=arm64" >> $GITHUB_ENV
 
-    - run: sudo apt-get update
-    - run: sudo apt-get install -y nodejs
+    - run: apt-get update
+    - run: apt-get install -y nodejs
       if: env.ACT
 
     - name: Set up JDKs
@@ -37,7 +37,7 @@ jobs:
     - name: Test Java
       run: $JAVA_HOME/bin/java --version
 
-    - run: sudo apt-get install -y --reinstall git make wget pkg-config libc6-dev-i386
+    - run: apt-get install -y --reinstall git make wget pkg-config libc6-dev-i386
 
     - uses: actions/checkout@v3
       with:
@@ -89,7 +89,7 @@ jobs:
       run: mkdir -p library/src/nativeInterop/linuxArm64 && cp -r libzmq/* library/src/nativeInterop/linuxArm64
 
     - name: Add arm64 architecture to dpkg
-      run: sudo dpkg --add-architecture arm64
+      run: dpkg --add-architecture arm64
 
     - name: Add arm64 apt sources
       run: |
@@ -102,7 +102,7 @@ jobs:
         deb [arch=arm64] http://ports.ubuntu.com/ noble-updates multiverse
         deb [arch=arm64] http://ports.ubuntu.com/ noble-backports main restricted universe multiverse
         EOF
-        sudo mv ~/arm64-sources.list /etc/apt/sources.list.d/arm64-sources.list
+        mv ~/arm64-sources.list /etc/apt/sources.list.d/arm64-sources.list
 
     - name: Restrict main apt sources to amd64
       run: |
@@ -118,12 +118,12 @@ jobs:
         deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security universe
         deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security multiverse
         EOF
-        sudo mv ~/sources.list /etc/apt/sources.list
+        mv ~/sources.list /etc/apt/sources.list
 
     - name: Install arm64 development libraries
       run: |
-        sudo apt-get update
-        sudo apt-get install -y libmpv-dev:arm64 libayatana-appindicator3-dev:arm64
+        apt-get update
+        apt-get install -y libmpv-dev:arm64 libayatana-appindicator3-dev:arm64
 
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
