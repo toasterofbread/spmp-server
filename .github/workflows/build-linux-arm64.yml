@@ -23,10 +23,10 @@ jobs:
     - run: echo "SPMS_ARCH=arm64" >> $GITHUB_ENV
 
     - run: sudo apt-get update
-    - run: sudo apt install -y nodejs
+    - run: sudo apt-get install -y nodejs
       if: env.ACT
 
-    - name: Set up JDK 21
+    - name: Set up JDKs
       uses: actions/setup-java@v3
       with:
         distribution: 'temurin'
@@ -37,7 +37,7 @@ jobs:
     - name: Test Java
       run: $JAVA_HOME/bin/java --version
 
-    - run: apt install -y --reinstall git make wget pkg-config libc6-dev-i386
+    - run: sudo apt-get install -y --reinstall git make wget pkg-config libc6-dev-i386
 
     - uses: actions/checkout@v3
       with:
@@ -120,8 +120,8 @@ jobs:
 
     - name: Install arm64 development libraries
       run: |
-        apt-get update
-        apt-get install -y libmpv-dev:arm64 libayatana-appindicator3-dev:arm64
+        sudo apt-get update
+        sudo apt-get install -y libmpv-dev:arm64 libayatana-appindicator3-dev:arm64
 
     - name: Set up Gradle
       uses: gradle/gradle-build-action@v3
